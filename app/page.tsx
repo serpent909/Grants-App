@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Globe, Linkedin, Search, DollarSign, Target, BarChart2, TrendingUp, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Globe, Linkedin, DollarSign,
+  AlertCircle, Sparkles, Check, ArrowRight,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -25,6 +25,106 @@ function isValidUrl(value: string): boolean {
   }
 }
 
+// ─── Loading overlay ──────────────────────────────────────────────────────────
+
+function LoadingState({
+  messages,
+  messageIndex,
+  progress,
+}: {
+  messages: string[];
+  messageIndex: number;
+  progress: number;
+}) {
+  return (
+    <div className="px-8 py-10">
+      <div className="flex flex-col items-center mb-10">
+        <div className="relative w-14 h-14 mb-5">
+          <div className="absolute inset-0 rounded-full bg-indigo-50" />
+          <svg
+            className="animate-spin absolute inset-0 w-14 h-14 text-indigo-600"
+            fill="none"
+            viewBox="0 0 56 56"
+          >
+            <circle
+              cx="28" cy="28" r="22"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeOpacity="0.15"
+            />
+            <path
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              d="M28 6 a22 22 0 0 1 22 22"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Sparkles className="w-5 h-5 text-indigo-600" />
+          </div>
+        </div>
+        <p className="text-sm font-semibold text-zinc-800 text-center leading-snug">
+          {messages[messageIndex]}
+        </p>
+        <p className="text-xs text-zinc-400 mt-1.5 text-center">
+          This typically takes 30–90 seconds
+        </p>
+      </div>
+
+      <div className="space-y-3 mb-10">
+        {messages.map((msg, i) => {
+          const done = i < messageIndex;
+          const active = i === messageIndex;
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-3 text-sm transition-all duration-300 ${
+                done ? 'opacity-50' : active ? 'opacity-100' : 'opacity-30'
+              }`}
+            >
+              <div
+                className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                  done
+                    ? 'bg-emerald-100'
+                    : active
+                    ? 'bg-indigo-600'
+                    : 'bg-zinc-100'
+                }`}
+              >
+                {done ? (
+                  <Check className="w-3 h-3 text-emerald-600" />
+                ) : active ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                ) : (
+                  <span className="text-[9px] font-medium text-zinc-400">{i + 1}</span>
+                )}
+              </div>
+              <span className={active ? 'font-medium text-zinc-900' : 'text-zinc-500'}>
+                {msg}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div>
+        <div className="flex justify-between items-center text-xs text-zinc-400 mb-2">
+          <span>Searching grant databases...</span>
+          <span className="font-medium tabular-nums">{Math.round(progress)}%</span>
+        </div>
+        <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-700 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function HomePage() {
   const router = useRouter();
   const [form, setForm] = useState<OrgInfo>({
@@ -41,6 +141,7 @@ export default function HomePage() {
   const [apiError, setApiError] = useState<string | null>(null);
 
   const activeMarket = MARKETS.find(m => m.id === form.market) ?? MARKETS[0];
+
   const loadingMessages = [
     'Analysing your organisation...',
     `Searching for ${activeMarket.displayName} grants...`,
@@ -121,7 +222,7 @@ export default function HomePage() {
       setLoadingProgress(0);
       setApiError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
     }
-  }, [form, validate, router]);
+  }, [form, validate, router, loadingMessages.length]);
 
   const updateField = useCallback(<K extends keyof OrgInfo>(key: K, value: OrgInfo[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -129,52 +230,96 @@ export default function HomePage() {
   }, [errors]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50">
-      {/* Hero */}
-      <section className="py-16 px-4 text-center">
-        <div className="max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-            <Search className="w-3.5 h-3.5" />
-            AI-Powered Grant Discovery
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4 tracking-tight">
-            Find the right {activeMarket.displayName} grants
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-teal-600"> for your mission</span>
-          </h1>
-          <p className="text-lg text-slate-600 mb-8 max-w-2xl mx-auto">
-            Enter your organisation details and let AI search across government, foundation, corporate, and community funding sources — scored and ranked for your specific needs.
-          </p>
-        </div>
-      </section>
+    <div className="min-h-screen bg-[#0c0c1e]">
+      {/* ── Centered vertical layout ── */}
+      <div className="relative px-6 py-16">
 
-      {/* Form */}
-      <section className="px-4 pb-16">
-        <div className="max-w-2xl mx-auto">
-          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-xl text-slate-900">Tell us about your organisation</CardTitle>
-              <CardDescription>We&apos;ll use AI to find and score the most relevant grants for you.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {apiError && (
-                <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-lg p-4 mb-6">
-                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                  <p className="text-sm">{apiError}</p>
+        {/* Dot grid background */}
+        <div
+          className="absolute inset-0 opacity-[0.09]"
+          style={{
+            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.6) 1px, transparent 0)',
+            backgroundSize: '32px 32px',
+          }}
+        />
+        {/* Radial glow — top centre */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(99,102,241,0.4),transparent)]" />
+        {/* Subtle bottom fade */}
+        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-[#0c0c1e] to-transparent" />
+
+        <div className="relative max-w-xl mx-auto">
+
+          {/* ── Hero copy ── */}
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-white/8 border border-white/10 text-white/60 text-xs font-medium px-3.5 py-1.5 rounded-full mb-7 backdrop-blur-sm">
+              <Sparkles className="w-3 h-3" />
+              AI-Powered Grant Discovery
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight mb-5">
+              <span className="block text-white/50 text-2xl sm:text-3xl font-semibold mb-2 tracking-normal">
+                Find the right grants
+              </span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400">
+                {activeMarket.displayName}
+              </span>
+              <span className="text-white"> nonprofits</span>
+            </h1>
+
+            <p className="text-zinc-400 text-base leading-relaxed mb-8 max-w-sm mx-auto">
+              AI searches hundreds of funding sources, scores every opportunity
+              against your organisation, and ranks them by likelihood of success.
+            </p>
+
+            <div className="flex items-center justify-center gap-10 mb-2">
+              {[
+                ['200+', 'Grant sources searched'],
+                ['AI-scored', 'Every opportunity'],
+                ['Free', 'No sign-up needed'],
+              ].map(([stat, label]) => (
+                <div key={stat} className="text-center">
+                  <div className="text-base font-bold text-white">{stat}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
                 </div>
-              )}
+              ))}
+            </div>
+          </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+          {/* ── Form card ── */}
+          <div className="bg-white rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden">
+            {!isLoading && (
+              <div className="px-7 pt-7 pb-5 border-b border-zinc-100">
+                <h2 className="text-base font-semibold text-zinc-900">
+                  Tell us about your organisation
+                </h2>
+                <p className="text-sm text-zinc-500 mt-0.5">
+                  We&apos;ll find and score the most relevant grants for your specific needs.
+                </p>
+              </div>
+            )}
+
+            {isLoading ? (
+              <LoadingState
+                messages={loadingMessages}
+                messageIndex={loadingMessageIndex}
+                progress={loadingProgress}
+              />
+            ) : (
+              <form onSubmit={handleSubmit} className="px-7 py-6 space-y-5">
+                {apiError && (
+                  <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="text-sm leading-relaxed">{apiError}</p>
+                  </div>
+                )}
+
                 {/* Country */}
-                <div className="space-y-1.5">
-                  <Label className="text-slate-700 font-medium">
-                    Country <span className="text-red-500">*</span>
-                  </Label>
+                <Field label="Country" required>
                   <Select
                     value={form.market}
                     onValueChange={v => v && updateField('market', v)}
-                    disabled={isLoading}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-10 border-zinc-200 focus:ring-indigo-500 focus:border-indigo-500">
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent>
@@ -183,160 +328,126 @@ export default function HomePage() {
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                </Field>
 
                 {/* Website */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="website" className="text-slate-700 font-medium">
-                    Organisation Website <span className="text-red-500">*</span>
-                  </Label>
+                <Field label="Organisation Website" required error={errors.website}>
                   <div className="relative">
-                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                     <Input
                       id="website"
                       type="url"
                       placeholder="https://yourorg.org"
-                      className={`pl-9 ${errors.website ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      className={`pl-10 h-10 border-zinc-200 focus-visible:ring-indigo-500 focus-visible:border-indigo-500 ${
+                        errors.website ? 'border-red-300 focus-visible:ring-red-400' : ''
+                      }`}
                       value={form.website}
                       onChange={e => updateField('website', e.target.value)}
-                      disabled={isLoading}
                     />
                   </div>
-                  {errors.website && <p className="text-red-500 text-sm">{errors.website}</p>}
-                </div>
+                </Field>
 
                 {/* LinkedIn */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="linkedin" className="text-slate-700 font-medium">
-                    LinkedIn URL <span className="text-red-500">*</span>
-                  </Label>
+                <Field label="LinkedIn Page" required error={errors.linkedin}>
                   <div className="relative">
-                    <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Linkedin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                     <Input
                       id="linkedin"
                       type="url"
                       placeholder="https://linkedin.com/company/your-org"
-                      className={`pl-9 ${errors.linkedin ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      className={`pl-10 h-10 border-zinc-200 focus-visible:ring-indigo-500 ${
+                        errors.linkedin ? 'border-red-300 focus-visible:ring-red-400' : ''
+                      }`}
                       value={form.linkedin}
                       onChange={e => updateField('linkedin', e.target.value)}
-                      disabled={isLoading}
                     />
                   </div>
-                  {errors.linkedin && <p className="text-red-500 text-sm">{errors.linkedin}</p>}
-                </div>
+                </Field>
 
                 {/* Funding Purpose */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="fundingPurpose" className="text-slate-700 font-medium">
-                    What is this funding search for? <span className="text-red-500">*</span>
-                  </Label>
+                <Field
+                  label="What is this funding search for?"
+                  required
+                  error={errors.fundingPurpose}
+                  hint={`${form.fundingPurpose.length} characters — the more detail, the better`}
+                >
                   <textarea
                     id="fundingPurpose"
-                    rows={4}
-                    placeholder="e.g. We are seeking funding to expand our community mental health programme for rangatahi in South Auckland, including hiring two part-time counsellors and running weekly hui..."
-                    className={`w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none ${
-                      errors.fundingPurpose ? 'border-red-400 focus-visible:ring-red-400' : 'border-input'
+                    rows={3}
+                    placeholder="Describe your organisation's mission and what you need funding for. Include your target population, specific activities, and geographic area..."
+                    className={`w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none transition-shadow ${
+                      errors.fundingPurpose
+                        ? 'border-red-300 focus:ring-red-400'
+                        : 'border-zinc-200'
                     }`}
                     value={form.fundingPurpose}
                     onChange={e => updateField('fundingPurpose', e.target.value)}
-                    disabled={isLoading}
                   />
-                  {errors.fundingPurpose && <p className="text-red-500 text-sm">{errors.fundingPurpose}</p>}
-                  <p className="text-slate-400 text-xs">{form.fundingPurpose.length} characters — the more detail, the better the results</p>
-                </div>
+                </Field>
 
                 {/* Funding Amount */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="fundingAmount" className="text-slate-700 font-medium">
-                    How much funding are you seeking? ({activeMarket.currency}) <span className="text-red-500">*</span>
-                  </Label>
+                <Field
+                  label={`Funding amount sought (${activeMarket.currency})`}
+                  required
+                  error={errors.fundingAmount}
+                >
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                     <Input
                       id="fundingAmount"
                       type="number"
                       placeholder="50000"
                       min={1}
-                      className={`pl-9 ${errors.fundingAmount ? 'border-red-400 focus-visible:ring-red-400' : ''}`}
+                      className={`pl-10 h-10 border-zinc-200 focus-visible:ring-indigo-500 ${
+                        errors.fundingAmount ? 'border-red-300 focus-visible:ring-red-400' : ''
+                      }`}
                       value={form.fundingAmount || ''}
                       onChange={e => updateField('fundingAmount', parseFloat(e.target.value) || 0)}
-                      disabled={isLoading}
                     />
                   </div>
-                  {errors.fundingAmount && <p className="text-red-500 text-sm">{errors.fundingAmount}</p>}
-                </div>
-
-                {/* Loading State */}
-                {isLoading && (
-                  <div className="space-y-3 py-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-blue-600 font-medium animate-pulse">
-                        {loadingMessages[loadingMessageIndex]}
-                      </span>
-                      <span className="text-slate-400">{Math.round(loadingProgress)}%</span>
-                    </div>
-                    <Progress value={loadingProgress} className="h-2" />
-                    <p className="text-slate-400 text-xs text-center">This can take 30–60 seconds while AI searches and scores grants</p>
-                  </div>
-                )}
+                </Field>
 
                 {/* Submit */}
-                <Button
+                <button
                   type="submit"
-                  disabled={isLoading}
-                  className="w-full h-12 text-base bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white font-semibold shadow-lg shadow-blue-200"
+                  className="w-full h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-200 transition-all duration-200 hover:shadow-indigo-300 active:scale-[0.99]"
                 >
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Searching...
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <Search className="w-5 h-5" />
-                      Find Grants
-                    </span>
-                  )}
-                </Button>
+                  Find Grants
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </form>
-            </CardContent>
-          </Card>
-
-          {/* Score Criteria Explainer */}
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white/70 backdrop-blur rounded-xl p-5 border border-blue-100">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Target className="w-4 h-4 text-blue-600" />
-                </div>
-                <h3 className="font-semibold text-slate-800">Alignment Score</h3>
-              </div>
-              <p className="text-sm text-slate-600">How well the grant&apos;s purpose matches your organisation&apos;s mission and specific funding request.</p>
-            </div>
-            <div className="bg-white/70 backdrop-blur rounded-xl p-5 border border-teal-100">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-teal-600" />
-                </div>
-                <h3 className="font-semibold text-slate-800">Attainability Score</h3>
-              </div>
-              <p className="text-sm text-slate-600">Likelihood of success based on competition level, funder focus, and your organisation&apos;s fit.</p>
-            </div>
-            <div className="bg-white/70 backdrop-blur rounded-xl p-5 border border-purple-100">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <BarChart2 className="w-4 h-4 text-purple-600" />
-                </div>
-                <h3 className="font-semibold text-slate-800">Application Difficulty</h3>
-              </div>
-              <p className="text-sm text-slate-600">Estimated effort required to apply — from a simple online form to a multi-stage proposal process.</p>
-            </div>
+            )}
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
+
+// ─── Field wrapper ────────────────────────────────────────────────────────────
+
+function Field({
+  label,
+  required,
+  error,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-sm font-medium text-zinc-700">
+        {label}
+        {required && <span className="text-red-400 ml-1">*</span>}
+      </Label>
+      {children}
+      {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
+      {hint && !error && <p className="text-xs text-zinc-400">{hint}</p>}
     </div>
   );
 }
