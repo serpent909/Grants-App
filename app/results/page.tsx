@@ -4,17 +4,17 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
-  ChevronDown, ChevronUp, CalendarDays, Info, Building2,
+  ChevronDown, ChevronUp, CalendarDays, Building2, Sparkles,
+  SlidersHorizontal,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { SearchResult, GrantOpportunity } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type SortField = 'overall' | 'alignment' | 'attainability' | 'applicationDifficulty' | 'deadline';
 type SortDir = 'asc' | 'desc';
@@ -26,31 +26,82 @@ interface FunderGroup {
   bestScore: number;
 }
 
-const TYPE_COLORS: Record<GrantOpportunity['type'], string> = {
-  Government:    'bg-blue-100 text-blue-700 border-blue-200',
-  Foundation:    'bg-purple-100 text-purple-700 border-purple-200',
-  Corporate:     'bg-orange-100 text-orange-700 border-orange-200',
-  Community:     'bg-green-100 text-green-700 border-green-200',
-  International: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  Other:         'bg-slate-100 text-slate-600 border-slate-200',
+// ─── Design tokens ────────────────────────────────────────────────────────────
+
+const TYPE_CONFIG: Record<
+  GrantOpportunity['type'],
+  { badge: string; border: string; icon: string }
+> = {
+  Government:    { badge: 'bg-blue-50 text-blue-700 ring-blue-200',    border: 'border-l-blue-500',    icon: 'bg-blue-100 text-blue-600' },
+  Foundation:    { badge: 'bg-violet-50 text-violet-700 ring-violet-200', border: 'border-l-violet-500', icon: 'bg-violet-100 text-violet-600' },
+  Corporate:     { badge: 'bg-orange-50 text-orange-700 ring-orange-200', border: 'border-l-orange-500', icon: 'bg-orange-100 text-orange-600' },
+  Community:     { badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200', border: 'border-l-emerald-500', icon: 'bg-emerald-100 text-emerald-600' },
+  International: { badge: 'bg-indigo-50 text-indigo-700 ring-indigo-200',  border: 'border-l-indigo-500', icon: 'bg-indigo-100 text-indigo-600' },
+  Other:         { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200',    border: 'border-l-zinc-400',   icon: 'bg-zinc-100 text-zinc-500' },
 };
 
-function getScoreClass(score: number, invert = false): string {
+function scoreColor(score: number, invert = false): string {
   const v = invert ? 10 - score : score;
-  if (v >= 9) return 'bg-emerald-700 text-white';
-  if (v >= 7) return 'bg-green-500 text-white';
-  if (v >= 5) return 'bg-yellow-400 text-slate-900';
-  return 'bg-red-500 text-white';
+  if (v >= 8) return '#10b981';  // emerald
+  if (v >= 6.5) return '#f59e0b'; // amber
+  if (v >= 5) return '#f97316';   // orange
+  return '#ef4444';               // red
 }
 
-function ScorePill({ score, invert = false, label }: { score: number; invert?: boolean; label?: string }) {
+function scoreTextClass(score: number, invert = false): string {
+  const v = invert ? 10 - score : score;
+  if (v >= 8) return 'text-emerald-700 bg-emerald-50';
+  if (v >= 6.5) return 'text-amber-700 bg-amber-50';
+  if (v >= 5) return 'text-orange-600 bg-orange-50';
+  return 'text-red-600 bg-red-50';
+}
+
+// ─── Score ring ───────────────────────────────────────────────────────────────
+
+function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
+  const strokeW = 4;
+  const r = (size - strokeW * 2) / 2;
+  const circ = 2 * Math.PI * r;
+  const arc = Math.max(0, Math.min(1, score / 10)) * circ;
+  const color = scoreColor(score);
+
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${getScoreClass(score, invert)}`}>
-      {label && <span className="font-normal opacity-75 text-[10px]">{label}</span>}
-      {score.toFixed(1)}
-    </span>
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke="#f4f4f5" strokeWidth={strokeW}
+        />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none" stroke={color} strokeWidth={strokeW}
+          strokeDasharray={`${arc} ${circ}`} strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="font-bold text-zinc-800 tabular-nums" style={{ fontSize: size < 44 ? 10 : 12 }}>
+          {score.toFixed(1)}
+        </span>
+      </div>
+    </div>
   );
 }
+
+// ─── Score pill ───────────────────────────────────────────────────────────────
+
+function ScorePill({ score, invert = false, label }: { score: number; invert?: boolean; label: string }) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(score, invert)}`}>
+        {score.toFixed(1)}
+      </span>
+      <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">{label}</span>
+    </div>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatCurrency(n?: number) {
   if (!n) return '';
@@ -60,71 +111,115 @@ function formatCurrency(n?: number) {
 }
 
 function formatAmountRange(min?: number, max?: number) {
-  if (!min && !max) return 'Varies';
+  if (!min && !max) return null;
   if (min && max) return `${formatCurrency(min)}–${formatCurrency(max)}`;
   if (max) return `Up to ${formatCurrency(max)}`;
   return `From ${formatCurrency(min)}`;
 }
 
 function formatDeadline(d?: string, locale = 'en-NZ') {
-  if (!d) return 'Open / Rolling';
+  if (!d) return null;
   try {
     return new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
   } catch { return d; }
 }
 
-function GrantDetail({ grant }: { grant: GrantOpportunity }) {
+// ─── Grant detail panel ───────────────────────────────────────────────────────
+
+function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: string }) {
+  const deadline = formatDeadline(grant.deadline, locale);
+  const amount = formatAmountRange(grant.amountMin, grant.amountMax);
+
   return (
-    <div className="bg-slate-50 border-t border-slate-200 px-5 py-5 grid grid-cols-1 md:grid-cols-3 gap-5 text-sm">
-      <div>
-        <h4 className="font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Description
-        </h4>
-        <p className="text-slate-600 leading-relaxed">{grant.description}</p>
-        {!grant.url.includes('google.com/search') ? (
-          <a href={grant.url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-3 text-blue-600 hover:text-blue-700 font-medium text-xs">
-            View grant details <ExternalLink className="w-3 h-3" />
+    <div className="bg-zinc-50 border-t border-zinc-200 px-6 py-6">
+      {/* Meta row */}
+      {(amount || deadline) && (
+        <div className="flex flex-wrap gap-4 mb-5">
+          {amount && (
+            <div className="text-xs">
+              <span className="text-zinc-400 mr-1.5">Amount</span>
+              <span className="font-semibold text-zinc-700">{amount}</span>
+            </div>
+          )}
+          {deadline && (
+            <div className="text-xs flex items-center gap-1">
+              <CalendarDays className="w-3 h-3 text-zinc-400" />
+              <span className="text-zinc-400 mr-1">Closes</span>
+              <span className="font-semibold text-zinc-700">{deadline}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Description */}
+        <div>
+          <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">About this grant</h4>
+          <p className="text-sm text-zinc-700 leading-relaxed">{grant.description}</p>
+          <a
+            href={grant.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors group"
+          >
+            {grant.url.includes('google.com/search') ? 'Search for this grant' : 'View grant page'}
+            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </a>
-        ) : (
-          <a href={grant.url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-3 text-slate-500 hover:text-slate-700 font-medium text-xs">
-            Search for this grant <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
-      </div>
-      <div>
-        <h4 className="font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" /> Alignment
-        </h4>
-        <p className="text-slate-600 leading-relaxed mb-4">{grant.alignmentReason}</p>
-        <h4 className="font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> Application
-        </h4>
-        <p className="text-slate-600 leading-relaxed">{grant.applicationNotes}</p>
-      </div>
-      <div>
-        <h4 className="font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-teal-500 inline-block" /> Attainability
-        </h4>
-        <p className="text-slate-600 leading-relaxed mb-4">{grant.attainabilityNotes}</p>
-        <div className="bg-white rounded-lg border border-slate-200 p-3 space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Scores</p>
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500 text-xs">Alignment</span>
-            <ScorePill score={grant.scores.alignment} />
+        </div>
+
+        {/* Alignment + Application */}
+        <div className="space-y-5">
+          <div>
+            <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Why it fits</h4>
+            <p className="text-sm text-zinc-700 leading-relaxed">{grant.alignmentReason}</p>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500 text-xs">Difficulty</span>
-            <ScorePill score={grant.scores.applicationDifficulty} invert />
+          <div>
+            <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">How to apply</h4>
+            <p className="text-sm text-zinc-700 leading-relaxed">{grant.applicationNotes}</p>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500 text-xs">Attainability</span>
-            <ScorePill score={grant.scores.attainability} />
+        </div>
+
+        {/* Attainability + Score breakdown */}
+        <div className="space-y-5">
+          <div>
+            <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Attainability</h4>
+            <p className="text-sm text-zinc-700 leading-relaxed">{grant.attainabilityNotes}</p>
           </div>
-          <div className="flex justify-between items-center border-t border-slate-100 pt-2">
-            <span className="text-slate-700 text-xs font-semibold">Overall</span>
-            <ScorePill score={grant.scores.overall} />
+
+          <div className="bg-white rounded-xl border border-zinc-200 p-4">
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Score breakdown</p>
+            <div className="space-y-2.5">
+              {[
+                { label: 'Alignment', score: grant.scores.alignment, invert: false },
+                { label: 'Difficulty', score: grant.scores.applicationDifficulty, invert: true },
+                { label: 'Attainability', score: grant.scores.attainability, invert: false },
+              ].map(({ label, score, invert }) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">{label}</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${(invert ? 10 - score : score) * 10}%`,
+                          backgroundColor: scoreColor(score, invert),
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-700 tabular-nums w-6 text-right">
+                      {score.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
+                <span className="text-xs font-semibold text-zinc-700">Overall</span>
+                <span className="text-sm font-bold text-zinc-900 tabular-nums">
+                  {grant.scores.overall.toFixed(1)}
+                  <span className="text-xs font-normal text-zinc-400">/10</span>
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -132,85 +227,124 @@ function GrantDetail({ grant }: { grant: GrantOpportunity }) {
   );
 }
 
-function FunderAccordion({ group, defaultOpen = false, locale = 'en-NZ' }: { group: FunderGroup; defaultOpen?: boolean; locale?: string }) {
+// ─── Funder accordion ─────────────────────────────────────────────────────────
+
+function FunderAccordion({
+  group,
+  defaultOpen = false,
+  locale = 'en-NZ',
+}: {
+  group: FunderGroup;
+  defaultOpen?: boolean;
+  locale?: string;
+}) {
   const [open, setOpen] = useState(defaultOpen);
   const [expandedGrantId, setExpandedGrantId] = useState<string | null>(null);
+  const cfg = TYPE_CONFIG[group.type];
 
   const toggleGrant = (id: string) =>
-    setExpandedGrantId(prev => prev === id ? null : id);
+    setExpandedGrantId(prev => (prev === id ? null : id));
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className={`bg-white rounded-xl ring-1 ring-zinc-200 overflow-hidden shadow-sm border-l-4 ${cfg.border}`}>
       {/* Funder header */}
       <button
-        className="w-full flex items-center gap-3 px-5 py-4 bg-white hover:bg-slate-50 transition-colors text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-zinc-50/70 transition-colors text-left"
         onClick={() => setOpen(o => !o)}
       >
-        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-          <Building2 className="w-4 h-4 text-slate-500" />
+        <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${cfg.icon}`}>
+          <Building2 className="w-4 h-4" />
         </div>
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-slate-900">{group.funder}</span>
-            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${TYPE_COLORS[group.type]}`}>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="font-semibold text-zinc-900 text-sm">{group.funder}</span>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ring-1 ${cfg.badge}`}>
               {group.type}
             </span>
-            <span className="text-slate-400 text-xs">{group.grants.length} {group.grants.length === 1 ? 'program' : 'programs'}</span>
+            <span className="text-zinc-400 text-xs">
+              {group.grants.length} {group.grants.length === 1 ? 'program' : 'programs'}
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <div className="hidden sm:flex items-center gap-1 text-xs text-slate-500">
-            Best score:
-            <ScorePill score={group.bestScore} />
+
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="hidden sm:flex flex-col items-center">
+            <span className="text-[10px] text-zinc-400 mb-1">Best match</span>
+            <ScoreRing score={group.bestScore} size={44} />
           </div>
           {open
-            ? <ChevronUp className="w-4 h-4 text-slate-400" />
-            : <ChevronDown className="w-4 h-4 text-slate-400" />
+            ? <ChevronUp className="w-4 h-4 text-zinc-400" />
+            : <ChevronDown className="w-4 h-4 text-zinc-400" />
           }
         </div>
       </button>
 
-      {/* Individual grant programs */}
+      {/* Grant programs */}
       {open && (
-        <div className="border-t border-slate-200 divide-y divide-slate-100">
+        <div className="border-t border-zinc-100 divide-y divide-zinc-100">
           {group.grants.map(grant => {
             const isExpanded = expandedGrantId === grant.id;
+            const deadline = formatDeadline(grant.deadline, locale);
+            const amount = formatAmountRange(grant.amountMin, grant.amountMax);
+
             return (
               <div key={grant.id}>
                 <button
-                  className={`w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors
-                    ${isExpanded ? 'bg-blue-50' : 'bg-white hover:bg-slate-50'}`}
+                  className={`w-full flex items-center gap-4 pl-5 pr-4 py-3.5 text-left transition-colors ${
+                    isExpanded ? 'bg-indigo-50/60' : 'bg-white hover:bg-zinc-50/70'
+                  }`}
                   onClick={() => toggleGrant(grant.id)}
                 >
-                  {/* Grant name + meta */}
+                  {/* Left spacer to align with funder header content */}
+                  <div className="w-9 flex-shrink-0" />
+
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm leading-tight ${isExpanded ? 'text-blue-700' : 'text-slate-800'}`}>
+                    <p className={`text-sm font-medium leading-snug ${isExpanded ? 'text-indigo-700' : 'text-zinc-800'}`}>
                       {grant.name}
                     </p>
-                    <div className="flex items-center gap-3 mt-1 flex-wrap">
-                      <span className="text-slate-400 text-xs">{formatAmountRange(grant.amountMin, grant.amountMax)}</span>
-                      <span className="flex items-center gap-1 text-slate-400 text-xs">
-                        <CalendarDays className="w-3 h-3" />
-                        {formatDeadline(grant.deadline, locale)}
-                      </span>
+                    <div className="flex items-center gap-3 mt-1">
+                      {amount && (
+                        <span className="text-xs text-zinc-400 tabular-nums">{amount}</span>
+                      )}
+                      {deadline && (
+                        <span className="flex items-center gap-1 text-xs text-zinc-400">
+                          <CalendarDays className="w-3 h-3" />
+                          {deadline}
+                        </span>
+                      )}
+                      {!deadline && !amount && (
+                        <span className="text-xs text-zinc-400">Open / Rolling</span>
+                      )}
                     </div>
                   </div>
-                  {/* Scores */}
-                  <div className="hidden md:flex items-center gap-1.5 flex-shrink-0">
+
+                  {/* Sub-scores */}
+                  <div className="hidden lg:flex items-end gap-4 flex-shrink-0">
                     <ScorePill score={grant.scores.alignment} label="Align" />
-                    <ScorePill score={grant.scores.applicationDifficulty} invert label="Diff" />
-                    <ScorePill score={grant.scores.attainability} label="Attain" />
+                    <ScorePill score={grant.scores.applicationDifficulty} invert label="Ease" />
+                    <ScorePill score={grant.scores.attainability} label="Win" />
                   </div>
-                  <div className="flex-shrink-0 ml-2">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-bold ${getScoreClass(grant.scores.overall)}`}>
+
+                  {/* Overall score */}
+                  <div className="flex-shrink-0 ml-3">
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white tabular-nums"
+                      style={{ backgroundColor: scoreColor(grant.scores.overall) }}
+                    >
                       {grant.scores.overall.toFixed(1)}
-                    </span>
+                    </div>
                   </div>
-                  <div className="text-slate-400 flex-shrink-0 ml-1">
-                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+
+                  <div className="text-zinc-400 flex-shrink-0">
+                    {isExpanded
+                      ? <ChevronUp className="w-3.5 h-3.5" />
+                      : <ChevronDown className="w-3.5 h-3.5" />
+                    }
                   </div>
                 </button>
-                {isExpanded && <GrantDetail grant={grant} />}
+
+                {isExpanded && <GrantDetail grant={grant} locale={locale} />}
               </div>
             );
           })}
@@ -219,6 +353,8 @@ function FunderAccordion({ group, defaultOpen = false, locale = 'en-NZ' }: { gro
     </div>
   );
 }
+
+// ─── Results page ─────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -238,14 +374,11 @@ export default function ResultsPage() {
 
   const funderGroups = useMemo((): FunderGroup[] => {
     if (!result) return [];
-    // Drop any grants that came back without scores (malformed API response)
     let grants = result.grants.filter(g => g.scores?.overall !== undefined);
 
-    // Apply minimum score filter
     const min = parseFloat(minScore);
     if (min > 0) grants = grants.filter(g => g.scores.overall >= min);
 
-    // Apply text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       grants = grants.filter(g =>
@@ -255,12 +388,10 @@ export default function ResultsPage() {
       );
     }
 
-    // Apply type filter
     if (typeFilter !== 'all') {
       grants = grants.filter(g => g.type === typeFilter);
     }
 
-    // Group by funder
     const map = new Map<string, GrantOpportunity[]>();
     for (const g of grants) {
       const existing = map.get(g.funder) || [];
@@ -268,7 +399,6 @@ export default function ResultsPage() {
       map.set(g.funder, existing);
     }
 
-    // Build groups, sort grants within each funder
     const groups: FunderGroup[] = Array.from(map.entries()).map(([funder, fGrants]) => {
       const sorted = [...fGrants].sort((a, b) => {
         let av: number | string, bv: number | string;
@@ -288,7 +418,6 @@ export default function ResultsPage() {
       return { funder, type: fGrants[0].type, grants: sorted, bestScore };
     });
 
-    // Sort funder groups by best score (or other criteria)
     return groups.sort((a, b) => {
       if (sortField === 'deadline') {
         const aMin = a.grants[0]?.deadline || 'ZZZ';
@@ -297,151 +426,192 @@ export default function ResultsPage() {
       }
       return sortDir === 'asc' ? a.bestScore - b.bestScore : b.bestScore - a.bestScore;
     });
-  }, [result, searchQuery, typeFilter, sortField, sortDir]);
+  }, [result, searchQuery, typeFilter, sortField, sortDir, minScore]);
 
   const totalShown = funderGroups.reduce((sum, g) => sum + g.grants.length, 0);
   const market = result ? getMarket(result.market ?? 'nz') : null;
 
   if (!result) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-slate-500">Loading results...</p>
+          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
+          </div>
+          <p className="text-sm text-zinc-500 font-medium">Loading results...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-          <div>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/')}
-              className="mb-3 text-slate-500 hover:text-slate-700 -ml-2">
-              <ArrowLeft className="w-4 h-4 mr-1" /> New Search
-            </Button>
-            <h1 className="text-2xl font-bold text-slate-900">Grant Opportunities Found</h1>
-            <div className="flex items-center gap-3 mt-1.5 text-sm text-slate-500 flex-wrap">
-              <span className="bg-blue-100 text-blue-700 font-semibold px-2.5 py-0.5 rounded-full">
-                {totalShown} grants across {funderGroups.length} funders
-              </span>
-              <span className="flex items-center gap-1">
-                <CalendarDays className="w-3.5 h-3.5" />
-                {new Date(result.searchedAt).toLocaleString(market?.locale ?? 'en-NZ', {
-                  day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                })}
-              </span>
-            </div>
-          </div>
-          <Button onClick={() => router.push('/')}
-            className="bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white">
-            <Search className="w-4 h-4 mr-2" /> New Search
-          </Button>
-        </div>
+    <div className="min-h-screen bg-zinc-50">
+      {/* ── Page header ── */}
+      <div className="bg-white border-b border-zinc-200">
+        <div className="max-w-5xl mx-auto px-6 py-5">
+          <button
+            onClick={() => router.push('/')}
+            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-800 transition-colors mb-4 group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            New search
+          </button>
 
-        {/* Org Summary */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-xl font-bold text-zinc-900">Grant Opportunities</h1>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 text-sm font-semibold px-3 py-1 rounded-full">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {totalShown} grants · {funderGroups.length} funders
+                </span>
+                <span className="text-xs text-zinc-400">
+                  Searched {new Date(result.searchedAt).toLocaleString(market?.locale ?? 'en-NZ', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-indigo-200 transition-all"
+            >
+              <Search className="w-3.5 h-3.5" />
+              New Search
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+        {/* ── Org summary ── */}
         {result.orgSummary && (
-          <Card className="mb-6 border-blue-100 bg-blue-50/50">
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-sm font-semibold text-blue-700 flex items-center gap-1.5">
-                <Info className="w-4 h-4" /> Organisation Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-4">
-              <p className="text-slate-700 text-sm leading-relaxed">{result.orgSummary}</p>
-            </CardContent>
-          </Card>
+          <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-indigo-500">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Organisation Summary</span>
+            </div>
+            <p className="text-sm text-zinc-700 leading-relaxed">{result.orgSummary}</p>
+          </div>
         )}
 
-        {/* Toolbar */}
-        <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-wrap gap-3 items-center shadow-sm">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="Search grants or funders..." className="pl-9"
-              value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        {/* ── Filter toolbar ── */}
+        <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden">
+          <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mr-1">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              Filter &amp; sort
+            </div>
+
+            <div className="relative flex-1 min-w-[180px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+              <Input
+                placeholder="Search grants or funders..."
+                className="pl-9 h-9 text-sm border-zinc-200 focus-visible:ring-indigo-500 bg-zinc-50"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
+              <SelectTrigger className="w-[140px] h-9 text-sm border-zinc-200 bg-zinc-50">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="Government">Government</SelectItem>
+                <SelectItem value="Foundation">Foundation</SelectItem>
+                <SelectItem value="Corporate">Corporate</SelectItem>
+                <SelectItem value="Community">Community</SelectItem>
+                <SelectItem value="International">International</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={minScore} onValueChange={v => setMinScore(v ?? '5')}>
+              <SelectTrigger className="w-[130px] h-9 text-sm border-zinc-200 bg-zinc-50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">All scores</SelectItem>
+                <SelectItem value="5">Score ≥ 5</SelectItem>
+                <SelectItem value="6">Score ≥ 6</SelectItem>
+                <SelectItem value="7">Score ≥ 7</SelectItem>
+                <SelectItem value="8">Score ≥ 8</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={sortField} onValueChange={v => setSortField((v ?? 'overall') as SortField)}>
+              <SelectTrigger className="w-[170px] h-9 text-sm border-zinc-200 bg-zinc-50">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="overall">Sort: Overall score</SelectItem>
+                <SelectItem value="alignment">Sort: Alignment</SelectItem>
+                <SelectItem value="attainability">Sort: Attainability</SelectItem>
+                <SelectItem value="applicationDifficulty">Sort: Easiest first</SelectItem>
+                <SelectItem value="deadline">Sort: Deadline</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <button
+              onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+              className="h-9 w-9 flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 transition-colors text-zinc-500"
+              title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {sortDir === 'asc'
+                ? <ArrowUp className="w-3.5 h-3.5" />
+                : <ArrowDown className="w-3.5 h-3.5" />
+              }
+            </button>
+
+            <span className="text-xs text-zinc-400 ml-auto whitespace-nowrap">
+              {totalShown} of {result.grants.length}
+            </span>
           </div>
 
-          <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="Government">Government</SelectItem>
-              <SelectItem value="Foundation">Foundation</SelectItem>
-              <SelectItem value="Corporate">Corporate</SelectItem>
-              <SelectItem value="Community">Community</SelectItem>
-              <SelectItem value="International">International</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={minScore} onValueChange={v => setMinScore(v ?? '5')}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Min score" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">All scores</SelectItem>
-              <SelectItem value="5">Score ≥ 5</SelectItem>
-              <SelectItem value="6">Score ≥ 6</SelectItem>
-              <SelectItem value="7">Score ≥ 7</SelectItem>
-              <SelectItem value="8">Score ≥ 8</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={sortField} onValueChange={v => setSortField((v ?? 'overall') as SortField)}>
-            <SelectTrigger className="w-[190px]">
-              <SelectValue placeholder="Sort by..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="overall">Overall Score</SelectItem>
-              <SelectItem value="alignment">Alignment</SelectItem>
-              <SelectItem value="attainability">Attainability</SelectItem>
-              <SelectItem value="applicationDifficulty">Difficulty</SelectItem>
-              <SelectItem value="deadline">Deadline</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Button variant="outline" size="icon"
-            onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-            title={sortDir === 'asc' ? 'Ascending' : 'Descending'}>
-            {sortDir === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-          </Button>
-
-          <span className="text-slate-400 text-sm ml-auto whitespace-nowrap">
-            {totalShown} of {result.grants.length} shown
-          </span>
+          {/* Score legend */}
+          <div className="px-4 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center gap-5 flex-wrap">
+            <span className="text-[11px] text-zinc-400 font-medium">Score scale:</span>
+            {[
+              ['8–10', '#10b981', 'Excellent match'],
+              ['6.5–8', '#f59e0b', 'Good match'],
+              ['5–6.5', '#f97316', 'Partial match'],
+              ['0–5', '#ef4444', 'Low match'],
+            ].map(([range, color, label]) => (
+              <div key={range} className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+                <span className="text-[11px] text-zinc-500">
+                  <span className="font-medium">{range}</span>
+                  <span className="text-zinc-400 ml-1">{label}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Score legend */}
-        <div className="flex items-center gap-4 mb-4 px-1 flex-wrap">
-          <span className="text-xs text-slate-400 font-medium">Overall score:</span>
-          {[['9–10', 'bg-emerald-700 text-white'], ['7–8', 'bg-green-500 text-white'], ['5–6', 'bg-yellow-400 text-slate-900'], ['0–4', 'bg-red-500 text-white']].map(([label, cls]) => (
-            <span key={label} className="flex items-center gap-1.5 text-xs text-slate-500">
-              <span className={`inline-block w-4 h-4 rounded-full ${cls}`} /> {label}
-            </span>
-          ))}
-        </div>
-
-        {/* Results */}
+        {/* ── Results ── */}
         {funderGroups.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 py-16 text-center text-slate-400 shadow-sm">
-            <Search className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No grants match your filters</p>
-            <p className="text-sm mt-1">Try clearing the search or changing the type filter</p>
+          <div className="bg-white rounded-xl ring-1 ring-zinc-200 py-20 text-center shadow-sm">
+            <Search className="w-8 h-8 mx-auto mb-3 text-zinc-300" />
+            <p className="font-semibold text-zinc-500 text-sm">No grants match your filters</p>
+            <p className="text-xs text-zinc-400 mt-1">Try lowering the minimum score or clearing the search</p>
           </div>
         ) : (
           <div className="space-y-3">
             {funderGroups.map((group, i) => (
-              <FunderAccordion key={group.funder} group={group} defaultOpen={i === 0} locale={market?.locale} />
+              <FunderAccordion
+                key={group.funder}
+                group={group}
+                defaultOpen={i === 0}
+                locale={market?.locale}
+              />
             ))}
           </div>
         )}
 
-        <p className="text-center text-slate-400 text-xs mt-6">
+        <p className="text-center text-xs text-zinc-400 pt-2 pb-4">
           Scores are AI-generated estimates. Always verify grant details directly with funders before applying.
         </p>
       </div>
