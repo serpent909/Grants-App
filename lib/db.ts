@@ -34,8 +34,8 @@ export async function findMatchingCharities(
   sectors: string[],
   regionNames: string[],
   purpose: string,
-  limit = 100,
-): Promise<{ name: string; url: string; purpose: string }[]> {
+  limit = 200,
+): Promise<{ name: string; url: string; grantUrl: string | null; purpose: string; grantSummary: string | null }[]> {
   // Skip if no DB configured
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return [];
 
@@ -94,7 +94,7 @@ export async function findMatchingCharities(
     params.push(limit);
 
     const query = `
-      SELECT name, website_url AS url, purpose
+      SELECT name, website_url AS url, grant_url AS "grantUrl", purpose, grant_summary AS "grantSummary"
       FROM charities
       WHERE website_url IS NOT NULL AND (${whereClause})
       ORDER BY ${orderClause}
@@ -103,7 +103,7 @@ export async function findMatchingCharities(
 
     const { rows } = await db.query(query, params);
     console.log(`[GrantSearch] Charities DB: ${rows.length} matching funders found`);
-    return rows as { name: string; url: string; purpose: string }[];
+    return rows as { name: string; url: string; grantUrl: string | null; purpose: string; grantSummary: string | null }[];
   } catch (err) {
     console.warn('[GrantSearch] DB query failed — skipping charity register lookup:', err);
     return [];
