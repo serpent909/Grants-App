@@ -7,10 +7,10 @@ export function TogglePill({ label, selected, onToggle }: {
     <button
       type="button"
       onClick={onToggle}
-      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
+      className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium border transition-all duration-150 ${
         selected
-          ? 'bg-teal-50 border-teal-300 text-teal-700'
-          : 'bg-white border-zinc-200 text-zinc-500 hover:border-zinc-300 hover:text-zinc-700'
+          ? 'bg-teal-50 border-teal-400 text-teal-800 shadow-sm'
+          : 'bg-white border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:text-zinc-800'
       }`}
     >
       {label}

@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import { Heart, Bookmark } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -20,7 +26,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} antialiased bg-white text-zinc-900`}>
+      <body className={`${inter.variable} ${dmSans.variable} antialiased bg-white text-zinc-900`}>
         <TooltipProvider>
           <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -31,7 +37,7 @@ export default function RootLayout({
                 <div className="w-8 h-8 bg-gradient-to-br from-teal-600 to-emerald-600 rounded-lg flex items-center justify-center shadow-sm shadow-teal-500/20">
                   <Heart className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-semibold text-stone-800 tracking-tight">
+                <span className="font-bold text-stone-800 tracking-tight font-display">
                   Grant<span className="text-teal-600">Search</span>
                 </span>
               </Link>
