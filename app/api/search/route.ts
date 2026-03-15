@@ -154,7 +154,7 @@ Also zero out grants whose URL or content is a "record of grants" or past recipi
 
 GEOGRAPHIC ELIGIBILITY CHECK (apply next, before scoring):
 Determine whether the organisation in ${country} is eligible to apply. A grant is geographically INELIGIBLE if it explicitly restricts applicants to a specific country, state, province, or region that is NOT ${country} (e.g. "US-based organisations only", "New York State residents", "Victorian community groups", "UK registered charities"). Truly global/international programs (e.g. "open worldwide", "international nonprofits eligible") ARE eligible.
-- If INELIGIBLE: set alignment=0, attainability=0, applicationDifficulty=1, overall=0. Set alignmentReason to explain the geographic exclusion clearly (e.g. "This fund is restricted to US-based organisations and is not open to ${country} applicants."). Still include the grant in the output — it will be filtered by score in the UI.
+- If INELIGIBLE: set alignment=0, attainability=0, ease=5, overall=0. Set alignmentReason to explain the geographic exclusion clearly (e.g. "This fund is restricted to US-based organisations and is not open to ${country} applicants."). Still include the grant in the output — it will be filtered by score in the UI.
 - If ELIGIBLE or UNCLEAR: score normally.
 
 REGIONAL RELEVANCE (apply during scoring):${regionText ? `
@@ -168,13 +168,13 @@ Scoring dimensions (0–10):
 alignment — how well the grant purpose matches the org mission AND specific funding request
   0-3 poor match | 4-6 partial overlap | 7-8 good match | 9-10 designed for exactly this
 
-applicationDifficulty — complexity of the application process
-  1-2 simple online form | 3-4 moderate effort | 5-6 full proposal | 7-8 complex/extensive | 9-10 multi-stage/site visits
+ease — how easy it is to apply (higher = simpler process)
+  1-2 multi-stage/site visits | 3-4 complex/extensive | 5-6 full proposal | 7-8 moderate effort | 9-10 simple online form
 
 attainability — likelihood this org wins given competition and eligibility fit
   1-2 very competitive/national funder | 3-4 competitive | 5-6 moderate | 7-8 regional/less competitive | 9-10 strong match, few applicants
 
-overall = (alignment × 0.5) + (attainability × 0.3) + ((10 − applicationDifficulty) × 0.2), rounded to 1dp
+overall = (alignment × 0.5) + (attainability × 0.3) + (ease × 0.2), rounded to 1dp
 
 DEADLINE RULE — today is ${TODAY}:
 - Extract a deadline ONLY if the pageContent contains a specific future date explicitly stated as a closing or application date.
@@ -191,7 +191,7 @@ Return a JSON object with this exact structure:
       "id": "g-1",
       "name": "...", "funder": "...", "type": "...", "description": "...",
       "amountMin": 5000, "amountMax": 50000, "deadline": "2026-09-30", "url": "...",
-      "scores": { "alignment": 8, "applicationDifficulty": 4, "attainability": 6, "overall": 7.2 },
+      "scores": { "alignment": 8, "ease": 6, "attainability": 6, "overall": 7.2 },
       "alignmentReason": "1-2 sentences explaining alignment with this org's specific mission and funding request",
       "applicationNotes": "1-2 sentences on application process complexity and what is required",
       "attainabilityNotes": "1-2 sentences on competition level and why this org is or isn't a strong candidate"
@@ -1469,79 +1469,18 @@ Be exhaustive — do not set any target limit. List every funder you know within
       return NextResponse.json({ grants: [], orgSummary: '', searchedAt: new Date().toISOString(), market: market.id });
     }
 
-    // ── Step 4.5: Relevance triage (GPT-4o-mini) ────────────────────────────
-    // Quick binary classification to filter obviously irrelevant grants before
-    // the expensive GPT-4o scoring step. Conservative — only skips when ≥90% confident.
-    const TRIAGE_BATCH = 50;
-    const triageBatches: DiscoveredGrant[][] = [];
-    for (let i = 0; i < allDiscovered.length; i += TRIAGE_BATCH) {
-      triageBatches.push(allDiscovered.slice(i, i + TRIAGE_BATCH));
-    }
-
-    console.log(`[GrantSearch] Step 4.5: Triaging ${allDiscovered.length} grants in ${triageBatches.length} batches`);
-
-    const triageResults = await withConcurrency(
-      triageBatches.map((batch, batchIdx) => async () => {
-        const compactGrants = batch.map((g, i) => ({
-          index: i,
-          name: g.name,
-          funder: g.funder,
-          type: g.type,
-          description: g.description,
-          ...(g.amountMin ? { amountMin: g.amountMin } : {}),
-          ...(g.amountMax ? { amountMax: g.amountMax } : {}),
-        }));
-
-        try {
-          const res = await withRetry(() => openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: RELEVANCE_TRIAGE_PROMPT },
-              {
-                role: 'user',
-                content: `Organisation profile:\n${orgContext}\n\nClassify each grant:\n${JSON.stringify(compactGrants)}`,
-              },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0,
-            max_tokens: 4000,
-          }));
-          trackOpenAI(costs, res.model || 'gpt-4o-mini', res.usage);
-          const parsed = JSON.parse(res.choices[0]?.message?.content || '{}');
-          const decisions: { index: number; decision: string; reason?: string }[] = parsed.decisions || [];
-          const skipIndices = new Set(
-            decisions.filter(d => d.decision === 'SKIP').map(d => d.index),
-          );
-          const kept = batch.filter((_, i) => !skipIndices.has(i));
-          console.log(`[GrantSearch] Triage batch ${batchIdx + 1}: ${kept.length}/${batch.length} relevant`);
-          return kept;
-        } catch (err) {
-          console.warn(`[GrantSearch] Triage batch ${batchIdx + 1} failed — keeping all grants:`, err);
-          return batch;
-        }
-      }),
-      10,
-    );
-
-    const triaged = triageResults.flat();
-    const skippedCount = allDiscovered.length - triaged.length;
-    console.log(`[GrantSearch] Step 4.5 complete: ${triaged.length} relevant, ${skippedCount} skipped`);
-    if (skippedCount > allDiscovered.length * 0.6) {
-      console.warn(`[GrantSearch] WARNING: Triage filtered >60% of grants — may be too aggressive`);
-    }
-
-    if (!triaged.length) {
-      return NextResponse.json({ grants: [], orgSummary: '', searchedAt: new Date().toISOString(), market: market.id });
-    }
+    // ── Step 4.5: Relevance triage — DISABLED for now ─────────────────────
+    // Was filtering too aggressively. Passing all grants directly to scoring.
+    // TODO: re-enable with a more conservative prompt once we can compare results.
 
     // ── Step 5: Score in parallel batches ────────────────────────────────────
     const SCORE_BATCH = 25;
     const scoreBatches: DiscoveredGrant[][] = [];
-    for (let i = 0; i < triaged.length; i += SCORE_BATCH) {
-      scoreBatches.push(triaged.slice(i, i + SCORE_BATCH));
+    for (let i = 0; i < allDiscovered.length; i += SCORE_BATCH) {
+      scoreBatches.push(allDiscovered.slice(i, i + SCORE_BATCH));
     }
 
-    console.log(`[GrantSearch] Step 5: Scoring ${triaged.length} grants in ${scoreBatches.length} batches (${skippedCount} filtered by triage)`);
+    console.log(`[GrantSearch] Step 5: Scoring ${allDiscovered.length} grants in ${scoreBatches.length} batches`);
 
     const scoreResults = await withConcurrency(
       scoreBatches.map((batch, idx) => async () => {
@@ -1585,8 +1524,8 @@ Be exhaustive — do not set any target limit. List every funder you know within
             .filter((g: GrantOpportunity) => g?.scores !== undefined)
             .map((g: GrantOpportunity) => {
               if (!g.scores.overall) {
-                const { alignment = 0, applicationDifficulty = 5, attainability = 0 } = g.scores;
-                g.scores.overall = Math.round(((alignment * 0.5) + (attainability * 0.3) + ((10 - applicationDifficulty) * 0.2)) * 10) / 10;
+                const { alignment = 0, ease = 5, attainability = 0 } = g.scores;
+                g.scores.overall = Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
               }
               return g;
             });
@@ -1603,7 +1542,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
     const orgSummary = (scoreResults[0] as { orgSummary?: string })?.orgSummary || '';
     const grants = scoreResults
       .flatMap(r => r?.grants || [])
-      .filter(g => (g.scores?.overall ?? 0) >= 3.0)
+      .filter(g => (g.scores?.alignment ?? 0) >= 5)
       .map((g, i) => ({ ...g, id: g.id || `grant-${i}-${Date.now()}` }));
 
     const costBreakdown = computeCost(costs);

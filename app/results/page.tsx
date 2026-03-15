@@ -17,7 +17,7 @@ import { saveSearch, updateSaved, autoName, getSaved } from '@/lib/saved-searche
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type SortField = 'overall' | 'alignment' | 'attainability' | 'applicationDifficulty' | 'deadline';
+type SortField = 'overall' | 'alignment' | 'attainability' | 'ease' | 'deadline';
 type SortDir = 'asc' | 'desc';
 
 interface FunderGroup {
@@ -41,19 +41,17 @@ const TYPE_CONFIG: Record<
   Other:         { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200',    border: 'border-l-zinc-400',   icon: 'bg-zinc-100 text-zinc-500' },
 };
 
-function scoreColor(score: number, invert = false): string {
-  const v = invert ? 10 - score : score;
-  if (v >= 8) return '#10b981';  // emerald
-  if (v >= 6.5) return '#f59e0b'; // amber
-  if (v >= 5) return '#f97316';   // orange
+function scoreColor(score: number): string {
+  if (score >= 8) return '#10b981';  // emerald
+  if (score >= 6.5) return '#f59e0b'; // amber
+  if (score >= 5) return '#f97316';   // orange
   return '#ef4444';               // red
 }
 
-function scoreTextClass(score: number, invert = false): string {
-  const v = invert ? 10 - score : score;
-  if (v >= 8) return 'text-emerald-700 bg-emerald-50';
-  if (v >= 6.5) return 'text-amber-700 bg-amber-50';
-  if (v >= 5) return 'text-orange-600 bg-orange-50';
+function scoreTextClass(score: number): string {
+  if (score >= 8) return 'text-emerald-700 bg-emerald-50';
+  if (score >= 6.5) return 'text-amber-700 bg-amber-50';
+  if (score >= 5) return 'text-orange-600 bg-orange-50';
   return 'text-red-600 bg-red-50';
 }
 
@@ -91,10 +89,10 @@ function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
 
 // ─── Score pill ───────────────────────────────────────────────────────────────
 
-function ScorePill({ score, invert = false, label }: { score: number; invert?: boolean; label: string }) {
+function ScorePill({ score, label }: { score: number; label: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(score, invert)}`}>
+      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(score)}`}>
         {score.toFixed(1)}
       </span>
       <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">{label}</span>
@@ -191,10 +189,10 @@ function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: strin
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Score breakdown</p>
             <div className="space-y-2.5">
               {[
-                { label: 'Alignment', score: grant.scores.alignment, invert: false },
-                { label: 'Difficulty', score: grant.scores.applicationDifficulty, invert: true },
-                { label: 'Attainability', score: grant.scores.attainability, invert: false },
-              ].map(({ label, score, invert }) => (
+                { label: 'Alignment', score: grant.scores.alignment },
+                { label: 'Ease', score: grant.scores.ease },
+                { label: 'Attainability', score: grant.scores.attainability },
+              ].map(({ label, score }) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500">{label}</span>
                   <div className="flex items-center gap-2">
@@ -202,8 +200,8 @@ function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: strin
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
-                          width: `${(invert ? 10 - score : score) * 10}%`,
-                          backgroundColor: scoreColor(score, invert),
+                          width: `${score * 10}%`,
+                          backgroundColor: scoreColor(score),
                         }}
                       />
                     </div>
@@ -323,7 +321,7 @@ function FunderAccordion({
                   {/* Sub-scores */}
                   <div className="hidden lg:flex items-end gap-4 flex-shrink-0">
                     <ScorePill score={grant.scores.alignment} label="Align" />
-                    <ScorePill score={grant.scores.applicationDifficulty} invert label="Ease" />
+                    <ScorePill score={grant.scores.ease} label="Ease" />
                     <ScorePill score={grant.scores.attainability} label="Win" />
                   </div>
 
@@ -451,7 +449,7 @@ function ResultsContent() {
           case 'overall':               av = a.scores.overall;               bv = b.scores.overall; break;
           case 'alignment':             av = a.scores.alignment;             bv = b.scores.alignment; break;
           case 'attainability':         av = a.scores.attainability;         bv = b.scores.attainability; break;
-          case 'applicationDifficulty': av = a.scores.applicationDifficulty; bv = b.scores.applicationDifficulty; break;
+          case 'ease':                  av = a.scores.ease;                  bv = b.scores.ease; break;
           case 'deadline':              av = a.deadline || 'ZZZ';            bv = b.deadline || 'ZZZ'; break;
           default:                      av = a.scores.overall;               bv = b.scores.overall;
         }
@@ -637,7 +635,7 @@ function ResultsContent() {
                 <SelectItem value="overall">Sort: Overall score</SelectItem>
                 <SelectItem value="alignment">Sort: Alignment</SelectItem>
                 <SelectItem value="attainability">Sort: Attainability</SelectItem>
-                <SelectItem value="applicationDifficulty">Sort: Easiest first</SelectItem>
+                <SelectItem value="ease">Sort: Easiest first</SelectItem>
                 <SelectItem value="deadline">Sort: Deadline</SelectItem>
               </SelectContent>
             </Select>

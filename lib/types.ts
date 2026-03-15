@@ -22,7 +22,7 @@ export interface GrantOpportunity {
   url: string;
   scores: {
     alignment: number;             // 0-10: how well grant matches org mission + request
-    applicationDifficulty: number; // 0-10: higher = harder (more info required)
+    ease: number;                  // 0-10: higher = easier to apply
     attainability: number;         // 0-10: higher = more attainable (lower competition)
     overall: number;               // 0-10: weighted average
   };
