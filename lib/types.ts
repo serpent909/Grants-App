@@ -4,6 +4,10 @@ export interface OrgInfo {
   fundingPurpose: string;
   fundingAmount: number;
   market: string; // market ID: 'nz' | 'au' | ...
+  regions: string[]; // region IDs the org operates in
+  sectors: string[]; // e.g. ['health', 'youth']
+  orgType: string; // e.g. 'registered-charity'
+  previousFunders: string; // free text, optional
 }
 
 export interface GrantOpportunity {
@@ -32,4 +36,5 @@ export interface SearchResult {
   orgSummary: string;
   searchedAt: string;
   market: string; // echoed from request so results page can format currency/dates
+  inputs?: OrgInfo; // original form inputs, saved for diagnostics and re-use
 }
