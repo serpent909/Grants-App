@@ -4,6 +4,7 @@ import { tavilyClient } from '@/lib/tavily';
 import { serperSearch } from '@/lib/serper';
 import { OrgInfo, GrantOpportunity, SearchResult } from '@/lib/types';
 import { getMarket, MarketConfig } from '@/lib/markets';
+import { findMatchingCharities } from '@/lib/db';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -1023,6 +1024,7 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
     console.log(`[GrantSearch] Step 0: Discovering funders for market "${market.id}" (parallel with Step 1)`);
     const step0Promise = Promise.all([discoverFunderUrls(market, sectorLabels, regionNames, fundingPurpose, costs), discoverAdditionalDirectories(market, costs)]);
     const regionalPromise = generateRegionalSearches(market, fundingPurpose, regionNames, sectorLabels, costs);
+    const dbFundersPromise = findMatchingCharities(body.sectors || [], regionNames, fundingPurpose);
 
     console.log('[GrantSearch] Step 1: Extracting org site + enumerating funders (4 category calls) + programs');
 
@@ -1093,7 +1095,14 @@ Be exhaustive — do not set any target limit. List every funder you know within
       }
     }
 
-    const allDiscoveredUrls = [...new Set([...discoveredFunderUrls, ...additionalDirUrls])];
+    // Await DB funder lookup (started in parallel with Step 0/1)
+    const dbFunders = await dbFundersPromise;
+    const dbFunderUrls = dbFunders.filter(f => f.url).map(f => f.url);
+    if (dbFunderUrls.length > 0) {
+      console.log(`[GrantSearch] Charities DB: ${dbFunderUrls.length} funder URLs from register`);
+    }
+
+    const allDiscoveredUrls = Array.from(new Set([...discoveredFunderUrls, ...additionalDirUrls, ...dbFunderUrls]));
     console.log(`[GrantSearch] Step 0+1 complete: ${allDiscoveredUrls.length} discovered URLs, ${regionalQueries.length} regional queries`);
 
     // Index 0: org extract
