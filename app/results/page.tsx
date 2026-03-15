@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
-  ChevronDown, ChevronUp, CalendarDays, Building2, Sparkles,
-  SlidersHorizontal,
+  ChevronDown, ChevronUp, CalendarDays, Building2,
+  SlidersHorizontal, Bookmark, BookmarkCheck, X,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { SearchResult, GrantOpportunity } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
+import { saveSearch, updateSaved, autoName, getSaved } from '@/lib/saved-searches';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -240,7 +241,7 @@ function FunderAccordion({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [expandedGrantId, setExpandedGrantId] = useState<string | null>(null);
-  const cfg = TYPE_CONFIG[group.type];
+  const cfg = TYPE_CONFIG[group.type] ?? TYPE_CONFIG['Other'];
 
   const toggleGrant = (id: string) =>
     setExpandedGrantId(prev => (prev === id ? null : id));
@@ -358,6 +359,7 @@ function FunderAccordion({
 
 export default function ResultsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [result, setResult] = useState<SearchResult | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -365,12 +367,47 @@ export default function ResultsPage() {
   const [sortField, setSortField] = useState<SortField>('overall');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
+  // Save state
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveName, setSaveName] = useState('');
+  const saveInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
+    // Check if loading a saved search by ID
+    const id = searchParams.get('saved');
+    if (id) {
+      const saved = getSaved(id);
+      if (saved) {
+        setResult(saved.result);
+        setSavedId(id);
+        return;
+      }
+    }
     const stored = sessionStorage.getItem('grantSearchResult');
     if (!stored) { router.replace('/'); return; }
     try { setResult(JSON.parse(stored)); }
     catch { router.replace('/'); }
-  }, [router]);
+  }, [router, searchParams]);
+
+  function handleSaveClick() {
+    if (!result) return;
+    setSaveName(autoName(result));
+    setShowSaveForm(true);
+    setTimeout(() => saveInputRef.current?.select(), 50);
+  }
+
+  function handleSaveConfirm() {
+    if (!result) return;
+    if (savedId) {
+      updateSaved(savedId, result);
+    } else {
+      const entry = saveSearch(saveName, result);
+      setSavedId(entry.id);
+      router.replace(`/results?saved=${entry.id}`, { scroll: false });
+    }
+    setShowSaveForm(false);
+  }
 
   const funderGroups = useMemo((): FunderGroup[] => {
     if (!result) return [];
@@ -435,8 +472,8 @@ export default function ResultsPage() {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-4">
-            <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
+          <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center mx-auto mb-4">
+            <Search className="w-5 h-5 text-teal-600 animate-pulse" />
           </div>
           <p className="text-sm text-zinc-500 font-medium">Loading results...</p>
         </div>
@@ -459,10 +496,11 @@ export default function ResultsPage() {
 
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-zinc-900">Grant Opportunities</h1>
+              <h1 className="text-xl font-bold text-zinc-900">
+                {savedId ? (getSaved(savedId)?.name ?? 'Grant Opportunities') : 'Grant Opportunities'}
+              </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 text-sm font-semibold px-3 py-1 rounded-full">
-                  <Sparkles className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1 rounded-full">
                   {totalShown} grants · {funderGroups.length} funders
                 </span>
                 <span className="text-xs text-zinc-400">
@@ -473,13 +511,55 @@ export default function ResultsPage() {
                 </span>
               </div>
             </div>
-            <button
-              onClick={() => router.push('/')}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-indigo-200 transition-all"
-            >
-              <Search className="w-3.5 h-3.5" />
-              New Search
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* Save */}
+              {!showSaveForm ? (
+                <button
+                  onClick={handleSaveClick}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border transition-all ${
+                    savedId
+                      ? 'bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100'
+                      : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300'
+                  }`}
+                >
+                  {savedId
+                    ? <><BookmarkCheck className="w-3.5 h-3.5" /> Saved</>
+                    : <><Bookmark className="w-3.5 h-3.5" /> Save</>
+                  }
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 bg-white border border-teal-300 rounded-xl px-3 py-1.5 shadow-sm">
+                  <Bookmark className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                  <input
+                    ref={saveInputRef}
+                    type="text"
+                    value={saveName}
+                    onChange={e => setSaveName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleSaveConfirm(); if (e.key === 'Escape') setShowSaveForm(false); }}
+                    className="text-sm text-zinc-800 bg-transparent outline-none w-52"
+                    placeholder="Name this search..."
+                  />
+                  <button
+                    onClick={handleSaveConfirm}
+                    className="text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    Save
+                  </button>
+                  <button onClick={() => setShowSaveForm(false)} className="text-zinc-400 hover:text-zinc-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={() => router.push('/')}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-teal-200 transition-all"
+              >
+                <Search className="w-3.5 h-3.5" />
+                New Search
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -487,10 +567,9 @@ export default function ResultsPage() {
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
         {/* ── Org summary ── */}
         {result.orgSummary && (
-          <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-indigo-500">
+          <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-teal-500">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span className="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Organisation Summary</span>
+              <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Organisation Summary</span>
             </div>
             <p className="text-sm text-zinc-700 leading-relaxed">{result.orgSummary}</p>
           </div>
@@ -508,7 +587,7 @@ export default function ResultsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
               <Input
                 placeholder="Search grants or funders..."
-                className="pl-9 h-9 text-sm border-zinc-200 focus-visible:ring-indigo-500 bg-zinc-50"
+                className="pl-9 h-9 text-sm border-zinc-200 focus-visible:ring-teal-500 bg-zinc-50"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -604,7 +683,7 @@ export default function ResultsPage() {
               <FunderAccordion
                 key={group.funder}
                 group={group}
-                defaultOpen={i === 0}
+                defaultOpen={false}
                 locale={market?.locale}
               />
             ))}

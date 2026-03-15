@@ -21,16 +21,31 @@ export interface MarketConfig {
    * Broad funder category labels for this country.
    * Used to structure GPT's funder enumeration — tells GPT which categories
    * to cover exhaustively. Do NOT list individual funder names here.
-   * Keep to 6-10 short labels.
    */
   funderTypeHints: string[];
 
   /**
+   * Explicit grouping of funderTypeHints into parallel enumeration calls.
+   * Each inner array is sent as its own GPT call, allowing heavy categories
+   * (e.g. local councils) to get their own dedicated token budget.
+   */
+  funderTypeGroups: string[][];
+
+  /**
    * Grant directory / aggregator pages for this country.
    * Used in Step 0: extracted to harvest funder URLs, and searched via site: queries.
-   * Keep to 3–6 URLs. These are the "fundinginformation.org.nz equivalents".
+   * These are the "fundinginformation.org.nz equivalents".
    */
   grantDirectories: string[];
+
+  /**
+   * Curated list of known grant funder pages to extract.
+   * These bypass search — guaranteed to be included when relevant.
+   * `regions` omitted = national (always included).
+   * `regions` present = only included when user selects a matching region.
+   * Cost: ~1 Tavily credit per URL ($0.008 each).
+   */
+  curatedFunderUrls: { url: string; regions?: string[] }[];
 
   /**
    * Tavily search query templates providing country-specific breadth.
@@ -47,9 +62,9 @@ export interface MarketConfig {
   excludedDomains: string[];
 
   /**
-   * Pre-known grant page URLs for this market.
-   * NZ: the existing 173-URL curated list (guaranteed coverage of known funders).
-   * New markets: start empty — Step 0 dynamic discovery fills this role.
+   * Selectable geographic regions for this market.
+   * Users pick their operating region(s) — the pipeline uses these to target
+   * local/regional funders while still including national-level grants.
    */
-  curatedPages?: string[];
+  regions: { id: string; name: string }[];
 }
