@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
@@ -358,6 +358,14 @@ function FunderAccordion({
 // ─── Results page ─────────────────────────────────────────────────────────────
 
 export default function ResultsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResultsContent />
+    </Suspense>
+  );
+}
+
+function ResultsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [result, setResult] = useState<SearchResult | null>(null);
