@@ -274,33 +274,33 @@ export default function HomePage() {
   }, [errors]);
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0]">
+    <div className="min-h-screen bg-zinc-900">
       {/* ── Centered vertical layout ── */}
       <div className="relative px-6 py-16">
 
-        {/* Soft warm glow — top centre */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(20,184,166,0.08),transparent)]" />
+        {/* Soft teal glow — top centre */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(20,184,166,0.10),transparent)]" />
 
-        <div className="relative max-w-xl mx-auto">
+        <div className="relative max-w-3xl mx-auto">
 
           {/* ── Hero copy ── */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-1.5 bg-teal-50 border border-teal-200 text-teal-700 text-xs font-medium px-3.5 py-1.5 rounded-full mb-7">
+            <div className="inline-flex items-center gap-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium px-3.5 py-1.5 rounded-full mb-7">
               <Check className="w-3 h-3" />
               Free to use · No account required
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-tight mb-5">
-              <span className="block text-stone-400 text-2xl sm:text-3xl font-medium mb-2 tracking-normal">
+            <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight leading-tight mb-5">
+              <span className="block text-zinc-400 text-2xl sm:text-3xl font-medium mb-2 tracking-normal">
                 Grant funding search for
               </span>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-emerald-600">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">
                 {activeMarket.displayName}
               </span>
-              <span className="text-stone-800"> nonprofits</span>
+              <span className="text-white"> nonprofits</span>
             </h1>
 
-            <p className="text-stone-500 text-base leading-relaxed mb-8 max-w-sm mx-auto">
+            <p className="text-zinc-400 text-base leading-relaxed mb-8 max-w-sm mx-auto">
               Tell us about your organisation and what you need funding for.
               We&apos;ll find and rank the grants most likely to be a good fit —
               saving you hours of research.
@@ -313,21 +313,21 @@ export default function HomePage() {
                 ['Free', 'No sign-up needed'],
               ].map(([stat, label]) => (
                 <div key={stat} className="text-center">
-                  <div className="text-base font-bold text-stone-700">{stat}</div>
-                  <div className="text-xs text-stone-400 mt-0.5">{label}</div>
+                  <div className="text-base font-bold text-white font-display">{stat}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{label}</div>
                 </div>
               ))}
             </div>
           </div>
 
           {/* ── Form card ── */}
-          <div className="bg-white rounded-2xl shadow-xl shadow-stone-200/60 ring-1 ring-stone-200 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl shadow-black/20 ring-1 ring-zinc-200 overflow-hidden">
             {!isLoading && (
-              <div className="px-7 pt-7 pb-5 border-b border-zinc-100">
-                <h2 className="text-base font-semibold text-zinc-900">
+              <div className="px-8 pt-7 pb-5 bg-zinc-50/70 border-b border-zinc-200/60">
+                <h2 className="text-xl font-bold text-zinc-900 font-display">
                   About your organisation
                 </h2>
-                <p className="text-sm text-zinc-500 mt-0.5">
+                <p className="text-sm text-zinc-500 mt-1">
                   The more context you share, the better we can match you with the right funding.
                 </p>
               </div>
@@ -340,191 +340,200 @@ export default function HomePage() {
                 progress={loadingProgress}
               />
             ) : (
-              <form onSubmit={handleSubmit} className="px-7 py-6 space-y-5">
+              <form onSubmit={handleSubmit} className="divide-y divide-zinc-100">
                 {apiError && (
-                  <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p className="text-sm leading-relaxed">{apiError}</p>
+                  <div className="px-8 pt-6">
+                    <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <p className="text-sm leading-relaxed">{apiError}</p>
+                    </div>
                   </div>
                 )}
 
-                {/* Country */}
-                <Field label="Country" required>
-                  <Select
-                    value={form.market}
-                    onValueChange={v => {
-                      if (v) {
-                        setForm(prev => ({ ...prev, market: v, regions: [] }));
-                        if (errors.market) setErrors(prev => ({ ...prev, market: undefined }));
-                      }
-                    }}
+                {/* ── Section 1: Identity ── */}
+                <div className="px-8 py-6 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <Field label="Country" required>
+                      <Select
+                        value={form.market}
+                        onValueChange={v => {
+                          if (v) {
+                            setForm(prev => ({ ...prev, market: v, regions: [] }));
+                            if (errors.market) setErrors(prev => ({ ...prev, market: undefined }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full h-10 border-zinc-300 focus:ring-teal-500 focus:border-teal-500">
+                          <SelectValue placeholder="Select country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {MARKETS.map(m => (
+                            <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    <Field label="Organisation type" required error={errors.orgType}>
+                      <Select
+                        value={form.orgType}
+                        onValueChange={v => v && updateField('orgType', v)}
+                      >
+                        <SelectTrigger className="w-full h-10 border-zinc-300 focus:ring-teal-500 focus:border-teal-500">
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ORG_TYPES.map(t => (
+                            <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <Field label="Organisation website" required error={errors.website}>
+                      <div className="relative">
+                        <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                        <Input
+                          id="website"
+                          type="url"
+                          placeholder="https://yourorg.org"
+                          className={`pl-10 h-10 border-zinc-300 focus-visible:ring-teal-500 focus-visible:border-teal-500 ${
+                            errors.website ? 'border-red-300 focus-visible:ring-red-400' : ''
+                          }`}
+                          value={form.website}
+                          onChange={e => updateField('website', e.target.value)}
+                        />
+                      </div>
+                    </Field>
+
+                    <Field label="LinkedIn page" error={errors.linkedin} hint="Optional — helps us understand your organisation better">
+                      <div className="relative">
+                        <Linkedin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                        <Input
+                          id="linkedin"
+                          type="url"
+                          placeholder="https://linkedin.com/company/your-org"
+                          className={`pl-10 h-10 border-zinc-300 focus-visible:ring-teal-500 ${
+                            errors.linkedin ? 'border-red-300 focus-visible:ring-red-400' : ''
+                          }`}
+                          value={form.linkedin}
+                          onChange={e => updateField('linkedin', e.target.value)}
+                        />
+                      </div>
+                    </Field>
+                  </div>
+                </div>
+
+                {/* ── Section 2: Location & Focus ── */}
+                <div className="px-8 py-6 space-y-4">
+                  <Field
+                    label="Operating regions"
+                    required
+                    error={errors.regions}
+                    hint="Select the regions where your organisation operates. National funders are always included."
                   >
-                    <SelectTrigger className="h-10 border-zinc-200 focus:ring-teal-500 focus:border-teal-500">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MARKETS.map(m => (
-                        <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
+                    <div className="flex flex-wrap gap-2">
+                      {activeMarket.regions.map(r => (
+                        <TogglePill
+                          key={r.id}
+                          label={r.name}
+                          selected={form.regions.includes(r.id)}
+                          onToggle={() => toggleArrayItem('regions', r.id)}
+                        />
                       ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                    </div>
+                  </Field>
 
-                {/* Operating Regions */}
-                <Field
-                  label="Operating regions"
-                  required
-                  error={errors.regions}
-                  hint="Select the regions where your organisation operates. National funders are always included."
-                >
-                  <div className="flex flex-wrap gap-2">
-                    {activeMarket.regions.map(r => (
-                      <TogglePill
-                        key={r.id}
-                        label={r.name}
-                        selected={form.regions.includes(r.id)}
-                        onToggle={() => toggleArrayItem('regions', r.id)}
-                      />
-                    ))}
-                  </div>
-                </Field>
-
-                {/* Organisation Type */}
-                <Field label="Organisation type" required error={errors.orgType}>
-                  <Select
-                    value={form.orgType}
-                    onValueChange={v => v && updateField('orgType', v)}
+                  <Field
+                    label="Sector / focus areas"
+                    required
+                    error={errors.sectors}
+                    hint="Select all that apply to your organisation"
                   >
-                    <SelectTrigger className="h-10 border-zinc-200 focus:ring-teal-500 focus:border-teal-500">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ORG_TYPES.map(t => (
-                        <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                    <div className="flex flex-wrap gap-2">
+                      {SECTORS.map(s => (
+                        <TogglePill
+                          key={s.id}
+                          label={s.label}
+                          selected={form.sectors.includes(s.id)}
+                          onToggle={() => toggleArrayItem('sectors', s.id)}
+                        />
                       ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                    </div>
+                  </Field>
+                </div>
 
-                {/* Website */}
-                <Field label="Organisation website" required error={errors.website}>
-                  <div className="relative">
-                    <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                      id="website"
-                      type="url"
-                      placeholder="https://yourorg.org"
-                      className={`pl-10 h-10 border-zinc-200 focus-visible:ring-teal-500 focus-visible:border-teal-500 ${
-                        errors.website ? 'border-red-300 focus-visible:ring-red-400' : ''
+                {/* ── Section 3: Funding Details ── */}
+                <div className="px-8 py-6 space-y-4">
+                  <Field
+                    label="What is this funding search for?"
+                    required
+                    error={errors.fundingPurpose}
+                    hint={`${form.fundingPurpose.length} characters — the more detail, the better`}
+                  >
+                    <textarea
+                      id="fundingPurpose"
+                      rows={3}
+                      placeholder="Describe what you need funding for. Include your target population, specific activities, and any relevant context..."
+                      className={`w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none transition-shadow ${
+                        errors.fundingPurpose
+                          ? 'border-red-300 focus:ring-red-400'
+                          : 'border-zinc-300'
                       }`}
-                      value={form.website}
-                      onChange={e => updateField('website', e.target.value)}
+                      value={form.fundingPurpose}
+                      onChange={e => updateField('fundingPurpose', e.target.value)}
                     />
-                  </div>
-                </Field>
+                  </Field>
 
-                {/* LinkedIn (optional) */}
-                <Field label="LinkedIn page" error={errors.linkedin} hint="Optional — helps us understand your organisation better">
-                  <div className="relative">
-                    <Linkedin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                      id="linkedin"
-                      type="url"
-                      placeholder="https://linkedin.com/company/your-org"
-                      className={`pl-10 h-10 border-zinc-200 focus-visible:ring-teal-500 ${
-                        errors.linkedin ? 'border-red-300 focus-visible:ring-red-400' : ''
-                      }`}
-                      value={form.linkedin}
-                      onChange={e => updateField('linkedin', e.target.value)}
-                    />
-                  </div>
-                </Field>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                    <Field
+                      label={`Funding amount sought (${activeMarket.currency})`}
+                      required
+                      error={errors.fundingAmount}
+                    >
+                      <div className="relative">
+                        <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                        <Input
+                          id="fundingAmount"
+                          type="number"
+                          placeholder="50000"
+                          min={1}
+                          className={`pl-10 h-10 border-zinc-300 focus-visible:ring-teal-500 ${
+                            errors.fundingAmount ? 'border-red-300 focus-visible:ring-red-400' : ''
+                          }`}
+                          value={form.fundingAmount || ''}
+                          onChange={e => updateField('fundingAmount', parseFloat(e.target.value) || 0)}
+                        />
+                      </div>
+                    </Field>
 
-                {/* Sectors */}
-                <Field
-                  label="Sector / focus areas"
-                  required
-                  error={errors.sectors}
-                  hint="Select all that apply to your organisation"
-                >
-                  <div className="flex flex-wrap gap-2">
-                    {SECTORS.map(s => (
-                      <TogglePill
-                        key={s.id}
-                        label={s.label}
-                        selected={form.sectors.includes(s.id)}
-                        onToggle={() => toggleArrayItem('sectors', s.id)}
+                    <Field
+                      label="Previous or current funders"
+                      hint="Optional — helps us find similar sources"
+                    >
+                      <Input
+                        id="previousFunders"
+                        placeholder="e.g. Lion Foundation, Otago Community Trust..."
+                        className="h-10 border-zinc-300 focus-visible:ring-teal-500"
+                        value={form.previousFunders}
+                        onChange={e => updateField('previousFunders', e.target.value)}
                       />
-                    ))}
+                    </Field>
                   </div>
-                </Field>
+                </div>
 
-                {/* Funding Purpose */}
-                <Field
-                  label="What is this funding search for?"
-                  required
-                  error={errors.fundingPurpose}
-                  hint={`${form.fundingPurpose.length} characters — the more detail, the better`}
-                >
-                  <textarea
-                    id="fundingPurpose"
-                    rows={3}
-                    placeholder="Describe what you need funding for. Include your target population, specific activities, and any relevant context..."
-                    className={`w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none transition-shadow ${
-                      errors.fundingPurpose
-                        ? 'border-red-300 focus:ring-red-400'
-                        : 'border-zinc-200'
-                    }`}
-                    value={form.fundingPurpose}
-                    onChange={e => updateField('fundingPurpose', e.target.value)}
-                  />
-                </Field>
-
-                {/* Funding Amount */}
-                <Field
-                  label={`Funding amount sought (${activeMarket.currency})`}
-                  required
-                  error={errors.fundingAmount}
-                >
-                  <div className="relative">
-                    <DollarSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                    <Input
-                      id="fundingAmount"
-                      type="number"
-                      placeholder="50000"
-                      min={1}
-                      className={`pl-10 h-10 border-zinc-200 focus-visible:ring-teal-500 ${
-                        errors.fundingAmount ? 'border-red-300 focus-visible:ring-red-400' : ''
-                      }`}
-                      value={form.fundingAmount || ''}
-                      onChange={e => updateField('fundingAmount', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
-                </Field>
-
-                {/* Previous Funders (optional) */}
-                <Field
-                  label="Previous or current funders"
-                  hint="Optional — helps us find similar funding sources"
-                >
-                  <textarea
-                    id="previousFunders"
-                    rows={2}
-                    placeholder="e.g. Lion Foundation, Otago Community Trust, DIA Community Organisation Grants..."
-                    className="w-full rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none transition-shadow"
-                    value={form.previousFunders}
-                    onChange={e => updateField('previousFunders', e.target.value)}
-                  />
-                </Field>
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  className="w-full h-11 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold text-sm rounded-xl transition-all duration-200 active:scale-[0.99]"
-                >
-                  Find Grants
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                {/* ── Submit ── */}
+                <div className="px-8 py-6 bg-zinc-50/50">
+                  <button
+                    type="submit"
+                    className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold text-[15px] rounded-xl transition-all duration-200 active:scale-[0.99] shadow-md shadow-teal-600/20"
+                  >
+                    Find Grants
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               </form>
             )}
           </div>
