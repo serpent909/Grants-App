@@ -1097,12 +1097,26 @@ Be exhaustive — do not set any target limit. List every funder you know within
 
     // Await DB funder lookup (started in parallel with Step 0/1)
     const dbFunders = await dbFundersPromise;
-    const dbFunderUrls = dbFunders.filter(f => f.url).map(f => f.url);
-    if (dbFunderUrls.length > 0) {
-      console.log(`[GrantSearch] Charities DB: ${dbFunderUrls.length} funder URLs from register`);
+    // Split DB funders: enriched ones (have grant summary) skip Tavily entirely;
+    // unenriched ones contribute their grant URL or website URL for extraction.
+    const enrichedDbFunders = dbFunders.filter(f => f.grantSummary);
+    const unenrichedDbFunders = dbFunders.filter(f => !f.grantSummary);
+    const dbFunderUrls = unenrichedDbFunders
+      .map(f => f.grantUrl || f.url)
+      .filter(Boolean);
+    if (dbFunders.length > 0) {
+      console.log(`[GrantSearch] Charities DB: ${dbFunders.length} matching (${enrichedDbFunders.length} enriched, ${dbFunderUrls.length} URLs for extraction)`);
     }
 
-    const allDiscoveredUrls = Array.from(new Set([...discoveredFunderUrls, ...additionalDirUrls, ...dbFunderUrls]));
+    // Prioritize URLs: curated + Serper-discovered first, then DB URLs to fill remaining capacity
+    const TOTAL_URL_CAP = 200;
+    const primaryUrls = Array.from(new Set([...discoveredFunderUrls, ...additionalDirUrls]));
+    const remainingCap = Math.max(0, TOTAL_URL_CAP - primaryUrls.length);
+    const cappedDbUrls = dbFunderUrls.slice(0, remainingCap);
+    const allDiscoveredUrls = Array.from(new Set([...primaryUrls, ...cappedDbUrls]));
+    if (dbFunderUrls.length > remainingCap) {
+      console.log(`[GrantSearch] DB URLs capped: ${cappedDbUrls.length}/${dbFunderUrls.length} (total cap ${TOTAL_URL_CAP})`);
+    }
     console.log(`[GrantSearch] Step 0+1 complete: ${allDiscoveredUrls.length} discovered URLs, ${regionalQueries.length} regional queries`);
 
     // Index 0: org extract
@@ -1344,9 +1358,30 @@ Be exhaustive — do not set any target limit. List every funder you know within
       ...uniqueSearchHits.map(h => ({ url: h.url })),
     ]).map(r => r.url);
     const curatedUrlSet = new Set(filteredCuratedUrls.map(normaliseUrl));
-    const allUrlsToExtract = dedupedUrls.filter(url => curatedUrlSet.has(normaliseUrl(url)) || isGrantPage(url));
-    const filtered = dedupedUrls.length - allUrlsToExtract.length;
+    const grantFilteredUrls = dedupedUrls.filter(url => curatedUrlSet.has(normaliseUrl(url)) || isGrantPage(url));
+    const filtered = dedupedUrls.length - grantFilteredUrls.length;
     if (filtered > 0) console.log(`[GrantSearch] Pre-extraction filter: removed ${filtered} non-grant URLs`);
+
+    // Per-domain cap: max 3 URLs per domain to avoid over-extracting one funder
+    const MAX_PER_DOMAIN = 3;
+    const domainCount = new Map<string, number>();
+    const allUrlsToExtract: string[] = [];
+    let domainCapped = 0;
+    for (const url of grantFilteredUrls) {
+      try {
+        const domain = new URL(url).hostname;
+        const count = domainCount.get(domain) || 0;
+        if (count < MAX_PER_DOMAIN) {
+          allUrlsToExtract.push(url);
+          domainCount.set(domain, count + 1);
+        } else {
+          domainCapped++;
+        }
+      } catch {
+        allUrlsToExtract.push(url); // keep malformed URLs, they'll fail gracefully
+      }
+    }
+    if (domainCapped > 0) console.log(`[GrantSearch] Per-domain cap: removed ${domainCapped} URLs (max ${MAX_PER_DOMAIN}/domain)`);
 
     console.log(`[GrantSearch] Step 3: Extracting ${allUrlsToExtract.length} unique pages`);
     const extractedPages = await extractPages(allUrlsToExtract, snippetByUrl, costs);
@@ -1421,6 +1456,24 @@ Be exhaustive — do not set any target limit. List every funder you know within
       if (snippetCount > 0) {
         console.log(`[GrantSearch] Step 3c: Added ${snippetCount} snippet-only pages`);
       }
+    }
+
+    // Inject enriched DB funders as synthetic pages (bypasses Tavily entirely)
+    if (enrichedDbFunders.length > 0) {
+      let injected = 0;
+      for (const f of enrichedDbFunders) {
+        const url = f.grantUrl || f.url;
+        const key = normaliseUrl(url);
+        if (!extractedUrlSet.has(key)) {
+          extractedPages.push({
+            url,
+            content: `${f.name}\n\n${f.grantSummary}\n\nRegistered purpose: ${f.purpose || 'Not specified'}`,
+          });
+          extractedUrlSet.add(key);
+          injected++;
+        }
+      }
+      if (injected > 0) console.log(`[GrantSearch] Enriched DB funders: injected ${injected} pages (no Tavily cost)`);
     }
 
     if (!extractedPages.length) {
