@@ -1,4 +1,5 @@
 import { Pool } from '@neondatabase/serverless';
+import { SearchResult } from './types';
 
 let pool: Pool | null = null;
 
@@ -107,5 +108,66 @@ export async function findMatchingCharities(
   } catch (err) {
     console.warn('[GrantSearch] DB query failed — skipping charity register lookup:', err);
     return [];
+  }
+}
+
+// ─── Search Result Cache ──────────────────────────────────────────────────────
+
+let cacheTableReady = false;
+
+async function ensureCacheTable(): Promise<void> {
+  if (cacheTableReady) return;
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return;
+  try {
+    const db = getPool();
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS search_cache (
+        id SERIAL PRIMARY KEY,
+        market TEXT NOT NULL,
+        inputs_json JSONB NOT NULL,
+        result_json JSONB NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    cacheTableReady = true;
+  } catch (err) {
+    console.warn('[SearchCache] Failed to create cache table:', err);
+  }
+}
+
+export async function saveSearchResult(market: string, inputs: object, result: SearchResult): Promise<void> {
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return;
+  try {
+    await ensureCacheTable();
+    const db = getPool();
+    // Replace any existing cache for this market
+    await db.query('DELETE FROM search_cache WHERE market = $1', [market]);
+    await db.query(
+      'INSERT INTO search_cache (market, inputs_json, result_json) VALUES ($1, $2, $3)',
+      [market, JSON.stringify(inputs), JSON.stringify(result)],
+    );
+    console.log(`[SearchCache] Saved ${result.grants.length} grants for market "${market}"`);
+  } catch (err) {
+    console.warn('[SearchCache] Failed to save cached result:', err);
+  }
+}
+
+export async function loadSearchResult(market: string): Promise<SearchResult | null> {
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return null;
+  try {
+    await ensureCacheTable();
+    const db = getPool();
+    const { rows } = await db.query(
+      'SELECT result_json, created_at FROM search_cache WHERE market = $1 ORDER BY created_at DESC LIMIT 1',
+      [market],
+    );
+    if (rows.length === 0) return null;
+    const age = Date.now() - new Date(rows[0].created_at).getTime();
+    const days = Math.round(age / 86_400_000);
+    console.log(`[SearchCache] Loaded cached result for "${market}" (${days}d old, ${(rows[0].result_json as SearchResult).grants?.length ?? '?'} grants)`);
+    return rows[0].result_json as SearchResult;
+  } catch (err) {
+    console.warn('[SearchCache] Failed to load cached result:', err);
+    return null;
   }
 }
