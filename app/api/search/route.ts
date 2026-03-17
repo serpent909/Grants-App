@@ -9,6 +9,9 @@ import { findMatchingCharities } from '@/lib/db';
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
 
+// ─── Pipeline toggles ──────────────────────────────────────────────────────
+const ENABLE_SITE_CRAWL = false;
+
 // ─── Cost tracking ───────────────────────────────────────────────────────────
 
 interface CostTracker {
@@ -165,9 +168,18 @@ The organisation operates in: ${regionText}.` : ''}
 - If a grant is explicitly restricted to a region NOT in [${regionText}], reduce attainability by 3-4 points and note in attainabilityNotes that the org does not operate in that region.` : ''}
 - When in doubt about a funder's geographic scope, assume it is available to the org.
 
+FORM-OF-SUPPORT CHECK (apply during alignment scoring):
+The organisation is seeking a specific type of support (usually cash funding of a stated amount). Compare what the organisation needs against what the grant/programme actually provides:
+- Cash grants/funding: direct monetary support the org can spend as needed
+- In-kind donations: donated goods, equipment, or materials (not cash)
+- Services/programmes: training, mentoring, capacity building, volunteer placement
+- Fee waivers/discounts: reduced-cost access to products or services
+If the grant provides in-kind support (e.g. donated equipment, pro-bono services, discounted software) but the organisation is seeking cash funding, these are MISALIGNED even if the topic area overlaps. Reduce alignment to 3-4 maximum (partial overlap at best). The org cannot use donated goods to pay for contractors, wages, or other cash expenses.
+Conversely, if the org specifically seeks in-kind support and the grant provides it, score normally.
+
 Scoring dimensions (0–10):
-alignment — how well the grant purpose matches the org mission AND specific funding request
-  0-3 poor match | 4-6 partial overlap | 7-8 good match | 9-10 designed for exactly this
+alignment — how well the grant purpose AND form of support match the org mission AND specific funding request
+  0-3 poor match or wrong form of support | 4-6 partial overlap | 7-8 good match | 9-10 designed for exactly this
 
 ease — how easy it is to apply (higher = simpler process)
   1-2 multi-stage/site visits | 3-4 complex/extensive | 5-6 full proposal | 7-8 moderate effort | 9-10 simple online form
@@ -349,9 +361,12 @@ interface ExtractedPage {
   content: string;
 }
 
+type DiscoveryStep = 'curated' | 'directory' | 'enum' | 'seed' | 'regional' | 'directory-deepdive' | 'purpose' | 'associative' | 'broad' | 'gap-fill' | 'site-crawl' | 'db-enrichment' | 'unknown';
+
 interface SearchHit {
   url: string;
   snippet: string;
+  origin?: DiscoveryStep;
 }
 
 interface DiscoveredGrant {
@@ -1167,6 +1182,17 @@ Be exhaustive — do not set any target limit. List every funder you know within
     }
     console.log(`[GrantSearch] Step 1 complete: ${enumeratedFunders.length} funders (from ${hintGroups.length} category calls) + ${enumeratedPrograms.length} programs`);
 
+    // Filter enumerated funders to user's regions + national (before Step 2 to reduce downstream costs)
+    const preFilterCount = enumeratedFunders.length;
+    enumeratedFunders = enumeratedFunders.filter(f => {
+      const r = (f.region || '').toLowerCase().trim();
+      // Keep national / nationwide / unspecified
+      if (!r || r === 'national' || r === 'nationwide' || r === 'various' || r === 'multiple') return true;
+      // Keep if region matches any of user's regions (substring match for flexibility)
+      return regionNames.some(rn => r.includes(rn.toLowerCase()) || rn.toLowerCase().includes(r));
+    });
+    console.log(`[GrantSearch] Region filter: ${enumeratedFunders.length}/${preFilterCount} funders kept (${regionNames.join(', ')})`);
+
     // Start associative gap-fill (needs enumerated funders from Step 1)
     const associativePromise = generateAssociativeQueries(market, fundingPurpose, enumeratedFunders, regionNames, body.previousFunders || '', costs);
 
@@ -1190,7 +1216,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
           });
           costs.serperQueries++;
           r.results.forEach(hit =>
-            rawSearchHits.push({ url: hit.url, snippet: hit.content })
+            rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'enum' })
           );
         } catch { console.warn(`[GrantSearch] Search failed: ${f.name}`); }
       }),
@@ -1203,7 +1229,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
             });
           costs.serperQueries++;
           r.results.forEach(hit =>
-            rawSearchHits.push({ url: hit.url, snippet: hit.content })
+            rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'seed' })
           );
         } catch { console.warn('[GrantSearch] Seed search failed'); }
       }),
@@ -1217,7 +1243,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
             });
           costs.serperQueries++;
           r.results.forEach(hit =>
-            rawSearchHits.push({ url: hit.url, snippet: hit.content })
+            rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'regional' })
           );
         } catch { console.warn('[GrantSearch] Regional search failed'); }
       }),
@@ -1231,7 +1257,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
           });
           costs.serperQueries++;
           r.results.forEach(hit =>
-            rawSearchHits.push({ url: hit.url, snippet: hit.content })
+            rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'directory-deepdive' })
           );
         } catch { /* skip */ }
       }),
@@ -1252,7 +1278,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
         });
         costs.serperQueries++;
         r.results.forEach(hit =>
-          rawSearchHits.push({ url: hit.url, snippet: hit.content })
+          rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'purpose' })
         );
       } catch { console.warn('[GrantSearch] Purpose seed search failed'); }
     });
@@ -1268,7 +1294,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
         });
         costs.serperQueries++;
         r.results.forEach(hit =>
-          rawSearchHits.push({ url: hit.url, snippet: hit.content })
+          rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'associative' })
         );
       } catch { console.warn('[GrantSearch] Associative search failed'); }
     });
@@ -1284,7 +1310,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
         });
         costs.serperQueries++;
         r.results.forEach(hit =>
-          rawSearchHits.push({ url: hit.url, snippet: hit.content })
+          rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'broad' })
         );
       } catch { /* skip */ }
     });
@@ -1313,7 +1339,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
               excludeDomains: market.excludedDomains,
             });
             costs.serperQueries++;
-            r.results.forEach(hit => rawSearchHits.push({ url: hit.url, snippet: hit.content }));
+            r.results.forEach(hit => rawSearchHits.push({ url: hit.url, snippet: hit.content, origin: 'gap-fill' }));
           } catch { /* skip */ }
         });
         await withConcurrency(gapTasks, SEARCH_CONCURRENCY);
@@ -1324,15 +1350,37 @@ Be exhaustive — do not set any target limit. List every funder you know within
     // ── Step 2c: Per-funder site crawl ────────────────────────────────────────
     // Many funder searches return homepages. Crawl within each found domain
     // to discover the actual grants/apply pages buried deeper in the site.
-    {
+    if (ENABLE_SITE_CRAWL) {
       const allFoundDomains = [...new Set(rawSearchHits.map(h => {
         try {
           const host = new URL(h.url).hostname;
           return market.excludedDomains.some(d => host.endsWith(d) || host === d) ? '' : host;
         } catch { return ''; }
       }).filter(Boolean))];
-      const siteCrawlHits = await crawlFunderSites(allFoundDomains, market, costs);
-      siteCrawlHits.forEach(hit => rawSearchHits.push(hit));
+
+      // Skip domains already at per-domain URL cap (3) — crawling them would
+      // discover URLs that get discarded by the cap anyway, wasting Serper queries.
+      const domainUrlCount = new Map<string, number>();
+      for (const h of rawSearchHits) {
+        try {
+          const d = new URL(h.url).hostname;
+          domainUrlCount.set(d, (domainUrlCount.get(d) || 0) + 1);
+        } catch {}
+      }
+      const domainsNeedingCrawl = allFoundDomains.filter(d => (domainUrlCount.get(d) || 0) < 3);
+      console.log(`[GrantSearch] Site crawl: ${domainsNeedingCrawl.length}/${allFoundDomains.length} domains need crawling (${allFoundDomains.length - domainsNeedingCrawl.length} already at cap)`);
+
+      // Cap total crawl domains to avoid runaway Serper costs on the tail
+      const CRAWL_DOMAIN_CAP = 200;
+      const crawlDomains = domainsNeedingCrawl.slice(0, CRAWL_DOMAIN_CAP);
+      if (domainsNeedingCrawl.length > CRAWL_DOMAIN_CAP) {
+        console.log(`[GrantSearch] Site crawl: capped to ${CRAWL_DOMAIN_CAP} domains (skipped ${domainsNeedingCrawl.length - CRAWL_DOMAIN_CAP})`);
+      }
+
+      const siteCrawlHits = await crawlFunderSites(crawlDomains, market, costs);
+      siteCrawlHits.forEach(hit => rawSearchHits.push({ ...hit, origin: 'site-crawl' }));
+    } else {
+      console.log(`[GrantSearch] Step 2c: Site crawl DISABLED`);
     }
 
     const uniqueSearchHits = deduplicateByUrl(rawSearchHits);
@@ -1340,6 +1388,13 @@ Be exhaustive — do not set any target limit. List every funder you know within
       uniqueSearchHits.map(h => [normaliseUrl(h.url), h.snippet])
     );
     console.log(`[GrantSearch] Step 2 complete: ${rawSearchHits.length} raw hits → ${uniqueSearchHits.length} unique`);
+
+    // Count raw hits per discovery step (before dedup) for diagnostics
+    const rawCountByStep = new Map<DiscoveryStep, number>();
+    for (const h of rawSearchHits) {
+      const step = h.origin || 'unknown';
+      rawCountByStep.set(step, (rawCountByStep.get(step) || 0) + 1);
+    }
 
     // ── Step 3: Extract page content from all sources ─────────────────────────
     // Filter curated URLs by user's selected regions (national ones always included)
@@ -1382,6 +1437,27 @@ Be exhaustive — do not set any target limit. List every funder you know within
       }
     }
     if (domainCapped > 0) console.log(`[GrantSearch] Per-domain cap: removed ${domainCapped} URLs (max ${MAX_PER_DOMAIN}/domain)`);
+
+    // Build URL→origin map for provenance tracking (priority: curated > directory > search hits)
+    const urlOriginMap = new Map<string, DiscoveryStep>();
+    for (const url of filteredCuratedUrls) {
+      urlOriginMap.set(normaliseUrl(url), 'curated');
+    }
+    for (const url of allDiscoveredUrls) {
+      const key = normaliseUrl(url);
+      if (!urlOriginMap.has(key)) urlOriginMap.set(key, 'directory');
+    }
+    for (const h of uniqueSearchHits) {
+      const key = normaliseUrl(h.url);
+      if (!urlOriginMap.has(key)) urlOriginMap.set(key, h.origin || 'unknown');
+    }
+
+    // Track which origins survived per-domain capping
+    const extractedOriginCounts = new Map<DiscoveryStep, number>();
+    for (const url of allUrlsToExtract) {
+      const origin = urlOriginMap.get(normaliseUrl(url)) || 'unknown';
+      extractedOriginCounts.set(origin, (extractedOriginCounts.get(origin) || 0) + 1);
+    }
 
     console.log(`[GrantSearch] Step 3: Extracting ${allUrlsToExtract.length} unique pages`);
     const extractedPages = await extractPages(allUrlsToExtract, snippetByUrl, costs);
@@ -1492,8 +1568,33 @@ Be exhaustive — do not set any target limit. List every funder you know within
 
     console.log(`[GrantSearch] Step 4: Extracting grants from ${pageBatches.length} page batches`);
 
+    // Build page URL → origin map for provenance tracking during extraction
+    const pageOriginMap = new Map<string, DiscoveryStep>();
+    for (const p of grantPages) {
+      const key = normaliseUrl(p.url);
+      const origin = urlOriginMap.get(key);
+      if (origin) pageOriginMap.set(key, origin);
+    }
+
+    const grantOriginMap = new Map<string, DiscoveryStep>();
+
     const extractionResults = await withConcurrency(
       pageBatches.map((pages, batchIdx) => async () => {
+        // Determine the origins of pages in this batch for grant provenance
+        const batchOrigins: DiscoveryStep[] = pages.map(p => {
+          return pageOriginMap.get(normaliseUrl(p.url)) || urlOriginMap.get(normaliseUrl(p.url)) || 'unknown';
+        });
+        // Build domain→origin for this batch's pages (for fallback matching)
+        const batchDomainOrigin = new Map<string, DiscoveryStep>();
+        pages.forEach((p, i) => {
+          try {
+            const domain = new URL(p.url).hostname;
+            if (!batchDomainOrigin.has(domain)) batchDomainOrigin.set(domain, batchOrigins[i]);
+          } catch {}
+        });
+        // Most common origin in batch as last-resort fallback
+        const fallbackOrigin = batchOrigins.filter(o => o !== 'unknown')[0] || batchOrigins[0];
+
         const pagesText = pages.map((p, i) =>
           `=== PAGE ${i + 1} ===\nURL: ${p.url}\n\n${p.content}`
         ).join('\n\n');
@@ -1515,6 +1616,21 @@ Be exhaustive — do not set any target limit. List every funder you know within
           const parsed = JSON.parse(raw);
           const grants = Array.isArray(parsed) ? parsed as DiscoveredGrant[] : [];
           console.log(`[GrantSearch] Page batch ${batchIdx + 1}: ${grants.length} grants extracted`);
+
+          // Assign origin to each grant: exact URL match → domain match → batch fallback
+          for (const g of grants) {
+            const key = normaliseUrl(g.url);
+            let origin = urlOriginMap.get(key);
+            if (!origin) {
+              try {
+                const domain = new URL(g.url).hostname;
+                origin = batchDomainOrigin.get(domain);
+              } catch {}
+            }
+            if (!origin) origin = fallbackOrigin;
+            grantOriginMap.set(g.url, origin);
+          }
+
           return grants;
         } catch (err) {
           console.warn(`[GrantSearch] Extraction batch ${batchIdx + 1} failed:`, err);
@@ -1617,12 +1733,89 @@ Be exhaustive — do not set any target limit. List every funder you know within
       'TOTAL': `$${costBreakdown.total.toFixed(4)}`,
     });
 
+    // ── Pipeline Diagnostics ──────────────────────────────────────────────────
+    const ALL_STEPS: DiscoveryStep[] = ['curated', 'directory', 'enum', 'seed', 'regional',
+      'directory-deepdive', 'purpose', 'associative', 'broad', 'gap-fill', 'site-crawl', 'db-enrichment'];
+
+    const stepStats: Record<string, {
+      rawUrls: number;
+      uniqueUrls: number;
+      extractedUrls: number;
+      grantsFound: number;
+      grantsKept: number;
+      scores: number[];
+    }> = {};
+
+    for (const step of ALL_STEPS) {
+      stepStats[step] = {
+        rawUrls: rawCountByStep.get(step) || 0,
+        uniqueUrls: [...urlOriginMap.values()].filter(o => o === step).length,
+        extractedUrls: extractedOriginCounts.get(step) || 0,
+        grantsFound: [...grantOriginMap.values()].filter(o => o === step).length,
+        grantsKept: 0,
+        scores: [],
+      };
+    }
+
+    for (const g of grants) {
+      const origin = grantOriginMap.get(g.url) || 'unknown';
+      if (stepStats[origin]) {
+        stepStats[origin].grantsKept++;
+        stepStats[origin].scores.push(g.scores?.overall ?? 0);
+      }
+    }
+
+    // Log formatted diagnostic table
+    const hdr = `${'Step'.padEnd(20)} ${'Raw URLs'.padStart(10)} ${'Unique'.padStart(8)} ${'Extracted'.padStart(10)} ${'Grants'.padStart(8)} ${'Kept'.padStart(6)} ${'Avg Score'.padStart(10)}`;
+    const sep = '\u2500'.repeat(78);
+    console.log(`\n[GrantSearch] \u2550\u2550\u2550 PIPELINE DIAGNOSTICS \u2550\u2550\u2550`);
+    console.log(hdr);
+    console.log(sep);
+    const totals = { raw: 0, unique: 0, extracted: 0, found: 0, kept: 0, allScores: [] as number[] };
+    for (const [step, s] of Object.entries(stepStats)) {
+      if (s.rawUrls === 0 && s.uniqueUrls === 0 && s.grantsKept === 0) continue;
+      const avg = s.scores.length > 0 ? (s.scores.reduce((a, b) => a + b, 0) / s.scores.length).toFixed(1) : '\u2014';
+      console.log(`${step.padEnd(20)} ${String(s.rawUrls).padStart(10)} ${String(s.uniqueUrls).padStart(8)} ${String(s.extractedUrls).padStart(10)} ${String(s.grantsFound).padStart(8)} ${String(s.grantsKept).padStart(6)} ${String(avg).padStart(10)}`);
+      totals.raw += s.rawUrls; totals.unique += s.uniqueUrls; totals.extracted += s.extractedUrls;
+      totals.found += s.grantsFound; totals.kept += s.grantsKept; totals.allScores.push(...s.scores);
+    }
+    // Add unknown row if any grants couldn't be traced
+    const unknownKept = grants.filter(g => {
+      const o = grantOriginMap.get(g.url);
+      return !o || o === 'unknown';
+    }).length;
+    if (unknownKept > 0) {
+      const unknownScores = grants.filter(g => !grantOriginMap.get(g.url) || grantOriginMap.get(g.url) === 'unknown').map(g => g.scores?.overall ?? 0);
+      const avg = unknownScores.length > 0 ? (unknownScores.reduce((a, b) => a + b, 0) / unknownScores.length).toFixed(1) : '\u2014';
+      console.log(`${'unknown'.padEnd(20)} ${''.padStart(10)} ${''.padStart(8)} ${''.padStart(10)} ${''.padStart(8)} ${String(unknownKept).padStart(6)} ${String(avg).padStart(10)}`);
+      totals.kept += unknownKept; totals.allScores.push(...unknownScores);
+    }
+    console.log(sep);
+    const totalAvg = totals.allScores.length > 0 ? (totals.allScores.reduce((a, b) => a + b, 0) / totals.allScores.length).toFixed(1) : '\u2014';
+    console.log(`${'TOTAL'.padEnd(20)} ${String(totals.raw).padStart(10)} ${String(totals.unique).padStart(8)} ${String(totals.extracted).padStart(10)} ${String(totals.found).padStart(8)} ${String(totals.kept).padStart(6)} ${String(totalAvg).padStart(10)}`);
+    console.log('');
+
+    // Strip scores arrays before sending to client (just for logging)
+    const diagnostics: Record<string, { rawUrls: number; uniqueUrls: number; extractedUrls: number; grantsFound: number; grantsKept: number; avgScore: number | null }> = {};
+    for (const [step, s] of Object.entries(stepStats)) {
+      if (s.rawUrls === 0 && s.uniqueUrls === 0 && s.grantsKept === 0) continue;
+      diagnostics[step] = {
+        rawUrls: s.rawUrls,
+        uniqueUrls: s.uniqueUrls,
+        extractedUrls: s.extractedUrls,
+        grantsFound: s.grantsFound,
+        grantsKept: s.grantsKept,
+        avgScore: s.scores.length > 0 ? Math.round((s.scores.reduce((a, b) => a + b, 0) / s.scores.length) * 10) / 10 : null,
+      };
+    }
+
     return NextResponse.json({
       grants,
       orgSummary,
       searchedAt: new Date().toISOString(),
       market: market.id,
       inputs: body,
+      diagnostics,
     } as SearchResult);
 
   } catch (err) {

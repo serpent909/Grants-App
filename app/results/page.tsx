@@ -6,14 +6,16 @@ import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
   ChevronDown, ChevronUp, CalendarDays, Building2,
   SlidersHorizontal, Bookmark, BookmarkCheck, X,
+  Microscope, Loader2, CheckCircle2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { SearchResult, GrantOpportunity } from '@/lib/types';
+import { SearchResult, GrantOpportunity, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { saveSearch, updateSaved, autoName, getSaved } from '@/lib/saved-searches';
+import { getDeepSearch, saveDeepSearch, hasDeepSearch } from '@/lib/deep-search-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,28 +43,31 @@ const TYPE_CONFIG: Record<
   Other:         { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200',    border: 'border-l-zinc-400',   icon: 'bg-zinc-100 text-zinc-500' },
 };
 
-function scoreColor(score: number): string {
-  if (score >= 8) return '#10b981';  // emerald
-  if (score >= 6.5) return '#f59e0b'; // amber
-  if (score >= 5) return '#f97316';   // orange
+function scoreColor(score?: number): string {
+  const s = score ?? 0;
+  if (s >= 8) return '#10b981';  // emerald
+  if (s >= 6.5) return '#f59e0b'; // amber
+  if (s >= 5) return '#f97316';   // orange
   return '#ef4444';               // red
 }
 
-function scoreTextClass(score: number): string {
-  if (score >= 8) return 'text-emerald-700 bg-emerald-50';
-  if (score >= 6.5) return 'text-amber-700 bg-amber-50';
-  if (score >= 5) return 'text-orange-600 bg-orange-50';
+function scoreTextClass(score?: number): string {
+  const s = score ?? 0;
+  if (s >= 8) return 'text-emerald-700 bg-emerald-50';
+  if (s >= 6.5) return 'text-amber-700 bg-amber-50';
+  if (s >= 5) return 'text-orange-600 bg-orange-50';
   return 'text-red-600 bg-red-50';
 }
 
 // ─── Score ring ───────────────────────────────────────────────────────────────
 
-function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
+function ScoreRing({ score, size = 52, validated = false }: { score: number; size?: number; validated?: boolean }) {
+  const s = score ?? 0;
   const strokeW = 4;
   const r = (size - strokeW * 2) / 2;
   const circ = 2 * Math.PI * r;
-  const arc = Math.max(0, Math.min(1, score / 10)) * circ;
-  const color = scoreColor(score);
+  const arc = Math.max(0, Math.min(1, s / 10)) * circ;
+  const color = scoreColor(s);
 
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
@@ -80,9 +85,14 @@ function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="font-bold text-zinc-800 tabular-nums" style={{ fontSize: size < 44 ? 10 : 12 }}>
-          {score.toFixed(1)}
+          {s.toFixed(1)}
         </span>
       </div>
+      {validated && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+          <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+        </div>
+      )}
     </div>
   );
 }
@@ -90,10 +100,11 @@ function ScoreRing({ score, size = 52 }: { score: number; size?: number }) {
 // ─── Score pill ───────────────────────────────────────────────────────────────
 
 function ScorePill({ score, label }: { score: number; label: string }) {
+  const s = score ?? 0;
   return (
     <div className="flex flex-col items-center gap-0.5">
-      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(score)}`}>
-        {score.toFixed(1)}
+      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(s)}`}>
+        {s.toFixed(1)}
       </span>
       <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">{label}</span>
     </div>
@@ -125,7 +136,17 @@ function formatDeadline(d?: string, locale = 'en-NZ') {
 
 // ─── Grant detail panel ───────────────────────────────────────────────────────
 
-function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: string }) {
+function GrantDetail({
+  grant,
+  locale,
+  deepSearchState = 'idle',
+  onDeepSearch,
+}: {
+  grant: GrantOpportunity;
+  locale: string;
+  deepSearchState?: 'idle' | 'loading' | 'complete';
+  onDeepSearch?: () => void;
+}) {
   const deadline = formatDeadline(grant.deadline, locale);
   const amount = formatAmountRange(grant.amountMin, grant.amountMax);
 
@@ -164,6 +185,35 @@ function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: strin
             {grant.url.includes('google.com/search') ? 'Search for this grant' : 'View grant page'}
             <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </a>
+
+          {/* Deep Search button */}
+          <div className="mt-3">
+            {deepSearchState === 'idle' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeepSearch?.(); }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-sm transition-all"
+              >
+                <Microscope className="w-3.5 h-3.5" />
+                Deep Search
+              </button>
+            )}
+            {deepSearchState === 'loading' && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-200">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Researching...
+              </div>
+            )}
+            {deepSearchState === 'complete' && (
+              <a
+                href={`/grant/${encodeURIComponent(grant.id)}/deep-search`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                View Deep Search
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Alignment + Application */}
@@ -189,9 +239,9 @@ function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: strin
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Score breakdown</p>
             <div className="space-y-2.5">
               {[
-                { label: 'Alignment', score: grant.scores.alignment },
-                { label: 'Ease', score: grant.scores.ease },
-                { label: 'Attainability', score: grant.scores.attainability },
+                { label: 'Alignment', score: grant.scores?.alignment ?? 0 },
+                { label: 'Ease', score: grant.scores?.ease ?? 0 },
+                { label: 'Attainability', score: grant.scores?.attainability ?? 0 },
               ].map(({ label, score }) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="text-xs text-zinc-500">{label}</span>
@@ -214,7 +264,7 @@ function GrantDetail({ grant, locale }: { grant: GrantOpportunity; locale: strin
               <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
                 <span className="text-xs font-semibold text-zinc-700">Overall</span>
                 <span className="text-sm font-bold text-zinc-900 tabular-nums">
-                  {grant.scores.overall.toFixed(1)}
+                  {(grant.scores?.overall ?? 0).toFixed(1)}
                   <span className="text-xs font-normal text-zinc-400">/10</span>
                 </span>
               </div>
@@ -232,10 +282,16 @@ function FunderAccordion({
   group,
   defaultOpen = false,
   locale = 'en-NZ',
+  deepSearchLoading,
+  deepSearchComplete,
+  onDeepSearch,
 }: {
   group: FunderGroup;
   defaultOpen?: boolean;
   locale?: string;
+  deepSearchLoading?: string | null;
+  deepSearchComplete?: Set<string>;
+  onDeepSearch?: (grant: GrantOpportunity) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [expandedGrantId, setExpandedGrantId] = useState<string | null>(null);
@@ -282,13 +338,13 @@ function FunderAccordion({
       {/* Grant programs */}
       {open && (
         <div className="border-t border-zinc-100 divide-y divide-zinc-100">
-          {group.grants.map(grant => {
+          {group.grants.map((grant, gi) => {
             const isExpanded = expandedGrantId === grant.id;
             const deadline = formatDeadline(grant.deadline, locale);
             const amount = formatAmountRange(grant.amountMin, grant.amountMax);
 
             return (
-              <div key={grant.id}>
+              <div key={`${grant.id}-${gi}`}>
                 <button
                   className={`w-full flex items-center gap-4 pl-5 pr-4 py-3.5 text-left transition-colors ${
                     isExpanded ? 'bg-indigo-50/60' : 'bg-white hover:bg-zinc-50/70'
@@ -326,13 +382,18 @@ function FunderAccordion({
                   </div>
 
                   {/* Overall score */}
-                  <div className="flex-shrink-0 ml-3">
+                  <div className="flex-shrink-0 ml-3 relative">
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white tabular-nums"
                       style={{ backgroundColor: scoreColor(grant.scores.overall) }}
                     >
-                      {grant.scores.overall.toFixed(1)}
+                      {(grant.scores?.overall ?? 0).toFixed(1)}
                     </div>
+                    {deepSearchComplete?.has(grant.id) && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+                        <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-zinc-400 flex-shrink-0">
@@ -343,7 +404,18 @@ function FunderAccordion({
                   </div>
                 </button>
 
-                {isExpanded && <GrantDetail grant={grant} locale={locale} />}
+                {isExpanded && (
+                  <GrantDetail
+                    grant={grant}
+                    locale={locale}
+                    deepSearchState={
+                      deepSearchLoading === grant.id ? 'loading'
+                      : deepSearchComplete?.has(grant.id) ? 'complete'
+                      : 'idle'
+                    }
+                    onDeepSearch={() => onDeepSearch?.(grant)}
+                  />
+                )}
               </div>
             );
           })}
@@ -379,6 +451,11 @@ function ResultsContent() {
   const [saveName, setSaveName] = useState('');
   const saveInputRef = useRef<HTMLInputElement>(null);
 
+  // Deep search state
+  const [deepSearchLoading, setDeepSearchLoading] = useState<string | null>(null);
+  const [deepSearchComplete, setDeepSearchComplete] = useState<Set<string>>(new Set());
+  const [deepSearchError, setDeepSearchError] = useState<string | null>(null);
+
   useEffect(() => {
     // Check if loading a saved search by ID
     const id = searchParams.get('saved');
@@ -395,6 +472,65 @@ function ResultsContent() {
     try { setResult(JSON.parse(stored)); }
     catch { router.replace('/'); }
   }, [router, searchParams]);
+
+  // Scan localStorage for existing deep searches on mount / when result changes
+  useEffect(() => {
+    if (!result) return;
+    const completed = new Set<string>();
+    for (const g of result.grants) {
+      if (hasDeepSearch(g.id)) completed.add(g.id);
+    }
+    setDeepSearchComplete(completed);
+  }, [result]);
+
+  async function handleDeepSearch(grant: GrantOpportunity) {
+    if (deepSearchLoading) return;
+    if (!result?.inputs) {
+      setDeepSearchError('Organisation context not available. Please run a new search first.');
+      return;
+    }
+    setDeepSearchLoading(grant.id);
+    setDeepSearchError(null);
+
+    try {
+      const response = await fetch('/api/deep-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant: {
+            id: grant.id,
+            name: grant.name,
+            funder: grant.funder,
+            url: grant.url,
+            description: grant.description,
+            scores: grant.scores,
+            alignmentReason: grant.alignmentReason,
+            applicationNotes: grant.applicationNotes,
+            attainabilityNotes: grant.attainabilityNotes,
+            amountMin: grant.amountMin,
+            amountMax: grant.amountMax,
+            deadline: grant.deadline,
+          },
+          orgContext: result.inputs,
+          market: result.market || 'nz',
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: 'Server error' }));
+        throw new Error(data.error || 'Deep search failed');
+      }
+
+      const deepResult: DeepSearchResult = await response.json();
+      saveDeepSearch(deepResult);
+      setDeepSearchComplete(prev => new Set([...prev, grant.id]));
+    } catch (err) {
+      console.error('Deep search error:', err);
+      setDeepSearchError(err instanceof Error ? err.message : 'Deep search failed');
+    } finally {
+      setDeepSearchLoading(null);
+    }
+  }
 
   function handleSaveClick() {
     if (!result) return;
@@ -691,8 +827,21 @@ function ResultsContent() {
                 group={group}
                 defaultOpen={false}
                 locale={market?.locale}
+                deepSearchLoading={deepSearchLoading}
+                deepSearchComplete={deepSearchComplete}
+                onDeepSearch={handleDeepSearch}
               />
             ))}
+          </div>
+        )}
+
+        {/* Deep search error toast */}
+        {deepSearchError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
+            <p className="text-sm text-red-700">{deepSearchError}</p>
+            <button onClick={() => setDeepSearchError(null)} className="text-red-400 hover:text-red-600 ml-3">
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
 

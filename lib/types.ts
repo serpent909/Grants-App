@@ -37,4 +37,72 @@ export interface SearchResult {
   searchedAt: string;
   market: string; // echoed from request so results page can format currency/dates
   inputs?: OrgInfo; // original form inputs, saved for diagnostics and re-use
+  diagnostics?: Record<string, {
+    rawUrls: number;
+    uniqueUrls: number;
+    extractedUrls: number;
+    grantsFound: number;
+    grantsKept: number;
+    avgScore: number | null;
+  }>;
+}
+
+// ─── Deep Search ─────────────────────────────────────────────────────────────
+
+export interface DeepSearchChecklistItem {
+  item: string;        // e.g. "Project budget"
+  description: string; // e.g. "A detailed line-item budget showing all project costs"
+  required: boolean;   // true if explicitly stated as mandatory
+}
+
+export interface DeepSearchScoreChange {
+  old: number;
+  new: number;
+  reason: string;
+}
+
+export interface DeepSearchResult {
+  grantId: string;
+  grantName: string;
+  funder: string;
+  grantUrl: string;
+  searchedAt: string;
+
+  // Financial
+  amountMin?: number;
+  amountMax?: number;
+  amountNotes?: string;
+
+  // Dates
+  applicationOpenDate?: string;
+  applicationCloseDate?: string;
+  dateNotes?: string;
+
+  // Application requirements
+  checklist: DeepSearchChecklistItem[];
+  applicationFormUrl?: string;
+  applicationFormType?: 'online' | 'pdf' | 'word' | 'unknown';
+  applicationFormNotes?: string;
+
+  // Eligibility
+  eligibilityCriteria: string[];
+
+  // Recalibrated scores
+  scores: {
+    alignment: number;
+    ease: number;
+    attainability: number;
+    overall: number;
+  };
+  scoreChanges: {
+    alignment: DeepSearchScoreChange;
+    ease: DeepSearchScoreChange;
+    attainability: DeepSearchScoreChange;
+  };
+
+  // Additional discoveries
+  additionalInfo?: string;
+  keyContacts?: string;
+  pastRecipientNotes?: string;
+  sourcesUsed: { url: string; title: string }[];
 }
