@@ -340,6 +340,7 @@ export const NZ_MARKET: MarketConfig = {
     'nzherald.co.nz', 'stuff.co.nz', 'rnz.co.nz', 'scoop.co.nz',
     'newshub.co.nz', 'tvnz.co.nz', 'beehive.govt.nz',
     'charities.govt.nz', 'grantguru.co.nz',
+    'givealittle.co.nz', 'gofundme.com',
     'wikipedia.org', 'wikimedia.org', 'linkedin.com', 'facebook.com',
     'twitter.com', 'instagram.com', 'youtube.com', 'reddit.com',
   ],
