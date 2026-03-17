@@ -1000,7 +1000,10 @@ export async function POST(req: NextRequest) {
         console.log(`[GrantSearch] CACHED MODE — returning ${cached.grants.length} cached grants (zero cost)`);
         return NextResponse.json(cached);
       }
-      console.warn('[GrantSearch] CACHED MODE but no cached results found — falling through to full search');
+      return NextResponse.json(
+        { error: 'Search is in cached mode but no cached results exist. Run a full search first (set SEARCH_MODE to "full").' },
+        { status: 503 },
+      );
     }
 
     const isGrantPage = buildIsGrantPage(market);
