@@ -4,12 +4,13 @@ import { tavilyClient } from '@/lib/tavily';
 import { serperSearch } from '@/lib/serper';
 import { OrgInfo, GrantOpportunity, SearchResult } from '@/lib/types';
 import { getMarket, MarketConfig } from '@/lib/markets';
-import { findMatchingCharities } from '@/lib/db';
+import { findMatchingCharities, loadSearchResult, saveSearchResult } from '@/lib/db';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
 
 // ─── Pipeline toggles ──────────────────────────────────────────────────────
+const SEARCH_MODE: 'full' | 'cached' = 'cached';   // 'cached' = return DB-cached results (free)
 const ENABLE_SITE_CRAWL = false;
 
 // ─── Cost tracking ───────────────────────────────────────────────────────────
@@ -991,6 +992,20 @@ export async function POST(req: NextRequest) {
     }
 
     const market = getMarket(marketId || 'nz');
+
+    // ─── Cached mode: return DB-cached results immediately (free) ───
+    if (SEARCH_MODE === 'cached') {
+      const cached = await loadSearchResult(market.id);
+      if (cached) {
+        console.log(`[GrantSearch] CACHED MODE — returning ${cached.grants.length} cached grants (zero cost)`);
+        return NextResponse.json(cached);
+      }
+      return NextResponse.json(
+        { error: 'Search is in cached mode but no cached results exist. Run a full search first (set SEARCH_MODE to "full").' },
+        { status: 503 },
+      );
+    }
+
     const isGrantPage = buildIsGrantPage(market);
     const costs = createCostTracker();
 
@@ -1809,14 +1824,19 @@ Be exhaustive — do not set any target limit. List every funder you know within
       };
     }
 
-    return NextResponse.json({
+    const result: SearchResult = {
       grants,
       orgSummary,
       searchedAt: new Date().toISOString(),
       market: market.id,
       inputs: body,
       diagnostics,
-    } as SearchResult);
+    };
+
+    // Cache the result for future free searches
+    await saveSearchResult(market.id, body, result);
+
+    return NextResponse.json(result);
 
   } catch (err) {
     console.error('[GrantSearch] API error:', err);
