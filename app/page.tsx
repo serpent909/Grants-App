@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Globe, Linkedin, DollarSign,
-  AlertCircle, Check, ArrowRight,
+  AlertCircle, Check, ArrowRight, Bookmark,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/select';
 import { OrgInfo, SearchResult } from '@/lib/types';
 import { listMarkets } from '@/lib/markets';
+import { saveSearch, listSaved } from '@/lib/saved-searches';
 import { SECTORS, ORG_TYPES } from '@/lib/constants';
 import { TogglePill } from '@/components/toggle-pill';
 import { Field } from '@/components/field';
@@ -125,11 +126,31 @@ function LoadingState({
   );
 }
 
+// ─── Saved searches link ──────────────────────────────────────────────────────
+
+function SavedSearchesLink() {
+  const router = useRouter();
+  const [count, setCount] = useState(0);
+  useEffect(() => { setCount(listSaved().length); }, []);
+  if (count === 0) return null;
+  return (
+    <button
+      onClick={() => router.push('/saved')}
+      className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
+    >
+      <Bookmark className="w-3.5 h-3.5" />
+      My searches ({count})
+      <ArrowRight className="w-3 h-3" />
+    </button>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const router = useRouter();
   const [form, setForm] = useState<OrgInfo>({
+    searchTitle: '',
     website: '',
     linkedin: '',
     fundingPurpose: '',
@@ -173,6 +194,9 @@ export default function HomePage() {
 
   const validate = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof OrgInfo, string>> = {};
+    if (!form.searchTitle?.trim()) {
+      newErrors.searchTitle = 'Please give this search a title';
+    }
     if (!form.website.trim()) {
       newErrors.website = 'Website URL is required';
     } else if (!isValidUrl(form.website)) {
@@ -248,8 +272,10 @@ export default function HomePage() {
       setLoadingProgress(100);
       sessionStorage.setItem('grantSearchResult', JSON.stringify(result));
 
+      // Auto-save and navigate to results with saved ID
+      const saved = saveSearch(form.searchTitle?.trim() || '', result);
       setTimeout(() => {
-        router.push('/results');
+        router.push(`/results?saved=${saved.id}`);
       }, 300);
     } catch (err) {
       clearInterval(interval);
@@ -306,7 +332,7 @@ export default function HomePage() {
               saving you hours of research.
             </p>
 
-            <div className="flex items-center justify-center gap-10 mb-2">
+            <div className="flex items-center justify-center gap-10 mb-4">
               {[
                 ['200+', 'Funding sources'],
                 ['Matched', 'To your mission'],
@@ -318,6 +344,8 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+
+            <SavedSearchesLink />
           </div>
 
           {/* ── Form card ── */}
@@ -467,6 +495,23 @@ export default function HomePage() {
 
                 {/* ── Section 3: Funding Details ── */}
                 <div className="px-8 py-6 space-y-4">
+                  <Field
+                    label="Search title"
+                    required
+                    error={errors.searchTitle}
+                    hint="A short name to identify this search later"
+                  >
+                    <Input
+                      id="searchTitle"
+                      placeholder="e.g. Operational funding, New website, Vehicle purchase..."
+                      className={`h-10 border-zinc-300 focus-visible:ring-teal-500 ${
+                        errors.searchTitle ? 'border-red-300 focus-visible:ring-red-400' : ''
+                      }`}
+                      value={form.searchTitle || ''}
+                      onChange={e => updateField('searchTitle', e.target.value)}
+                    />
+                  </Field>
+
                   <Field
                     label="What is this funding search for?"
                     required

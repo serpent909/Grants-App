@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, Trash2, ArrowRight, Search, CalendarDays, RotateCcw } from 'lucide-react';
+import { Bookmark, Trash2, ArrowRight, Search, CalendarDays, RotateCcw, History } from 'lucide-react';
 import { listSaved, deleteSaved, SavedSearch } from '@/lib/saved-searches';
 import { getMarket } from '@/lib/markets';
 
@@ -35,12 +35,12 @@ export default function SavedPage() {
 
         <div className="flex items-center gap-3 mb-8">
           <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center">
-            <Bookmark className="w-4 h-4 text-teal-600" />
+            <History className="w-4 h-4 text-teal-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">Saved Searches</h1>
+            <h1 className="text-xl font-bold text-zinc-900">Funding Searches</h1>
             <p className="text-sm text-zinc-500">
-              {searches.length === 0 ? 'No saved searches yet' : `${searches.length} saved search${searches.length === 1 ? '' : 'es'}`}
+              {searches.length === 0 ? 'No searches yet' : `${searches.length} active search${searches.length === 1 ? '' : 'es'}`}
             </p>
           </div>
         </div>
@@ -48,9 +48,9 @@ export default function SavedPage() {
         {searches.length === 0 ? (
           <div className="bg-white rounded-2xl border border-zinc-200 py-20 text-center shadow-sm">
             <Bookmark className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
-            <p className="font-semibold text-zinc-400 text-sm">No saved searches yet</p>
+            <p className="font-semibold text-zinc-400 text-sm">No funding searches yet</p>
             <p className="text-xs text-zinc-400 mt-1 mb-6">
-              After running a search, click <strong>Save</strong> to bookmark it here.
+              Run a search and it will appear here automatically.
             </p>
             <button
               onClick={() => router.push('/')}

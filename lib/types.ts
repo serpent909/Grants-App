@@ -1,4 +1,5 @@
 export interface OrgInfo {
+  searchTitle?: string; // user-given name for this search, e.g. "Operational funding"
   website: string;
   linkedin: string;
   fundingPurpose: string;

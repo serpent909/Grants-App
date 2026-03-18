@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Heart, Bookmark } from "lucide-react";
+import { Heart, History } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
@@ -49,8 +49,8 @@ export default function RootLayout({
                   href="/saved"
                   className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors"
                 >
-                  <Bookmark className="w-3.5 h-3.5" />
-                  Saved
+                  <History className="w-3.5 h-3.5" />
+                  My Searches
                 </Link>
                 <Link
                   href="/"

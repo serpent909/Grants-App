@@ -1,11 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useState, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
   ChevronDown, ChevronUp, CalendarDays, Building2,
-  SlidersHorizontal, Bookmark, BookmarkCheck, X,
+  SlidersHorizontal, X,
   Microscope, Loader2, CheckCircle2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { SearchResult, GrantOpportunity, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
-import { saveSearch, updateSaved, autoName, getSaved } from '@/lib/saved-searches';
+import { getSaved } from '@/lib/saved-searches';
 import { getDeepSearch, saveDeepSearch, hasDeepSearch } from '@/lib/deep-search-storage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -445,11 +445,8 @@ function ResultsContent() {
   const [sortField, setSortField] = useState<SortField>('overall');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  // Save state
+  // Saved search context
   const [savedId, setSavedId] = useState<string | null>(null);
-  const [showSaveForm, setShowSaveForm] = useState(false);
-  const [saveName, setSaveName] = useState('');
-  const saveInputRef = useRef<HTMLInputElement>(null);
 
   // Deep search state
   const [deepSearchLoading, setDeepSearchLoading] = useState<string | null>(null);
@@ -530,25 +527,6 @@ function ResultsContent() {
     } finally {
       setDeepSearchLoading(null);
     }
-  }
-
-  function handleSaveClick() {
-    if (!result) return;
-    setSaveName(autoName(result));
-    setShowSaveForm(true);
-    setTimeout(() => saveInputRef.current?.select(), 50);
-  }
-
-  function handleSaveConfirm() {
-    if (!result) return;
-    if (savedId) {
-      updateSaved(savedId, result);
-    } else {
-      const entry = saveSearch(saveName, result);
-      setSavedId(entry.id);
-      router.replace(`/results?saved=${entry.id}`, { scroll: false });
-    }
-    setShowSaveForm(false);
   }
 
   const funderGroups = useMemo((): FunderGroup[] => {
@@ -639,7 +617,7 @@ function ResultsContent() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-xl font-bold text-zinc-900">
-                {savedId ? (getSaved(savedId)?.name ?? 'Grant Opportunities') : 'Grant Opportunities'}
+                {result.inputs?.searchTitle || (savedId ? (getSaved(savedId)?.name ?? 'Grant Opportunities') : 'Grant Opportunities')}
               </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1 rounded-full">
@@ -654,54 +632,13 @@ function ResultsContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Save */}
-              {!showSaveForm ? (
-                <button
-                  onClick={handleSaveClick}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border transition-all ${
-                    savedId
-                      ? 'bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100'
-                      : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50 hover:border-zinc-300'
-                  }`}
-                >
-                  {savedId
-                    ? <><BookmarkCheck className="w-3.5 h-3.5" /> Saved</>
-                    : <><Bookmark className="w-3.5 h-3.5" /> Save</>
-                  }
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 bg-white border border-teal-300 rounded-xl px-3 py-1.5 shadow-sm">
-                  <Bookmark className="w-3.5 h-3.5 text-teal-600 shrink-0" />
-                  <input
-                    ref={saveInputRef}
-                    type="text"
-                    value={saveName}
-                    onChange={e => setSaveName(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleSaveConfirm(); if (e.key === 'Escape') setShowSaveForm(false); }}
-                    className="text-sm text-zinc-800 bg-transparent outline-none w-52"
-                    placeholder="Name this search..."
-                  />
-                  <button
-                    onClick={handleSaveConfirm}
-                    className="text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 px-2.5 py-1 rounded-lg transition-colors"
-                  >
-                    Save
-                  </button>
-                  <button onClick={() => setShowSaveForm(false)} className="text-zinc-400 hover:text-zinc-600">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-
-              <button
-                onClick={() => router.push('/')}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-teal-200 transition-all"
-              >
-                <Search className="w-3.5 h-3.5" />
-                New Search
-              </button>
-            </div>
+            <button
+              onClick={() => router.push('/')}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-teal-200 transition-all"
+            >
+              <Search className="w-3.5 h-3.5" />
+              New Search
+            </button>
           </div>
         </div>
       </div>
