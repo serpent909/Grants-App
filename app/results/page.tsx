@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
   ChevronDown, ChevronUp, CalendarDays, Building2,
-  SlidersHorizontal, X,
+  SlidersHorizontal, X, Star,
   Microscope, Loader2, CheckCircle2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { SearchResult, GrantOpportunity, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { getSaved } from '@/lib/saved-searches';
 import { getDeepSearch, saveDeepSearch, hasDeepSearch } from '@/lib/deep-search-storage';
+import { isShortlisted as checkShortlisted, toggleShortlist } from '@/lib/shortlist-storage';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -89,9 +91,12 @@ function ScoreRing({ score, size = 52, validated = false }: { score: number; siz
         </span>
       </div>
       {validated && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
-          <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-        </div>
+        <Tooltip>
+          <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+          </TooltipTrigger>
+          <TooltipContent>Deep research completed</TooltipContent>
+        </Tooltip>
       )}
     </div>
   );
@@ -141,11 +146,15 @@ function GrantDetail({
   locale,
   deepSearchState = 'idle',
   onDeepSearch,
+  isShortlisted = false,
+  onToggleShortlist,
 }: {
   grant: GrantOpportunity;
   locale: string;
   deepSearchState?: 'idle' | 'loading' | 'complete';
   onDeepSearch?: () => void;
+  isShortlisted?: boolean;
+  onToggleShortlist?: () => void;
 }) {
   const deadline = formatDeadline(grant.deadline, locale);
   const amount = formatAmountRange(grant.amountMin, grant.amountMax);
@@ -212,6 +221,27 @@ function GrantDetail({
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 View Deep Search
               </a>
+            )}
+          </div>
+
+          {/* Shortlist button — requires deep search first */}
+          <div className="mt-2">
+            {deepSearchState === 'complete' ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); onToggleShortlist?.(); }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                  isShortlisted
+                    ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                    : 'bg-white border-zinc-300 text-zinc-700 hover:border-amber-400 hover:text-amber-700'
+                }`}
+              >
+                <Star className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-amber-400' : ''}`} />
+                {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 italic">
+                Run Deep Search to shortlist
+              </span>
             )}
           </div>
         </div>
@@ -285,6 +315,8 @@ function FunderAccordion({
   deepSearchLoading,
   deepSearchComplete,
   onDeepSearch,
+  shortlistedIds,
+  onToggleShortlist,
 }: {
   group: FunderGroup;
   defaultOpen?: boolean;
@@ -292,6 +324,8 @@ function FunderAccordion({
   deepSearchLoading?: string | null;
   deepSearchComplete?: Set<string>;
   onDeepSearch?: (grant: GrantOpportunity) => void;
+  shortlistedIds?: Set<string>;
+  onToggleShortlist?: (grant: GrantOpportunity) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [expandedGrantId, setExpandedGrantId] = useState<string | null>(null);
@@ -320,6 +354,24 @@ function FunderAccordion({
             <span className="text-zinc-400 text-xs">
               {group.grants.length} {group.grants.length === 1 ? 'program' : 'programs'}
             </span>
+            {(() => {
+              const deepCount = deepSearchComplete ? group.grants.filter(g => deepSearchComplete.has(g.id)).length : 0;
+              return deepCount > 0 ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
+                  <Microscope className="w-3 h-3" />
+                  {deepCount} researched
+                </span>
+              ) : null;
+            })()}
+            {(() => {
+              const count = shortlistedIds ? group.grants.filter(g => shortlistedIds.has(g.id)).length : 0;
+              return count > 0 ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                  <Star className="w-3 h-3 fill-amber-400" />
+                  {count} shortlisted
+                </span>
+              ) : null;
+            })()}
           </div>
         </div>
 
@@ -351,8 +403,25 @@ function FunderAccordion({
                   }`}
                   onClick={() => toggleGrant(grant.id)}
                 >
-                  {/* Left spacer to align with funder header content */}
-                  <div className="w-9 flex-shrink-0" />
+                  {/* Left spacer / status indicators */}
+                  <div className="w-9 flex-shrink-0 flex flex-col items-center justify-center gap-1">
+                    {deepSearchComplete?.has(grant.id) && (
+                      <Tooltip>
+                        <TooltipTrigger className="flex items-center justify-center">
+                          <Microscope className="w-3.5 h-3.5 text-emerald-600" />
+                        </TooltipTrigger>
+                        <TooltipContent>Deep research completed</TooltipContent>
+                      </Tooltip>
+                    )}
+                    {shortlistedIds?.has(grant.id) && (
+                      <Tooltip>
+                        <TooltipTrigger className="flex items-center justify-center">
+                          <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                        </TooltipTrigger>
+                        <TooltipContent>Shortlisted</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
 
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium leading-snug ${isExpanded ? 'text-indigo-700' : 'text-zinc-800'}`}>
@@ -390,9 +459,12 @@ function FunderAccordion({
                       {(grant.scores?.overall ?? 0).toFixed(1)}
                     </div>
                     {deepSearchComplete?.has(grant.id) && (
-                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
-                        <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+                          <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                        </TooltipTrigger>
+                        <TooltipContent>Deep research completed</TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
 
@@ -414,6 +486,8 @@ function FunderAccordion({
                       : 'idle'
                     }
                     onDeepSearch={() => onDeepSearch?.(grant)}
+                    isShortlisted={shortlistedIds?.has(grant.id) ?? false}
+                    onToggleShortlist={() => onToggleShortlist?.(grant)}
                   />
                 )}
               </div>
@@ -453,6 +527,9 @@ function ResultsContent() {
   const [deepSearchComplete, setDeepSearchComplete] = useState<Set<string>>(new Set());
   const [deepSearchError, setDeepSearchError] = useState<string | null>(null);
 
+  // Shortlist state
+  const [shortlistedIds, setShortlistedIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     // Check if loading a saved search by ID
     const id = searchParams.get('saved');
@@ -470,15 +547,31 @@ function ResultsContent() {
     catch { router.replace('/'); }
   }, [router, searchParams]);
 
-  // Scan localStorage for existing deep searches on mount / when result changes
+  // Scan localStorage for existing deep searches and shortlists on mount
   useEffect(() => {
     if (!result) return;
     const completed = new Set<string>();
+    const shortlisted = new Set<string>();
     for (const g of result.grants) {
       if (hasDeepSearch(g.id)) completed.add(g.id);
+      if (checkShortlisted(g.id)) shortlisted.add(g.id);
     }
     setDeepSearchComplete(completed);
+    setShortlistedIds(shortlisted);
   }, [result]);
+
+  function handleToggleShortlist(grant: GrantOpportunity) {
+    const searchTitle = result?.inputs?.searchTitle
+      || (savedId ? getSaved(savedId)?.name : null)
+      || 'Untitled search';
+    const nowShortlisted = toggleShortlist(grant, searchTitle);
+    setShortlistedIds(prev => {
+      const next = new Set(prev);
+      if (nowShortlisted) next.add(grant.id);
+      else next.delete(grant.id);
+      return next;
+    });
+  }
 
   async function handleDeepSearch(grant: GrantOpportunity) {
     if (deepSearchLoading) return;
@@ -767,6 +860,8 @@ function ResultsContent() {
                 deepSearchLoading={deepSearchLoading}
                 deepSearchComplete={deepSearchComplete}
                 onDeepSearch={handleDeepSearch}
+                shortlistedIds={shortlistedIds}
+                onToggleShortlist={handleToggleShortlist}
               />
             ))}
           </div>

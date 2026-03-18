@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Heart, History } from "lucide-react";
+import { Heart, History, Star, ClipboardList } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
@@ -17,8 +17,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "GrantSearch — Free Grant Finder for Nonprofits",
-  description: "Find the right grants for your nonprofit or charity. Free, no sign-up needed. We search hundreds of government, foundation, corporate, and community funding sources.",
+  title: "GrantSearch — Find the Right Grants for Your Organisation",
+  description: "Find and rank the best grants for your organisation. We search hundreds of government, foundation, corporate, and community funding sources.",
 };
 
 export default function RootLayout({
@@ -42,21 +42,26 @@ export default function RootLayout({
                 </span>
               </Link>
               <div className="flex items-center gap-2">
-                <span className="hidden md:block text-sm text-stone-400 font-normal mr-4">
-                  Free for nonprofits
-                </span>
                 <Link
                   href="/saved"
                   className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors"
                 >
                   <History className="w-3.5 h-3.5" />
-                  My Searches
+                  Funding Searches
                 </Link>
                 <Link
-                  href="/"
-                  className="text-sm font-medium px-4 py-2 rounded-lg text-teal-600 hover:bg-teal-50 transition-colors"
+                  href="/shortlisted"
+                  className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors"
                 >
-                  New Search
+                  <Star className="w-3.5 h-3.5" />
+                  Shortlisted
+                </Link>
+                <Link
+                  href="/applications"
+                  className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors"
+                >
+                  <ClipboardList className="w-3.5 h-3.5" />
+                  Applications
                 </Link>
               </div>
             </div>

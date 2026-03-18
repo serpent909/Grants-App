@@ -107,3 +107,34 @@ export interface DeepSearchResult {
   pastRecipientNotes?: string;
   sourcesUsed: { url: string; title: string }[];
 }
+
+// ─── Application Tracking ───────────────────────────────────────────────────
+
+export type ApplicationStatus =
+  | 'preparing'     // Gathering documents, writing proposal
+  | 'submitted'     // Application sent to funder
+  | 'under-review'  // Funder acknowledging / reviewing
+  | 'approved'      // Funding approved
+  | 'declined'      // Application declined
+  | 'withdrawn';    // User withdrew
+
+export interface ApplicationStatusEntry {
+  status: ApplicationStatus;
+  note: string;
+  updatedAt: string; // ISO
+}
+
+export interface GrantApplication {
+  id: string;
+  grantId: string;
+  grant: GrantOpportunity;
+  searchTitle: string;
+  status: ApplicationStatus;
+  statusHistory: ApplicationStatusEntry[];
+  notes: string;
+  startedAt: string;
+  submittedAt?: string;
+  decidedAt?: string;
+  amountRequested?: number;
+  amountAwarded?: number;
+}
