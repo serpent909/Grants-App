@@ -1,9 +1,10 @@
 import { Pool } from '@neondatabase/serverless';
+import { createHash } from 'crypto';
 import { SearchResult } from './types';
 
 let pool: Pool | null = null;
 
-function getPool(): Pool {
+export function getPool(): Pool {
   if (!pool) {
     const url = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     if (!url) throw new Error('DATABASE_URL or POSTGRES_URL env var is required');
@@ -149,6 +150,68 @@ export async function saveSearchResult(market: string, inputs: object, result: S
     console.log(`[SearchCache] Saved ${result.grants.length} grants for market "${market}"`);
   } catch (err) {
     console.warn('[SearchCache] Failed to save cached result:', err);
+  }
+}
+
+// ─── Deterministic Grant IDs ─────────────────────────────────────────────────
+
+export function generateGrantId(funder: string, name: string, url: string): string {
+  const input = `${funder.trim().toLowerCase()}|${name.trim().toLowerCase()}|${url.trim().toLowerCase()}`;
+  return 'g_' + createHash('sha256').update(input).digest('hex').slice(0, 16);
+}
+
+// ─── Storage Tables ──────────────────────────────────────────────────────────
+
+let storageTablesReady = false;
+
+export async function ensureStorageTables(): Promise<void> {
+  if (storageTablesReady) return;
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return;
+  try {
+    const db = getPool();
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS saved_searches (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        grant_count INTEGER NOT NULL DEFAULT 0,
+        org_summary TEXT NOT NULL DEFAULT '',
+        market TEXT NOT NULL,
+        result_json JSONB NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS shortlisted_grants (
+        grant_id TEXT PRIMARY KEY,
+        grant_json JSONB NOT NULL,
+        search_title TEXT NOT NULL DEFAULT '',
+        shortlisted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS deep_searches (
+        grant_id TEXT PRIMARY KEY,
+        result_json JSONB NOT NULL,
+        searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS grant_applications (
+        grant_id TEXT PRIMARY KEY,
+        id TEXT NOT NULL,
+        grant_json JSONB NOT NULL,
+        search_title TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'preparing',
+        status_history JSONB NOT NULL DEFAULT '[]',
+        notes TEXT NOT NULL DEFAULT '',
+        started_at TIMESTAMPTZ NOT NULL,
+        submitted_at TIMESTAMPTZ,
+        decided_at TIMESTAMPTZ,
+        amount_requested NUMERIC,
+        amount_awarded NUMERIC,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    storageTablesReady = true;
+  } catch (err) {
+    console.warn('[Storage] Failed to create storage tables:', err);
   }
 }
 

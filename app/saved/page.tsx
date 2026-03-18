@@ -1,24 +1,22 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bookmark, Trash2, ArrowRight, Search, CalendarDays, RotateCcw, History } from 'lucide-react';
-import { listSaved, deleteSaved, SavedSearch } from '@/lib/saved-searches';
+import { Bookmark, Trash2, ArrowRight, Search, CalendarDays, RotateCcw, History, Loader2 } from 'lucide-react';
+import { useSavedSearches, deleteSaved, SavedSearch } from '@/lib/saved-searches';
 import { getMarket } from '@/lib/markets';
 
 export default function SavedPage() {
   const router = useRouter();
-  const [searches, setSearches] = useState<SavedSearch[]>(() => listSaved());
+  const { data: searches = [], isLoading } = useSavedSearches();
 
   function handleOpen(saved: SavedSearch) {
     sessionStorage.setItem('grantSearchResult', JSON.stringify(saved.result));
     router.push(`/results?saved=${saved.id}`);
   }
 
-  function handleDelete(id: string, e: React.MouseEvent) {
+  async function handleDelete(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    deleteSaved(id);
-    setSearches(listSaved());
+    await deleteSaved(id);
   }
 
   function handleRerun(saved: SavedSearch, e: React.MouseEvent) {
@@ -27,6 +25,14 @@ export default function SavedPage() {
       sessionStorage.setItem('grantSearchPrefill', JSON.stringify(saved.result.inputs));
     }
     router.push('/');
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
+      </div>
+    );
   }
 
   return (

@@ -4,7 +4,7 @@ import { tavilyClient } from '@/lib/tavily';
 import { serperSearch } from '@/lib/serper';
 import { OrgInfo, GrantOpportunity, SearchResult } from '@/lib/types';
 import { getMarket, MarketConfig } from '@/lib/markets';
-import { findMatchingCharities, loadSearchResult, saveSearchResult } from '@/lib/db';
+import { findMatchingCharities, generateGrantId, loadSearchResult, saveSearchResult } from '@/lib/db';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -997,6 +997,11 @@ export async function POST(req: NextRequest) {
     if (SEARCH_MODE === 'cached') {
       const cached = await loadSearchResult(market.id);
       if (cached) {
+        // Re-map grant IDs to deterministic format (cached results may have old g-N IDs)
+        cached.grants = cached.grants.map(g => ({
+          ...g,
+          id: generateGrantId(g.funder, g.name, g.url),
+        }));
         console.log(`[GrantSearch] CACHED MODE — returning ${cached.grants.length} cached grants (zero cost)`);
         return NextResponse.json(cached);
       }
@@ -1736,7 +1741,7 @@ Be exhaustive — do not set any target limit. List every funder you know within
     const grants = scoreResults
       .flatMap(r => r?.grants || [])
       .filter(g => (g.scores?.alignment ?? 0) >= 5)
-      .map((g, i) => ({ ...g, id: g.id || `grant-${i}-${Date.now()}` }));
+      .map((g) => ({ ...g, id: generateGrantId(g.funder, g.name, g.url) }));
 
     const costBreakdown = computeCost(costs);
     console.log(`[GrantSearch] Done — ${grants.length} scored grants`);

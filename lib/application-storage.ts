@@ -1,31 +1,81 @@
+import useSWR, { mutate as globalMutate } from 'swr';
 import { GrantApplication, ApplicationStatus } from './types';
 import { ShortlistedGrant } from './shortlist-storage';
 
-const KEY = 'grantApplications';
+const SWR_OPTS = { revalidateOnFocus: false } as const;
 
-function readAll(): Record<string, GrantApplication> {
-  if (typeof window === 'undefined') return {};
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || '{}');
-  } catch {
-    return {};
-  }
+async function invalidateApplications() {
+  await globalMutate(
+    (key: unknown) => typeof key === 'string' && key.startsWith('applications'),
+    undefined,
+    { revalidate: true },
+  );
 }
 
-function writeAll(data: Record<string, GrantApplication>) {
-  localStorage.setItem(KEY, JSON.stringify(data));
+// ─── SWR Hooks ─────────────────────────────────────────────────────────────
+
+export function useApplicationsByStatus() {
+  return useSWR<Record<ApplicationStatus, GrantApplication[]>>(
+    'applications:by-status',
+    async () => {
+      const res = await fetch('/api/applications');
+      if (!res.ok) return emptyGrouped();
+      const all: GrantApplication[] = await res.json();
+      const grouped = emptyGrouped();
+      for (const app of all) grouped[app.status].push(app);
+      return grouped;
+    },
+    SWR_OPTS,
+  );
 }
 
-export function hasApplication(grantId: string): boolean {
-  return !!readAll()[grantId];
+export function useApplicationCheck(grantIds: string[]) {
+  const key = grantIds.length > 0
+    ? `applications:check:${grantIds.slice().sort().join(',')}`
+    : null;
+  return useSWR<Set<string>>(
+    key,
+    async () => {
+      const res = await fetch(`/api/applications?grantIds=${grantIds.join(',')}`);
+      if (!res.ok) return new Set<string>();
+      const ids: string[] = await res.json();
+      return new Set(ids);
+    },
+    SWR_OPTS,
+  );
 }
 
-export function getApplication(grantId: string): GrantApplication | undefined {
-  return readAll()[grantId];
+// ─── Read functions ────────────────────────────────────────────────────────
+
+export async function hasApplication(grantId: string): Promise<boolean> {
+  const res = await fetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`);
+  if (!res.ok) return false;
+  const app = await res.json();
+  return app !== null;
 }
 
-export function startApplication(shortlisted: ShortlistedGrant): GrantApplication {
-  const all = readAll();
+export async function getApplication(grantId: string): Promise<GrantApplication | null> {
+  const res = await fetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function listApplications(): Promise<GrantApplication[]> {
+  const res = await fetch('/api/applications');
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function listApplicationsByStatus(): Promise<Record<ApplicationStatus, GrantApplication[]>> {
+  const all = await listApplications();
+  const grouped = emptyGrouped();
+  for (const app of all) grouped[app.status].push(app);
+  return grouped;
+}
+
+// ─── Mutations (invalidate SWR cache after write) ──────────────────────────
+
+export async function startApplication(shortlisted: ShortlistedGrant): Promise<GrantApplication> {
   const now = new Date().toISOString();
   const app: GrantApplication = {
     id: `app-${Date.now()}`,
@@ -37,68 +87,72 @@ export function startApplication(shortlisted: ShortlistedGrant): GrantApplicatio
     notes: '',
     startedAt: now,
   };
-  all[shortlisted.grant.id] = app;
-  writeAll(all);
+  await fetch('/api/applications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(app),
+  });
+  await invalidateApplications();
   return app;
 }
 
-export function updateApplicationStatus(
+export async function updateApplicationStatus(
   grantId: string,
   status: ApplicationStatus,
   note: string = '',
-): void {
-  const all = readAll();
-  const app = all[grantId];
+): Promise<void> {
+  const app = await getApplication(grantId);
   if (!app) return;
 
   const now = new Date().toISOString();
-  app.status = status;
-  app.statusHistory.push({ status, note, updatedAt: now });
+  const statusHistory = [...app.statusHistory, { status, note, updatedAt: now }];
+  const updates: Record<string, unknown> = { grantId, status, statusHistory };
 
-  if (status === 'submitted') app.submittedAt = now;
-  if (status === 'approved' || status === 'declined') app.decidedAt = now;
+  if (status === 'submitted') updates.submittedAt = now;
+  if (status === 'approved' || status === 'declined') updates.decidedAt = now;
 
-  writeAll(all);
+  await fetch('/api/applications', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  await invalidateApplications();
 }
 
-export function updateApplicationNotes(grantId: string, notes: string): void {
-  const all = readAll();
-  const app = all[grantId];
-  if (!app) return;
-  app.notes = notes;
-  writeAll(all);
+export async function updateApplicationNotes(grantId: string, notes: string): Promise<void> {
+  await fetch('/api/applications', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ grantId, notes }),
+  });
+  // Don't invalidate cache for notes — it's managed by defaultValue
 }
 
-export function updateApplicationAmounts(
+export async function updateApplicationAmounts(
   grantId: string,
   amountRequested?: number,
   amountAwarded?: number,
-): void {
-  const all = readAll();
-  const app = all[grantId];
-  if (!app) return;
-  if (amountRequested !== undefined) app.amountRequested = amountRequested;
-  if (amountAwarded !== undefined) app.amountAwarded = amountAwarded;
-  writeAll(all);
-}
-
-export function removeApplication(grantId: string): void {
-  const all = readAll();
-  delete all[grantId];
-  writeAll(all);
-}
-
-export function listApplications(): GrantApplication[] {
-  return Object.values(readAll()).sort((a, b) => {
-    const aLatest = a.statusHistory[a.statusHistory.length - 1]?.updatedAt ?? a.startedAt;
-    const bLatest = b.statusHistory[b.statusHistory.length - 1]?.updatedAt ?? b.startedAt;
-    return bLatest.localeCompare(aLatest);
+): Promise<void> {
+  const updates: Record<string, unknown> = { grantId };
+  if (amountRequested !== undefined) updates.amountRequested = amountRequested;
+  if (amountAwarded !== undefined) updates.amountAwarded = amountAwarded;
+  await fetch('/api/applications', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
   });
+  await invalidateApplications();
 }
 
-export function listApplicationsByStatus(): Record<ApplicationStatus, GrantApplication[]> {
-  const all = listApplications();
-  const grouped: Record<ApplicationStatus, GrantApplication[]> = {
+export async function removeApplication(grantId: string): Promise<void> {
+  await fetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`, { method: 'DELETE' });
+  await invalidateApplications();
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function emptyGrouped(): Record<ApplicationStatus, GrantApplication[]> {
+  return {
     'preparing': [],
     'submitted': [],
     'under-review': [],
@@ -106,8 +160,4 @@ export function listApplicationsByStatus(): Record<ApplicationStatus, GrantAppli
     'declined': [],
     'withdrawn': [],
   };
-  for (const app of all) {
-    grouped[app.status].push(app);
-  }
-  return grouped;
 }

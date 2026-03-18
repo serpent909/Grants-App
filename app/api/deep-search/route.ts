@@ -146,7 +146,10 @@ export async function POST(req: NextRequest) {
       `"${grant.funder}" "${grant.name}" application deadline dates ${CURRENT_YEAR}`,
       `"${grant.funder}" grants recipients funded ${CURRENT_YEAR - 1}`,
       `"${grant.funder}" "${grant.name}" checklist requirements documents`,
-      ...(grantDomain ? [`site:${grantDomain} apply application form grant`] : []),
+      ...(grantDomain ? [
+        `site:${grantDomain} apply application form grant`,
+        `site:${grantDomain} grants funding deadline ${CURRENT_YEAR}`,
+      ] : []),
     ];
 
     const searchResults = await Promise.all(
@@ -219,7 +222,10 @@ export async function POST(req: NextRequest) {
       if (result?.results) {
         for (const r of result.results) {
           if (r?.rawContent && r?.url) {
-            pages.push({ url: r.url, content: r.rawContent.slice(0, 8000) });
+            // Give the primary grant URL more content allowance
+            const isPrimary = normaliseUrl(r.url) === normaliseUrl(grant.url);
+            const limit = isPrimary ? 15000 : 8000;
+            pages.push({ url: r.url, content: r.rawContent.slice(0, limit) });
           }
         }
       }
@@ -252,7 +258,11 @@ export async function POST(req: NextRequest) {
     // ────────────────────────────────────────────────────────────────────────
 
     const pagesText = pages
-      .map((p, i) => `=== PAGE ${i + 1} ===\nURL: ${p.url}\n\n${p.content}`)
+      .map((p, i) => {
+        const isPrimary = normaliseUrl(p.url) === normaliseUrl(grant.url);
+        const tag = isPrimary ? ' [PRIMARY GRANT PAGE]' : '';
+        return `=== PAGE ${i + 1}${tag} ===\nURL: ${p.url}\n\n${p.content}`;
+      })
       .join('\n\n');
 
     const orgContextText = [
@@ -288,9 +298,9 @@ Analyse ALL the provided page content carefully and return a JSON object with th
   "amountMax": <number or null — precise maximum grant amount in ${market.currency} if stated>,
   "amountNotes": "<any additional context about funding amounts, average grant sizes, multi-year availability>",
 
-  "applicationOpenDate": "<ISO date string or null — when applications open>",
-  "applicationCloseDate": "<ISO date string or null — when applications close. Must be a future date after ${TODAY}. If the date has passed, set to null.>",
-  "dateNotes": "<context about timing — annual rounds, rolling applications, specific rounds, etc.>",
+  "applicationOpenDate": "<ISO date string or null — when applications next open>",
+  "applicationCloseDate": "<ISO date string or null — the NEXT upcoming close date after ${TODAY}>",
+  "dateNotes": "<context about timing — annual rounds, rolling applications, frequency, specific rounds, etc.>",
 
   "checklist": [
     {
@@ -340,6 +350,19 @@ CHECKLIST RULES:
 - Include both documents/attachments AND information/steps needed.
 - Common items to look for: project description, budget, financial statements, letters of support, governance documents, quotes/tenders, timeline, outcomes framework, annual report, proof of legal status, references.
 - Order from most to least important.
+
+DATE & DEADLINE RULES (CRITICAL — follow carefully):
+- Today is ${TODAY}. You must determine the NEXT upcoming deadline.
+- Many grants have RECURRING deadlines (annual, bi-annual, quarterly, rolling). Look for patterns like "31 March and 30 September each year", "annually in June", "quarterly", "applications accepted year-round", etc.
+- If a grant has recurring rounds, calculate the NEXT future deadline date after ${TODAY}. For example, if today is 2026-03-18 and the grant closes "31 March and 30 September each year", the next deadline is 2026-03-31.
+- If the page mentions past-year dates (e.g. "2024 round closes 30 September 2024"), check whether this is a recurring grant. If so, project forward to ${CURRENT_YEAR} or ${CURRENT_YEAR + 1} as appropriate.
+- Only set applicationCloseDate to null if there is genuinely no deadline information, or if the grant is confirmed to be permanently closed/discontinued.
+- In dateNotes, always describe the recurrence pattern (e.g. "Twice annually: 31 March and 30 September"), even if you have already set a specific date.
+- If the grant URL is a PDF application form for ${CURRENT_YEAR} or ${CURRENT_YEAR + 1}, that strongly suggests the grant is currently open.
+
+PDF & APPLICATION FORM RULES:
+- Some URLs may point to PDF or Word application forms. These contain critical requirement details — extract all fields, questions, and required attachments.
+- If the primary grant URL is a PDF download, look for the grant information page on the same domain in the other extracted pages.
 
 Be thorough but factual — only include information that is directly supported by the extracted content. If information is not found in the source material, set the field to null or an empty array rather than guessing.`;
 
