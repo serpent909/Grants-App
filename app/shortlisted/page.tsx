@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Star, Trash2, ExternalLink, CalendarDays, Building2, Search,
   ChevronDown, ChevronUp, DollarSign, FileText, ClipboardList,
   ShieldCheck, Users, Info, MessageSquare, Link2,
-  CheckCircle2, Circle, TrendingUp, TrendingDown, Minus,
+  CheckCircle2, Circle, TrendingUp, TrendingDown, Minus, Loader2,
 } from 'lucide-react';
-import { listShortlistedBySearch, removeFromShortlist, ShortlistedGrant } from '@/lib/shortlist-storage';
-import { getDeepSearch } from '@/lib/deep-search-storage';
-import { hasApplication, startApplication } from '@/lib/application-storage';
-import { GrantOpportunity, DeepSearchScoreChange } from '@/lib/types';
+import { useShortlistedBySearch, removeFromShortlist, ShortlistedGrant } from '@/lib/shortlist-storage';
+import { useDeepSearchBatch } from '@/lib/deep-search-storage';
+import { startApplication, useApplicationCheck } from '@/lib/application-storage';
+import { GrantOpportunity, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -114,18 +114,20 @@ function Section({ title, icon: Icon, children }: {
 
 function GrantCard({
   item,
+  deep,
+  applying,
   onRemove,
   onStartApplication,
 }: {
   item: ShortlistedGrant;
+  deep: DeepSearchResult | null;
+  applying: boolean;
   onRemove: () => void;
   onStartApplication: (item: ShortlistedGrant) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const { grant } = item;
-  const deep = getDeepSearch(grant.id);
   const cfg = TYPE_CONFIG[grant.type] ?? TYPE_CONFIG['Other'];
-  const applying = hasApplication(grant.id);
 
   // Use deep search data if available, fall back to grant data
   const amount = formatAmountRange(deep?.amountMin ?? grant.amountMin, deep?.amountMax ?? grant.amountMax);
@@ -427,20 +429,32 @@ function GrantCard({
 
 export default function ShortlistedPage() {
   const router = useRouter();
-  const [grouped, setGrouped] = useState(() => listShortlistedBySearch());
-  const [, forceUpdate] = useState(0);
+  const { data: grouped = {}, isLoading } = useShortlistedBySearch();
+
+  const allIds = useMemo(
+    () => Object.values(grouped).flatMap(items => items.map(i => i.grant.id)),
+    [grouped],
+  );
+  const { data: deepSearchMap = new Map() } = useDeepSearchBatch(allIds);
+  const { data: applicationIds = new Set() } = useApplicationCheck(allIds);
 
   const totalGrants = Object.values(grouped).reduce((sum, items) => sum + items.length, 0);
   const searchCount = Object.keys(grouped).length;
 
-  function handleRemove(grantId: string) {
-    removeFromShortlist(grantId);
-    setGrouped(listShortlistedBySearch());
+  async function handleRemove(grantId: string) {
+    await removeFromShortlist(grantId);
   }
 
-  function handleStartApplication(item: ShortlistedGrant) {
-    startApplication(item);
-    forceUpdate(n => n + 1); // re-render to show "Applying" badge
+  async function handleStartApplication(item: ShortlistedGrant) {
+    await startApplication(item);
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -492,6 +506,8 @@ export default function ShortlistedPage() {
                     <GrantCard
                       key={item.grant.id}
                       item={item}
+                      deep={deepSearchMap.get(item.grant.id) ?? null}
+                      applying={applicationIds.has(item.grant.id)}
                       onRemove={() => handleRemove(item.grant.id)}
                       onStartApplication={handleStartApplication}
                     />

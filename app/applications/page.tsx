@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ClipboardList, Star, Trash2, ExternalLink, CalendarDays, Building2,
   ChevronDown, ChevronUp, DollarSign, FileText,
   ShieldCheck, Users, Info, MessageSquare, Link2,
   CheckCircle2, Circle, TrendingUp, TrendingDown, Minus,
-  Send, Clock, XCircle, MinusCircle, Pencil, RotateCcw,
+  Send, Clock, XCircle, MinusCircle, Pencil, RotateCcw, Loader2,
 } from 'lucide-react';
 import {
-  listApplicationsByStatus, updateApplicationStatus,
+  useApplicationsByStatus, updateApplicationStatus,
   updateApplicationNotes, updateApplicationAmounts, removeApplication,
 } from '@/lib/application-storage';
-import { getDeepSearch } from '@/lib/deep-search-storage';
-import { GrantApplication, ApplicationStatus, DeepSearchScoreChange } from '@/lib/types';
+import { useDeepSearchBatch } from '@/lib/deep-search-storage';
+import { GrantApplication, ApplicationStatus, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -74,7 +74,6 @@ const STATUS_ORDER: ApplicationStatus[] = [
   'preparing', 'submitted', 'under-review', 'approved', 'declined', 'withdrawn',
 ];
 
-// Status transitions: what statuses can you move to from each status
 const STATUS_TRANSITIONS: Record<ApplicationStatus, { status: ApplicationStatus; label: string; primary?: boolean }[]> = {
   'preparing':    [{ status: 'submitted', label: 'Mark as Submitted', primary: true }, { status: 'withdrawn', label: 'Withdraw' }],
   'submitted':    [{ status: 'under-review', label: 'Mark as Under Review', primary: true }, { status: 'withdrawn', label: 'Withdraw' }],
@@ -137,16 +136,13 @@ function StatusTimeline({ history }: { history: GrantApplication['statusHistory'
 
   return (
     <div className="relative pl-5">
-      {/* Vertical line */}
       <div className="absolute left-[7px] top-1 bottom-1 w-px bg-zinc-200" />
-
       <div className="space-y-4">
         {reversed.map((entry, i) => {
           const cfg = STATUS_CONFIG[entry.status];
           const Icon = cfg.icon;
           return (
             <div key={i} className="relative">
-              {/* Dot */}
               <div className={`absolute -left-5 top-0.5 w-3.5 h-3.5 rounded-full ring-2 ring-white flex items-center justify-center ${
                 i === 0 ? 'bg-teal-500' : 'bg-zinc-300'
               }`}>
@@ -175,10 +171,10 @@ function StatusTimeline({ history }: { history: GrantApplication['statusHistory'
 
 function ApplicationCard({
   app,
-  onUpdate,
+  deep,
 }: {
   app: GrantApplication;
-  onUpdate: () => void;
+  deep: DeepSearchResult | null;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showGrantDetails, setShowGrantDetails] = useState(false);
@@ -187,7 +183,6 @@ function ApplicationCard({
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const { grant } = app;
-  const deep = getDeepSearch(grant.id);
   const cfg = STATUS_CONFIG[app.status];
   const transitions = STATUS_TRANSITIONS[app.status];
 
@@ -196,36 +191,32 @@ function ApplicationCard({
   const openDate = formatDate(deep?.applicationOpenDate);
   const score = deep?.scores?.overall ?? grant.scores?.overall ?? 0;
 
-  function handleConfirmTransition() {
+  async function handleConfirmTransition() {
     if (!pendingTransition) return;
-    updateApplicationStatus(app.grantId, pendingTransition, transitionNote);
+    await updateApplicationStatus(app.grantId, pendingTransition, transitionNote);
     setPendingTransition(null);
     setTransitionNote('');
-    onUpdate();
   }
 
-  function handleNotesBlur() {
+  async function handleNotesBlur() {
     const value = notesRef.current?.value ?? '';
     if (value !== app.notes) {
-      updateApplicationNotes(app.grantId, value);
+      await updateApplicationNotes(app.grantId, value);
     }
   }
 
-  function handleAmountRequested(value: string) {
+  async function handleAmountRequested(value: string) {
     const num = parseFloat(value) || undefined;
-    updateApplicationAmounts(app.grantId, num, app.amountAwarded);
-    onUpdate();
+    await updateApplicationAmounts(app.grantId, num, app.amountAwarded);
   }
 
-  function handleAmountAwarded(value: string) {
+  async function handleAmountAwarded(value: string) {
     const num = parseFloat(value) || undefined;
-    updateApplicationAmounts(app.grantId, app.amountRequested, num);
-    onUpdate();
+    await updateApplicationAmounts(app.grantId, app.amountRequested, num);
   }
 
-  function handleRemove() {
-    removeApplication(app.grantId);
-    onUpdate();
+  async function handleRemove() {
+    await removeApplication(app.grantId);
   }
 
   return (
@@ -235,7 +226,6 @@ function ApplicationCard({
         className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-zinc-50/50 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
-        {/* Status badge */}
         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold ring-1 flex-shrink-0 ${cfg.colors}`}>
           <cfg.icon className="w-3 h-3" />
           {cfg.label}
@@ -267,7 +257,6 @@ function ApplicationCard({
           </div>
         </div>
 
-        {/* Overall score */}
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white tabular-nums flex-shrink-0"
           style={{ backgroundColor: scoreColor(score) }}
@@ -392,7 +381,6 @@ function ApplicationCard({
 
             {showGrantDetails && (
               <div className="mt-4 space-y-0">
-                {/* Key details grid */}
                 {deep && (
                   <Section title="Key Details" icon={Info}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -467,7 +455,6 @@ function ApplicationCard({
                   </Section>
                 )}
 
-                {/* Score recalibration */}
                 {deep && (
                   <Section title="Score Recalibration" icon={ShieldCheck}>
                     <ScoreChangeRow label="Alignment" change={deep.scoreChanges.alignment} />
@@ -476,7 +463,6 @@ function ApplicationCard({
                   </Section>
                 )}
 
-                {/* Eligibility */}
                 {deep && deep.eligibilityCriteria.length > 0 && (
                   <Section title="Eligibility Criteria" icon={ShieldCheck}>
                     <ul className="space-y-1.5">
@@ -490,7 +476,6 @@ function ApplicationCard({
                   </Section>
                 )}
 
-                {/* Application checklist */}
                 {deep && deep.checklist.length > 0 && (
                   <Section title="Application Checklist" icon={ClipboardList}>
                     <ul className="space-y-2.5">
@@ -518,28 +503,24 @@ function ApplicationCard({
                   </Section>
                 )}
 
-                {/* Past recipients */}
                 {deep?.pastRecipientNotes && (
                   <Section title="Past Recipients & Insights" icon={Users}>
                     <p className="text-sm text-zinc-700 leading-relaxed">{deep.pastRecipientNotes}</p>
                   </Section>
                 )}
 
-                {/* Additional info */}
                 {deep?.additionalInfo && (
                   <Section title="Additional Information" icon={Info}>
                     <p className="text-sm text-zinc-700 leading-relaxed">{deep.additionalInfo}</p>
                   </Section>
                 )}
 
-                {/* Why it fits */}
                 {grant.alignmentReason && (
                   <Section title="Why It Fits" icon={Star}>
                     <p className="text-sm text-zinc-700 leading-relaxed">{grant.alignmentReason}</p>
                   </Section>
                 )}
 
-                {/* Sources */}
                 {deep && deep.sourcesUsed.length > 0 && (
                   <Section title="Sources" icon={Link2}>
                     <ul className="space-y-1.5">
@@ -592,14 +573,28 @@ function ApplicationCard({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+const EMPTY_GROUPED: Record<ApplicationStatus, GrantApplication[]> = {
+  'preparing': [], 'submitted': [], 'under-review': [], 'approved': [], 'declined': [], 'withdrawn': [],
+};
+
 export default function ApplicationsPage() {
   const router = useRouter();
-  const [grouped, setGrouped] = useState(() => listApplicationsByStatus());
+  const { data: grouped = EMPTY_GROUPED, isLoading } = useApplicationsByStatus();
+
+  const allIds = useMemo(
+    () => Object.values(grouped).flatMap(apps => apps.map(a => a.grantId)),
+    [grouped],
+  );
+  const { data: deepSearchMap = new Map() } = useDeepSearchBatch(allIds);
 
   const totalApps = Object.values(grouped).reduce((sum, apps) => sum + apps.length, 0);
 
-  function handleUpdate() {
-    setGrouped(listApplicationsByStatus());
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center">
+        <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -658,7 +653,7 @@ export default function ApplicationsPage() {
                       <ApplicationCard
                         key={app.id}
                         app={app}
-                        onUpdate={handleUpdate}
+                        deep={deepSearchMap.get(app.grantId) ?? null}
                       />
                     ))}
                   </div>

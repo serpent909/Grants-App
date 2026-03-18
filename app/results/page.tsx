@@ -6,7 +6,7 @@ import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
   ChevronDown, ChevronUp, CalendarDays, Building2,
   SlidersHorizontal, X, Star,
-  Microscope, Loader2, CheckCircle2,
+  Microscope, Loader2, CheckCircle2, RotateCw,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,8 +15,9 @@ import {
 import { SearchResult, GrantOpportunity, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { getSaved } from '@/lib/saved-searches';
-import { getDeepSearch, saveDeepSearch, hasDeepSearch } from '@/lib/deep-search-storage';
-import { isShortlisted as checkShortlisted, toggleShortlist } from '@/lib/shortlist-storage';
+import { saveDeepSearch } from '@/lib/deep-search-storage';
+import { batchCheckDeepSearch } from '@/lib/deep-search-storage';
+import { toggleShortlist, batchCheckShortlisted } from '@/lib/shortlist-storage';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -145,6 +146,7 @@ function GrantDetail({
   grant,
   locale,
   deepSearchState = 'idle',
+  deepSearchedAt,
   onDeepSearch,
   isShortlisted = false,
   onToggleShortlist,
@@ -152,6 +154,7 @@ function GrantDetail({
   grant: GrantOpportunity;
   locale: string;
   deepSearchState?: 'idle' | 'loading' | 'complete';
+  deepSearchedAt?: string;
   onDeepSearch?: () => void;
   isShortlisted?: boolean;
   onToggleShortlist?: () => void;
@@ -213,14 +216,31 @@ function GrantDetail({
               </div>
             )}
             {deepSearchState === 'complete' && (
-              <a
-                href={`/grant/${encodeURIComponent(grant.id)}/deep-search`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                View Deep Search
-              </a>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={`/grant/${encodeURIComponent(grant.id)}/deep-search`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  View Deep Search
+                </a>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDeepSearch?.(); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 text-zinc-600 hover:bg-zinc-200 ring-1 ring-zinc-200 transition-colors"
+                >
+                  <RotateCw className="w-3 h-3" />
+                  Re-run
+                </button>
+                {deepSearchedAt && (
+                  <span className="text-[11px] text-zinc-400">
+                    Last run {new Date(deepSearchedAt).toLocaleString(locale, {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                )}
+              </div>
             )}
           </div>
 
@@ -322,7 +342,7 @@ function FunderAccordion({
   defaultOpen?: boolean;
   locale?: string;
   deepSearchLoading?: string | null;
-  deepSearchComplete?: Set<string>;
+  deepSearchComplete?: Map<string, string>;
   onDeepSearch?: (grant: GrantOpportunity) => void;
   shortlistedIds?: Set<string>;
   onToggleShortlist?: (grant: GrantOpportunity) => void;
@@ -485,6 +505,7 @@ function FunderAccordion({
                       : deepSearchComplete?.has(grant.id) ? 'complete'
                       : 'idle'
                     }
+                    deepSearchedAt={deepSearchComplete?.get(grant.id)}
                     onDeepSearch={() => onDeepSearch?.(grant)}
                     isShortlisted={shortlistedIds?.has(grant.id) ?? false}
                     onToggleShortlist={() => onToggleShortlist?.(grant)}
@@ -521,50 +542,54 @@ function ResultsContent() {
 
   // Saved search context
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedName, setSavedName] = useState<string | null>(null);
 
   // Deep search state
   const [deepSearchLoading, setDeepSearchLoading] = useState<string | null>(null);
-  const [deepSearchComplete, setDeepSearchComplete] = useState<Set<string>>(new Set());
+  const [deepSearchComplete, setDeepSearchComplete] = useState<Map<string, string>>(new Map());
   const [deepSearchError, setDeepSearchError] = useState<string | null>(null);
 
   // Shortlist state
   const [shortlistedIds, setShortlistedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Check if loading a saved search by ID
-    const id = searchParams.get('saved');
-    if (id) {
-      const saved = getSaved(id);
-      if (saved) {
-        setResult(saved.result);
-        setSavedId(id);
-        return;
+    async function load() {
+      const id = searchParams.get('saved');
+      if (id) {
+        const saved = await getSaved(id);
+        if (saved) {
+          setResult(saved.result);
+          setSavedId(id);
+          setSavedName(saved.name);
+          return;
+        }
       }
+      const stored = sessionStorage.getItem('grantSearchResult');
+      if (!stored) { router.replace('/'); return; }
+      try { setResult(JSON.parse(stored)); }
+      catch { router.replace('/'); }
     }
-    const stored = sessionStorage.getItem('grantSearchResult');
-    if (!stored) { router.replace('/'); return; }
-    try { setResult(JSON.parse(stored)); }
-    catch { router.replace('/'); }
+    load();
   }, [router, searchParams]);
 
-  // Scan localStorage for existing deep searches and shortlists on mount
+  // Scan DB for existing deep searches and shortlists on mount
   useEffect(() => {
     if (!result) return;
-    const completed = new Set<string>();
-    const shortlisted = new Set<string>();
-    for (const g of result.grants) {
-      if (hasDeepSearch(g.id)) completed.add(g.id);
-      if (checkShortlisted(g.id)) shortlisted.add(g.id);
-    }
-    setDeepSearchComplete(completed);
-    setShortlistedIds(shortlisted);
+    const ids = result.grants.map(g => g.id);
+    Promise.all([
+      batchCheckDeepSearch(ids),
+      batchCheckShortlisted(ids),
+    ]).then(([deepMap, shortIds]) => {
+      setDeepSearchComplete(deepMap);
+      setShortlistedIds(shortIds);
+    });
   }, [result]);
 
-  function handleToggleShortlist(grant: GrantOpportunity) {
+  async function handleToggleShortlist(grant: GrantOpportunity) {
     const searchTitle = result?.inputs?.searchTitle
-      || (savedId ? getSaved(savedId)?.name : null)
+      || savedName
       || 'Untitled search';
-    const nowShortlisted = toggleShortlist(grant, searchTitle);
+    const nowShortlisted = await toggleShortlist(grant, searchTitle);
     setShortlistedIds(prev => {
       const next = new Set(prev);
       if (nowShortlisted) next.add(grant.id);
@@ -612,8 +637,12 @@ function ResultsContent() {
       }
 
       const deepResult: DeepSearchResult = await response.json();
-      saveDeepSearch(deepResult);
-      setDeepSearchComplete(prev => new Set([...prev, grant.id]));
+      await saveDeepSearch(deepResult);
+      setDeepSearchComplete(prev => {
+        const next = new Map(prev);
+        next.set(grant.id, deepResult.searchedAt);
+        return next;
+      });
     } catch (err) {
       console.error('Deep search error:', err);
       setDeepSearchError(err instanceof Error ? err.message : 'Deep search failed');
@@ -710,7 +739,7 @@ function ResultsContent() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h1 className="text-xl font-bold text-zinc-900">
-                {result.inputs?.searchTitle || (savedId ? (getSaved(savedId)?.name ?? 'Grant Opportunities') : 'Grant Opportunities')}
+                {result.inputs?.searchTitle || savedName || 'Grant Opportunities'}
               </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1 rounded-full">

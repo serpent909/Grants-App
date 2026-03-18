@@ -1,3 +1,4 @@
+import useSWR, { mutate as globalMutate } from 'swr';
 import { SearchResult } from './types';
 
 export interface SavedSearch {
@@ -10,27 +11,34 @@ export interface SavedSearch {
   result: SearchResult;
 }
 
-const KEY = 'grantSearchSaved';
+const SWR_KEY = 'saved-searches';
+const SWR_OPTS = { revalidateOnFocus: false } as const;
 
-function read(): SavedSearch[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || '[]');
-  } catch {
-    return [];
-  }
+// ─── SWR Hook ──────────────────────────────────────────────────────────────
+
+export function useSavedSearches() {
+  return useSWR<SavedSearch[]>(SWR_KEY,
+    () => fetch('/api/saved-searches').then(r => r.ok ? r.json() : []),
+    SWR_OPTS,
+  );
 }
 
-function write(items: SavedSearch[]) {
-  localStorage.setItem(KEY, JSON.stringify(items));
+// ─── Read functions ────────────────────────────────────────────────────────
+
+export async function listSaved(): Promise<SavedSearch[]> {
+  const res = await fetch('/api/saved-searches');
+  if (!res.ok) return [];
+  return res.json();
 }
 
-export function listSaved(): SavedSearch[] {
-  return read().sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+export async function getSaved(id: string): Promise<SavedSearch | undefined> {
+  const all = await listSaved();
+  return all.find(s => s.id === id);
 }
 
-export function saveSearch(name: string, result: SearchResult): SavedSearch {
-  const items = read();
+// ─── Mutations (invalidate SWR cache after write) ──────────────────────────
+
+export async function saveSearch(name: string, result: SearchResult): Promise<SavedSearch> {
   const entry: SavedSearch = {
     id: `saved-${Date.now()}`,
     name: name.trim() || autoName(result),
@@ -40,37 +48,40 @@ export function saveSearch(name: string, result: SearchResult): SavedSearch {
     market: result.market,
     result,
   };
-  write([entry, ...items]);
+  await fetch('/api/saved-searches', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  await globalMutate(SWR_KEY);
   return entry;
 }
 
-export function updateSaved(id: string, result: SearchResult): void {
-  const items = read();
-  const idx = items.findIndex(s => s.id === id);
-  if (idx === -1) return;
-  items[idx] = {
-    ...items[idx],
-    savedAt: new Date().toISOString(),
-    grantCount: result.grants.length,
-    orgSummary: result.orgSummary || '',
-    result,
-  };
-  write(items);
+export async function updateSaved(id: string, result: SearchResult): Promise<void> {
+  await fetch('/api/saved-searches', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id,
+      result,
+      grantCount: result.grants.length,
+      orgSummary: result.orgSummary || '',
+    }),
+  });
+  await globalMutate(SWR_KEY);
 }
 
-export function deleteSaved(id: string): void {
-  write(read().filter(s => s.id !== id));
+export async function deleteSaved(id: string): Promise<void> {
+  await fetch(`/api/saved-searches?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+  await globalMutate(SWR_KEY);
 }
 
-export function getSaved(id: string): SavedSearch | undefined {
-  return read().find(s => s.id === id);
-}
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
 export function autoName(result: SearchResult): string {
   const date = new Date(result.searchedAt).toLocaleDateString('en-NZ', {
     day: 'numeric', month: 'short', year: 'numeric',
   });
-  // Try to extract org name from the summary (first few words before a comma or verb)
   const summary = result.orgSummary || '';
   const orgHint = summary.split(/[,.]|( is | provides | supports | helps )/)[0]?.trim().slice(0, 40);
   return orgHint ? `${orgHint} — ${date}` : `Search — ${date}`;

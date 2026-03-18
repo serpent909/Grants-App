@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft, ExternalLink, CheckCircle2, Circle,
@@ -8,8 +7,8 @@ import {
   TrendingUp, TrendingDown, Minus, Link2, ClipboardList,
   ShieldCheck, Info, MessageSquare,
 } from 'lucide-react';
-import { DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
-import { getDeepSearch } from '@/lib/deep-search-storage';
+import { DeepSearchScoreChange } from '@/lib/types';
+import { useDeepSearch } from '@/lib/deep-search-storage';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -130,19 +129,17 @@ export default function DeepSearchPage() {
   const params = useParams();
   const router = useRouter();
   const grantId = decodeURIComponent(params.id as string);
-  const [data, setData] = useState<DeepSearchResult | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const { data, isLoading } = useDeepSearch(grantId);
 
-  useEffect(() => {
-    const result = getDeepSearch(grantId);
-    if (!result) {
-      setNotFound(true);
-      return;
-    }
-    setData(result);
-  }, [grantId]);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <p className="text-sm text-zinc-500">Loading...</p>
+      </div>
+    );
+  }
 
-  if (notFound) {
+  if (!data) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="text-center">
@@ -155,14 +152,6 @@ export default function DeepSearchPage() {
             &larr; Go back
           </button>
         </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <p className="text-sm text-zinc-500">Loading...</p>
       </div>
     );
   }

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import { OrgInfo, SearchResult } from '@/lib/types';
 import { listMarkets } from '@/lib/markets';
-import { saveSearch, listSaved } from '@/lib/saved-searches';
+import { saveSearch, useSavedSearches } from '@/lib/saved-searches';
 import { SECTORS, ORG_TYPES } from '@/lib/constants';
 import { TogglePill } from '@/components/toggle-pill';
 import { Field } from '@/components/field';
@@ -40,7 +40,7 @@ function LoadingState({
   progress: number;
 }) {
   return (
-    <div className="px-8 py-10">
+    <div className="px-5 sm:px-8 py-10">
       <div className="flex flex-col items-center mb-10">
         <div className="relative w-14 h-14 mb-5">
           <div className="absolute inset-0 rounded-full bg-teal-50" />
@@ -130,8 +130,8 @@ function LoadingState({
 
 function SavedSearchesLink() {
   const router = useRouter();
-  const [count, setCount] = useState(0);
-  useEffect(() => { setCount(listSaved().length); }, []);
+  const { data: saved } = useSavedSearches();
+  const count = saved?.length ?? 0;
   if (count === 0) return null;
   return (
     <button
@@ -273,7 +273,7 @@ export default function HomePage() {
       sessionStorage.setItem('grantSearchResult', JSON.stringify(result));
 
       // Auto-save and navigate to results with saved ID
-      const saved = saveSearch(form.searchTitle?.trim() || '', result);
+      const saved = await saveSearch(form.searchTitle?.trim() || '', result);
       setTimeout(() => {
         router.push(`/results?saved=${saved.id}`);
       }, 300);
@@ -302,7 +302,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-zinc-900">
       {/* ── Centered vertical layout ── */}
-      <div className="relative px-6 py-16">
+      <div className="relative px-4 sm:px-6 py-12 sm:py-16">
 
         {/* Soft teal glow — top centre */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(20,184,166,0.10),transparent)]" />
@@ -327,7 +327,7 @@ export default function HomePage() {
               saving you hours of research.
             </p>
 
-            <div className="flex items-center justify-center gap-10 mb-4">
+            <div className="flex items-center justify-center gap-6 sm:gap-10 mb-4">
               {[
                 ['200+', 'Funding sources'],
                 ['Matched', 'To your mission'],
@@ -346,7 +346,7 @@ export default function HomePage() {
           {/* ── Form card ── */}
           <div className="bg-white rounded-2xl shadow-2xl shadow-black/20 ring-1 ring-zinc-200 overflow-hidden">
             {!isLoading && (
-              <div className="px-8 pt-7 pb-5 bg-zinc-50/70 border-b border-zinc-200/60">
+              <div className="px-5 sm:px-8 pt-7 pb-5 bg-zinc-50/70 border-b border-zinc-200/60">
                 <h2 className="text-xl font-bold text-zinc-900 font-display">
                   About your organisation
                 </h2>
@@ -365,7 +365,7 @@ export default function HomePage() {
             ) : (
               <form onSubmit={handleSubmit} className="divide-y divide-zinc-100">
                 {apiError && (
-                  <div className="px-8 pt-6">
+                  <div className="px-5 sm:px-8 pt-6">
                     <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                       <p className="text-sm leading-relaxed">{apiError}</p>
@@ -374,7 +374,7 @@ export default function HomePage() {
                 )}
 
                 {/* ── Section 1: Identity ── */}
-                <div className="px-8 py-6 space-y-4">
+                <div className="px-5 sm:px-8 py-6 space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     <Field label="Country" required>
                       <Select
@@ -450,7 +450,7 @@ export default function HomePage() {
                 </div>
 
                 {/* ── Section 2: Location & Focus ── */}
-                <div className="px-8 py-6 space-y-4">
+                <div className="px-5 sm:px-8 py-6 space-y-4">
                   <Field
                     label="Operating regions"
                     required
@@ -489,7 +489,7 @@ export default function HomePage() {
                 </div>
 
                 {/* ── Section 3: Funding Details ── */}
-                <div className="px-8 py-6 space-y-4">
+                <div className="px-5 sm:px-8 py-6 space-y-4">
                   <Field
                     label="Search title"
                     required
@@ -565,7 +565,7 @@ export default function HomePage() {
                 </div>
 
                 {/* ── Submit ── */}
-                <div className="px-8 py-6 bg-zinc-50/50">
+                <div className="px-5 sm:px-8 py-6 bg-zinc-50/50">
                   <button
                     type="submit"
                     className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-semibold text-[15px] rounded-xl transition-all duration-200 active:scale-[0.99] shadow-md shadow-teal-600/20"

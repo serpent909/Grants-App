@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Globe, DollarSign, Linkedin } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { listMarkets } from '@/lib/markets';
-import { listSaved, type SavedSearch } from '@/lib/saved-searches';
+import { useSavedSearches, type SavedSearch } from '@/lib/saved-searches';
 import type { OrgInfo } from '@/lib/types';
 import type { DiagnoseResponse, DiagnoseFunderResult } from '@/app/api/diagnose/route';
 import { SECTORS, ORG_TYPES } from '@/lib/constants';
@@ -26,7 +26,7 @@ const STAGE_CONFIG: Record<string, { label: string; color: string; bg: string; b
 };
 
 export default function DiagnosePage() {
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const { data: savedSearches = [] } = useSavedSearches();
   const [selectedSavedId, setSelectedSavedId] = useState('');
   const [form, setForm] = useState<OrgInfo>({
     website: '',
@@ -45,8 +45,6 @@ export default function DiagnosePage() {
   const [result, setResult] = useState<DiagnoseResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showEnumList, setShowEnumList] = useState(false);
-
-  useEffect(() => { setSavedSearches(listSaved()); }, []);
 
   const activeMarket = MARKETS.find(m => m.id === form.market) ?? MARKETS[0];
 
