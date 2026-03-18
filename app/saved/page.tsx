@@ -103,7 +103,7 @@ export default function SavedPage() {
                           <CalendarDays className="w-3 h-3" />
                           Searched {searchDate}
                         </span>
-                        <span>Saved {savedDate}</span>
+                        <span>Created {savedDate}</span>
                       </div>
                     </div>
 

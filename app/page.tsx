@@ -139,7 +139,7 @@ function SavedSearchesLink() {
       className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
     >
       <Bookmark className="w-3.5 h-3.5" />
-      My searches ({count})
+      Funding searches ({count})
       <ArrowRight className="w-3 h-3" />
     </button>
   );
@@ -311,11 +311,6 @@ export default function HomePage() {
 
           {/* ── Hero copy ── */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center gap-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium px-3.5 py-1.5 rounded-full mb-7">
-              <Check className="w-3 h-3" />
-              Free to use · No account required
-            </div>
-
             <h1 className="font-display text-4xl sm:text-5xl font-bold tracking-tight leading-tight mb-5">
               <span className="block text-zinc-400 text-2xl sm:text-3xl font-medium mb-2 tracking-normal">
                 Grant funding search for
@@ -323,7 +318,7 @@ export default function HomePage() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">
                 {activeMarket.displayName}
               </span>
-              <span className="text-white"> nonprofits</span>
+              <span className="text-white"> organisations</span>
             </h1>
 
             <p className="text-zinc-400 text-base leading-relaxed mb-8 max-w-sm mx-auto">
@@ -336,7 +331,7 @@ export default function HomePage() {
               {[
                 ['200+', 'Funding sources'],
                 ['Matched', 'To your mission'],
-                ['Free', 'No sign-up needed'],
+                ['Ranked', 'By fit & likelihood'],
               ].map(([stat, label]) => (
                 <div key={stat} className="text-center">
                   <div className="text-base font-bold text-white font-display">{stat}</div>
