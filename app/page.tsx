@@ -132,16 +132,19 @@ function SavedSearchesLink() {
   const router = useRouter();
   const { data: saved } = useSavedSearches();
   const count = saved?.length ?? 0;
-  if (count === 0) return null;
   return (
-    <button
-      onClick={() => router.push('/saved')}
-      className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
-    >
-      <Bookmark className="w-3.5 h-3.5" />
-      Funding searches ({count})
-      <ArrowRight className="w-3 h-3" />
-    </button>
+    <div className="h-10 flex items-center justify-center">
+      {count > 0 && (
+        <button
+          onClick={() => router.push('/saved')}
+          className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
+        >
+          <Bookmark className="w-3.5 h-3.5" />
+          Funding searches ({count})
+          <ArrowRight className="w-3 h-3" />
+        </button>
+      )}
+    </div>
   );
 }
 
