@@ -140,8 +140,39 @@ export async function ensureStorageTables(): Promise<void> {
   try {
     const db = getPool();
     await db.query(`
+      CREATE TABLE IF NOT EXISTS organisations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        email_verified TIMESTAMPTZ,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS invitations (
+        id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
+        email TEXT NOT NULL,
+        invited_by TEXT NOT NULL REFERENCES users(id),
+        token TEXT NOT NULL UNIQUE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        accepted_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
       CREATE TABLE IF NOT EXISTS saved_searches (
         id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
         name TEXT NOT NULL,
         saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         grant_count INTEGER NOT NULL DEFAULT 0,
@@ -150,21 +181,28 @@ export async function ensureStorageTables(): Promise<void> {
         result_json JSONB NOT NULL
       );
 
+      CREATE INDEX IF NOT EXISTS idx_saved_searches_org ON saved_searches(org_id);
+
       CREATE TABLE IF NOT EXISTS shortlisted_grants (
-        grant_id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
+        grant_id TEXT NOT NULL,
         grant_json JSONB NOT NULL,
         search_title TEXT NOT NULL DEFAULT '',
-        shortlisted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        shortlisted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (org_id, grant_id)
       );
 
       CREATE TABLE IF NOT EXISTS deep_searches (
-        grant_id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
+        grant_id TEXT NOT NULL,
         result_json JSONB NOT NULL,
-        searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        searched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (org_id, grant_id)
       );
 
       CREATE TABLE IF NOT EXISTS grant_applications (
-        grant_id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
+        grant_id TEXT NOT NULL,
         id TEXT NOT NULL,
         grant_json JSONB NOT NULL,
         search_title TEXT NOT NULL DEFAULT '',
@@ -176,11 +214,13 @@ export async function ensureStorageTables(): Promise<void> {
         decided_at TIMESTAMPTZ,
         amount_requested NUMERIC,
         amount_awarded NUMERIC,
-        updated_at TIMESTAMPTZ DEFAULT NOW()
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (org_id, grant_id)
       );
 
       CREATE TABLE IF NOT EXISTS documents (
         id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
         filename TEXT NOT NULL,
         blob_url TEXT NOT NULL,
         content_type TEXT NOT NULL,
@@ -191,8 +231,11 @@ export async function ensureStorageTables(): Promise<void> {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
 
+      CREATE INDEX IF NOT EXISTS idx_documents_org ON documents(org_id);
+
       CREATE TABLE IF NOT EXISTS application_checklist_items (
         id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
         grant_id TEXT NOT NULL,
         item_index INTEGER NOT NULL,
         item_name TEXT NOT NULL,
@@ -200,14 +243,17 @@ export async function ensureStorageTables(): Promise<void> {
         required BOOLEAN NOT NULL DEFAULT false,
         checked BOOLEAN NOT NULL DEFAULT false,
         checked_at TIMESTAMPTZ,
-        UNIQUE(grant_id, item_index)
+        UNIQUE(org_id, grant_id, item_index)
       );
 
       CREATE INDEX IF NOT EXISTS idx_checklist_grant
         ON application_checklist_items(grant_id);
+      CREATE INDEX IF NOT EXISTS idx_checklist_org
+        ON application_checklist_items(org_id);
 
       CREATE TABLE IF NOT EXISTS checklist_documents (
         id TEXT PRIMARY KEY,
+        org_id TEXT NOT NULL REFERENCES organisations(id),
         checklist_item_id TEXT NOT NULL,
         document_id TEXT NOT NULL,
         attached_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
+import { getOrgId } from '@/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const db = getPool();
   const { searchParams } = new URL(req.url);
@@ -12,8 +14,8 @@ export async function GET(req: NextRequest) {
     const ids = grantIds.split(',').filter(Boolean);
     if (ids.length === 0) return NextResponse.json([]);
     const { rows } = await db.query(
-      `SELECT grant_id FROM shortlisted_grants WHERE grant_id = ANY($1::text[])`,
-      [ids]
+      `SELECT grant_id FROM shortlisted_grants WHERE org_id = $1 AND grant_id = ANY($2::text[])`,
+      [orgId, ids]
     );
     return NextResponse.json(rows.map(r => r.grant_id));
   }
@@ -24,7 +26,8 @@ export async function GET(req: NextRequest) {
     const { rows } = await db.query(
       `SELECT grant_id AS "grantId", grant_json AS grant, search_title AS "searchTitle",
               shortlisted_at AS "shortlistedAt"
-       FROM shortlisted_grants ORDER BY shortlisted_at DESC`
+       FROM shortlisted_grants WHERE org_id = $1 ORDER BY shortlisted_at DESC`,
+      [orgId]
     );
     const result: Record<string, typeof rows> = {};
     for (const row of rows) {
@@ -39,26 +42,29 @@ export async function GET(req: NextRequest) {
   const { rows } = await db.query(
     `SELECT grant_id AS "grantId", grant_json AS grant, search_title AS "searchTitle",
             shortlisted_at AS "shortlistedAt"
-     FROM shortlisted_grants ORDER BY shortlisted_at DESC`
+     FROM shortlisted_grants WHERE org_id = $1 ORDER BY shortlisted_at DESC`,
+    [orgId]
   );
   return NextResponse.json(rows);
 }
 
 export async function POST(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const { grant, searchTitle } = await req.json();
   const db = getPool();
   await db.query(
-    `INSERT INTO shortlisted_grants (grant_id, grant_json, search_title, shortlisted_at)
-     VALUES ($1, $2, $3, NOW())
-     ON CONFLICT (grant_id) DO UPDATE SET
+    `INSERT INTO shortlisted_grants (org_id, grant_id, grant_json, search_title, shortlisted_at)
+     VALUES ($1, $2, $3, $4, NOW())
+     ON CONFLICT (org_id, grant_id) DO UPDATE SET
        grant_json = EXCLUDED.grant_json, search_title = EXCLUDED.search_title`,
-    [grant.id, JSON.stringify(grant), searchTitle || '']
+    [orgId, grant.id, JSON.stringify(grant), searchTitle || '']
   );
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const { searchParams } = new URL(req.url);
   const db = getPool();
@@ -66,13 +72,13 @@ export async function DELETE(req: NextRequest) {
   // Bulk delete by search title
   const searchTitle = searchParams.get('searchTitle');
   if (searchTitle) {
-    await db.query('DELETE FROM shortlisted_grants WHERE search_title = $1', [searchTitle]);
+    await db.query('DELETE FROM shortlisted_grants WHERE org_id = $1 AND search_title = $2', [orgId, searchTitle]);
     return NextResponse.json({ ok: true });
   }
 
   // Single delete by grant ID
   const grantId = searchParams.get('grantId');
   if (!grantId) return NextResponse.json({ error: 'grantId or searchTitle required' }, { status: 400 });
-  await db.query('DELETE FROM shortlisted_grants WHERE grant_id = $1', [grantId]);
+  await db.query('DELETE FROM shortlisted_grants WHERE org_id = $1 AND grant_id = $2', [orgId, grantId]);
   return NextResponse.json({ ok: true });
 }
