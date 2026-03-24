@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grant Search Pipeline — Detailed Technical Reference</title>
+<title>GrantSearch NZ — Detailed Technical Reference</title>
 <style>
   :root {
     --bg: #0f1117;
@@ -32,1024 +32,734 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     padding: 40px 20px;
     min-height: 100vh;
-    line-height: 1.6;
   }
 
-  .container { max-width: 960px; margin: 0 auto; }
+  .container { max-width: 1200px; margin: 0 auto; }
 
   h1 {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
+    text-align: center;
     margin-bottom: 8px;
     background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
-  .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 48px; }
-
-  /* ─── Step sections ─── */
-  .step {
-    margin-bottom: 56px;
-    position: relative;
-    padding-left: 52px;
-  }
-
-  .step::before {
-    content: '';
-    position: absolute;
-    left: 18px;
-    top: 40px;
-    bottom: -56px;
-    width: 2px;
-    background: var(--border);
-  }
-
-  .step:last-of-type::before { display: none; }
-
-  .step-number {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 14px;
-    font-weight: 700;
-    z-index: 1;
-  }
-
-  .step h2 {
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
-
-  .step-purpose {
+  .subtitle {
+    text-align: center;
     color: var(--text-muted);
     font-size: 14px;
-    margin-bottom: 16px;
-    font-style: italic;
+    margin-bottom: 48px;
   }
 
-  .step p, .step li {
-    font-size: 14px;
-    color: var(--text);
-    margin-bottom: 8px;
+  h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 40px 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
   }
 
-  .step ul, .step ol {
-    margin-left: 20px;
-    margin-bottom: 16px;
+  h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 24px 0 8px 0;
+    color: var(--accent-blue);
   }
 
-  .step li { margin-bottom: 6px; }
+  p, li { font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+  p { margin-bottom: 12px; }
 
-  /* ─── Content cards ─── */
-  .detail-card {
+  ul, ol { margin-left: 20px; margin-bottom: 12px; }
+  li { margin-bottom: 4px; }
+
+  .card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 20px;
+    overflow: hidden;
     margin-bottom: 16px;
   }
 
-  .detail-card h3 {
-    font-size: 15px;
+  .card-header {
+    padding: 12px 16px;
+    font-size: 14px;
     font-weight: 600;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    border-bottom: 1px solid var(--border);
   }
 
-  .detail-card p { margin-bottom: 8px; }
-
-  /* ─── Code blocks ─── */
-  .code-block {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 18px;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-    font-size: 12px;
-    line-height: 1.7;
-    overflow-x: auto;
-    margin-bottom: 16px;
-    color: var(--text-muted);
-    white-space: pre;
-  }
-
-  .code-block .comment { color: var(--text-dim); }
-  .code-block .key { color: var(--accent-cyan); }
-  .code-block .string { color: var(--accent-green); }
-  .code-block .highlight { color: var(--accent-amber); }
-
-  /* ─── Example boxes ─── */
-  .example {
-    background: rgba(91, 156, 245, 0.06);
-    border-left: 3px solid var(--accent-blue);
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-  }
-
-  .example-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--accent-blue);
-    margin-bottom: 6px;
-  }
-
-  .example p, .example li {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
-  /* ─── Warning/note boxes ─── */
-  .note {
-    background: rgba(251, 191, 36, 0.06);
-    border-left: 3px solid var(--accent-amber);
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-  }
-
-  .note-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--accent-amber);
-    margin-bottom: 6px;
-  }
-
-  .cost-box {
-    background: rgba(248, 113, 113, 0.06);
-    border-left: 3px solid var(--accent-red);
-    border-radius: 0 8px 8px 0;
-    padding: 14px 18px;
-    margin-bottom: 16px;
-  }
-
-  .cost-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--accent-red);
-    margin-bottom: 6px;
-  }
-
-  /* ─── Tags ─── */
-  .api-tag {
-    display: inline-block;
-    padding: 2px 7px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    vertical-align: middle;
-  }
-
-  .tag-gpt4o { background: rgba(167, 139, 250, 0.15); color: var(--accent-purple); }
-  .tag-gpt4o-mini { background: rgba(91, 156, 245, 0.15); color: var(--accent-blue); }
-  .tag-tavily { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); }
-  .tag-serper { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); }
-  .tag-db { background: rgba(244, 114, 182, 0.15); color: var(--accent-pink); }
-  .tag-free { background: rgba(255,255,255,0.06); color: var(--text-dim); }
+  .card-body { padding: 16px; font-size: 13px; line-height: 1.6; }
 
   code {
     background: var(--surface2);
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 4px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
     font-size: 12px;
     color: var(--accent-cyan);
   }
 
-  /* ─── Inline metric ─── */
-  .metric {
-    display: inline-block;
-    background: var(--surface2);
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--accent-green);
-    font-family: 'JetBrains Mono', monospace;
-  }
-
-  /* ─── Filter step ─── */
-  .filter-step {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px 16px;
-    background: rgba(248, 113, 113, 0.05);
-    border-left: 3px solid var(--accent-red);
-    border-radius: 0 8px 8px 0;
-    margin-bottom: 12px;
-    font-size: 13px;
-  }
-
-  .filter-step strong { color: var(--accent-red); }
-
-  /* ─── Prompt example ─── */
-  .prompt-box {
-    background: var(--surface2);
+  pre {
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 16px 18px;
-    margin-bottom: 16px;
-    font-size: 13px;
-    color: var(--text-muted);
+    padding: 16px;
+    font-size: 12px;
     line-height: 1.6;
-    white-space: pre-wrap;
-    font-family: 'Inter', sans-serif;
+    overflow-x: auto;
+    margin-bottom: 16px;
+    color: var(--text);
   }
 
-  .prompt-label {
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  th { text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
     font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--accent-purple);
-    margin-bottom: 8px;
+    font-weight: 600;
   }
 
-  /* ─── Divider ─── */
-  hr {
+  hr.divider {
     border: none;
     border-top: 1px solid var(--border);
-    margin: 48px 0;
+    margin: 40px 0;
   }
 
-  /* ─── Table ─── */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    margin-bottom: 16px;
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
   }
 
-  th {
-    text-align: left;
-    padding: 8px 12px;
-    color: var(--text-muted);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
+  .toc a { color: var(--accent-blue); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { margin-left: 16px; }
+  .toc li { margin-bottom: 6px; }
+
+  .col-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
   }
-
-  td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--border);
-    color: var(--text-muted);
-  }
-
-  tr:last-child td { border-bottom: none; }
-
-  .row-highlight { background: rgba(91, 156, 245, 0.05); }
 
   @media (max-width: 768px) {
-    .step { padding-left: 0; }
-    .step::before { display: none; }
-    .step-number { position: relative; margin-bottom: 8px; }
+    .col-2 { grid-template-columns: 1fr; }
   }
 </style>
 </head>
 <body>
 <div class="container">
+  <h1>GrantSearch NZ &mdash; Detailed Technical Reference</h1>
+  <p class="subtitle">Complete documentation of the application architecture, data flows, database schema, API routes, and data pipeline scripts</p>
 
-<h1>Grant Search Pipeline</h1>
-<p class="subtitle">Detailed technical reference &mdash; every step explained with examples, prompts, and data flow</p>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- USER INPUT -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(255,255,255,0.08); color: var(--text-muted);">IN</div>
-  <h2>User Input</h2>
-  <p class="step-purpose">The search form collects everything needed to scope the grant search.</p>
-
-  <div class="detail-card">
-    <h3>Form Fields</h3>
-    <table>
-      <tr><td style="width:160px;"><strong>Website URL</strong></td><td>Organisation's website &mdash; extracted via Tavily for context about their mission and activities</td></tr>
-      <tr><td><strong>LinkedIn (optional)</strong></td><td>Additional org context, included in scoring prompt</td></tr>
-      <tr><td><strong>Organisation Type</strong></td><td>Registered charity, incorporated society, trust, community group, etc.</td></tr>
-      <tr><td><strong>Operating Regions</strong></td><td>NZ has 14 regions (Auckland, Waikato, Canterbury, etc.). Determines regional filtering and which curated URLs are included.</td></tr>
-      <tr><td><strong>Sectors</strong></td><td>Health, education, environment, arts, sport, youth, etc. Used for sector-specific searches and scoring.</td></tr>
-      <tr><td><strong>Funding Purpose</strong></td><td>Free text describing what the money is for. e.g. "$10,000 for an IT systems upgrade"</td></tr>
-      <tr><td><strong>Amount Sought</strong></td><td>Dollar amount. Used by scorer to check if grant ranges are compatible.</td></tr>
-      <tr><td><strong>Previous Funders</strong></td><td>Optional. If provided, the associative step uses these to find similar funders.</td></tr>
-    </table>
-  </div>
-
-  <div class="example">
-    <div class="example-label">Example Input</div>
-    <p><strong>Org:</strong> Variety &mdash; the Children's Charity (variety.org.nz)<br>
-    <strong>Type:</strong> Registered Charity<br>
-    <strong>Regions:</strong> Auckland, Waikato<br>
-    <strong>Sectors:</strong> Children & Young People, Community Development<br>
-    <strong>Purpose:</strong> "$10,000 for an IT systems upgrade to modernise our case management platform"<br>
-    <strong>Amount:</strong> $10,000</p>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 0: DIRECTORY DISCOVERY -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">0</div>
-  <h2>Directory Discovery</h2>
-  <p class="step-purpose">Find funder URLs from grant aggregator websites and the charities database. Runs in parallel with Step 1 &mdash; results not needed until Step 3.</p>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-tavily">Tavily</span> 0a &mdash; Directory Page Extraction</h3>
-    <p>The NZ market has 12 hardcoded grant directory URLs (e.g. communitymatters.govt.nz, philanthropy.org.nz, generosity.org.nz, sportnz.org.nz). Each page is extracted via Tavily and <strong>scanned for outbound links</strong> &mdash; every external URL is collected as a potential funder.</p>
-    <p>This is a brute-force link harvesting step. Many of the collected URLs won't be grant pages (they might be sponsor logos, partner links, etc.), but that's fine &mdash; the <code>isGrantPage()</code> filter in Step 3 will remove irrelevant ones before extraction.</p>
-  </div>
-
-  <div class="example">
-    <div class="example-label">Example</div>
-    <p>Extracting <code>https://www.philanthropy.org.nz/our-members</code> (a real directory in our config) returns page content containing links to individual funders like:<br>
-    <code>https://www.foundationnorth.org.nz</code>, <code>https://www.trustwaikato.co.nz</code>, <code>https://ratafoundation.org.nz</code><br>
-    Similarly, extracting <code>https://tindall.org.nz/other-funding-resources/</code> yields links to funders Tindall recommends.<br>
-    These become discovered funder URLs.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> 0b &mdash; Exhaustive Directory Site Search</h3>
-    <p>For each of the 12 directory domains, runs multiple <code>site:domain</code> Serper queries to mine grant listings deeper than the homepage:</p>
-    <ul>
-      <li>Base queries: <code>site:communitymatters.govt.nz grants apply</code>, <code>site:communitymatters.govt.nz grants 2026</code>, etc. (6 per directory)</li>
-      <li>Sector queries: <code>site:sportnz.org.nz Children & Young People grants</code> (2 per sector)</li>
-      <li>Region queries: <code>site:philanthropy.org.nz Auckland grants</code> (2 per region)</li>
-      <li>Sector &times; region: <code>site:generosity.org.nz Auckland Community Development grants</code> (up to 6 sectors &times; 4 regions)</li>
-    </ul>
-    <p>Queries are deduplicated before execution. Typically produces 30-60 unique queries per directory.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-db">DB</span> Charities Register Lookup</h3>
-    <p>SQLite full-text search on a local copy of the NZ Charities Register. Matches charities by sector + region + funding purpose keywords. Returns two categories:</p>
-    <ul>
-      <li><strong>Enriched funders</strong> (have <code>grantSummary</code> field) &mdash; these skip Tavily entirely and are injected as synthetic pages at Step 3d. Zero extraction cost.</li>
-      <li><strong>Unenriched funders</strong> (URL only) &mdash; their grant URL is added to the extraction list for Tavily processing.</li>
-    </ul>
-    <p>DB URLs are capped: only fills remaining capacity after directory-discovered URLs, up to a total of 200 URLs.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span> Regional Query Generation</h3>
-    <p>A single GPT-4o-mini call generates 20-30 search queries designed to find <strong>small and obscure local funders</strong> that wouldn't appear in a national enumeration. The prompt asks for queries covering:</p>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- TABLE OF CONTENTS -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="toc">
+    <strong style="color: var(--text); font-size: 14px;">Contents</strong>
     <ol>
-      <li>Community and regional trusts</li>
-      <li>District and city councils</li>
-      <li>Small/local charitable trusts</li>
-      <li>Private and family foundations</li>
-      <li>Corporate and law firm trusts</li>
-      <li>Sector-specific local grants</li>
-      <li>Sub-regional areas (towns, districts within each region)</li>
+      <li><a href="#architecture">Architecture Overview</a></li>
+      <li><a href="#database">Database Schema</a></li>
+      <li><a href="#search-api">Search API &mdash; POST /api/search</a></li>
+      <li><a href="#deep-search-api">Deep Search API &mdash; POST /api/deep-search</a></li>
+      <li><a href="#storage-apis">Storage APIs (Saved Searches, Shortlist, Applications)</a></li>
+      <li><a href="#frontend-pages">Frontend Pages</a></li>
+      <li><a href="#lib-modules">Library Modules</a></li>
+      <li><a href="#data-pipeline">Data Pipeline Scripts</a></li>
+      <li><a href="#scoring">Scoring System Details</a></li>
+      <li><a href="#markets">Market Configuration</a></li>
     </ol>
   </div>
 
-  <div class="example">
-    <div class="example-label">Example Regional Queries (for Auckland + Waikato)</div>
-    <p><code>"Auckland community trust grants apply 2026"</code><br>
-    <code>"Hamilton city council community fund apply"</code><br>
-    <code>"Waikato family foundation grants nonprofits"</code><br>
-    <code>"North Shore charitable trust community grants"</code><br>
-    <code>"Matamata Piako district council grants"</code></p>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 1. ARCHITECTURE -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="architecture">1. Architecture Overview</h2>
+
+  <p>GrantSearch NZ is a Next.js 14 App Router application that helps NZ non-profits find, evaluate, and track grant applications. The core innovation is a <strong>two-pass AI search pipeline</strong> that queries a pre-populated Postgres database of ~4,500 active grants, triages them cheaply, then scores the relevant ones in detail.</p>
+
+  <div class="card">
+    <div class="card-header" style="color: var(--accent-blue);">Tech Stack</div>
+    <div class="card-body">
+      <div class="col-2">
+        <div>
+          <strong style="color: var(--text);">Frontend</strong>
+          <ul>
+            <li>Next.js 14 (App Router) + TypeScript</li>
+            <li>Tailwind CSS + shadcn/ui components</li>
+            <li>SWR for client-side data fetching &amp; caching</li>
+            <li>Vercel hosting</li>
+          </ul>
+        </div>
+        <div>
+          <strong style="color: var(--text);">Backend / Services</strong>
+          <ul>
+            <li><strong>Neon Postgres</strong> &mdash; serverless database (grants, charities, app storage)</li>
+            <li><strong>OpenAI GPT-4o-mini</strong> &mdash; triage &amp; scoring (search), enrichment (scripts)</li>
+            <li><strong>OpenAI GPT-4o</strong> &mdash; deep search analysis</li>
+            <li><strong>Serper</strong> &mdash; web search (deep search only)</li>
+            <li><strong>Tavily</strong> &mdash; page content extraction (deep search + scripts)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="cost-box">
-    <div class="cost-label">Cost for this step</div>
-    <p style="font-size:13px; color:var(--text-muted);">Tavily: 12 directory pages &times; $0.008 = <strong>$0.10</strong> &bull; Serper: ~200-400 queries &times; $0.001 = <strong>$0.20-0.40</strong> &bull; GPT-4o-mini: 1 call = <strong>&lt;$0.01</strong></p>
-  </div>
-</div>
+  <p><strong>Key design principle:</strong> The search pipeline has zero external search/scraping costs. All grant data lives in the DB. The only runtime cost is GPT-4o-mini tokens for triage and scoring. Deep search (per-grant, user-triggered) is the only operation that calls Serper/Tavily.</p>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 1: FUNDER ENUMERATION -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(167, 139, 250, 0.15); color: var(--accent-purple);">1</div>
-  <h2>Funder Enumeration</h2>
-  <p class="step-purpose">Ask GPT-4o to recall every grant-giving organisation it knows, organised by category. This is a knowledge recall task &mdash; no web searching.</p>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 2. DATABASE -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="database">2. Database Schema</h2>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o">GPT-4o</span> Category-Grouped Enumeration (4 parallel calls)</h3>
-    <p>The NZ market has <strong>19 funder type hints</strong> (e.g. "Gaming trusts", "Local councils", "Private foundations"). These are split into <strong>7 groups</strong> to give each GPT call enough token budget:</p>
-    <table>
-      <tr><th>Group</th><th>Categories</th><th>Why separate?</th></tr>
-      <tr><td>1</td><td>Local councils</td><td>NZ has 78 territorial authorities &mdash; needs full token budget to list every one</td></tr>
-      <tr><td>2</td><td>Government &amp; lottery</td><td>Ministries, Crown entities, lottery distributors</td></tr>
-      <tr><td>3</td><td>Foundations &amp; trusts</td><td>Community foundations, private/corporate/charitable trusts</td></tr>
-      <tr><td>4</td><td>Corporate &amp; industry</td><td>CSR programmes, industry associations, faith-based funds</td></tr>
-      <tr><td>5</td><td>Community &amp; cultural</td><td>Workplace giving, ethnic associations, neighbourhood grants</td></tr>
-      <tr><td>6</td><td>International</td><td>UN agencies, international NGOs, global thematic funds</td></tr>
-      <tr><td>7</td><td>Research &amp; social enterprise</td><td>University partnerships, accelerators with grant components</td></tr>
-    </table>
-    <p>Each call returns a JSON array of funders with: <code>name</code>, <code>category</code>, <code>region</code>, <code>searchQuery</code>.</p>
-  </div>
+  <p>Neon Postgres with connection pooling. Migrations in <code>migrations/</code>.</p>
 
-  <div class="example">
-    <div class="example-label">Example GPT Output (matching the prompt format from route.ts line ~1056-1064)</div>
-<div class="code-block"><span class="comment">// Group 2 prompt includes: "Government ministries", "Crown entities", "Lottery distributors"</span>
-<span class="comment">// GPT returns funders it recalls from training data:</span>
-{
-  "funders": [
-    {
-      <span class="key">"name"</span>: <span class="string">"Community Organisation Grants Scheme (COGS)"</span>,
-      <span class="key">"category"</span>: <span class="string">"Government"</span>,
-      <span class="key">"region"</span>: <span class="string">"national"</span>,
-      <span class="key">"searchQuery"</span>: <span class="string">"COGS community organisation grants scheme apply 2026"</span>
-    },
-    {
-      <span class="key">"name"</span>: <span class="string">"New Zealand Community Trust (NZCT)"</span>,
-      <span class="key">"category"</span>: <span class="string">"Gaming Trust"</span>,
-      <span class="key">"region"</span>: <span class="string">"national"</span>,
-      <span class="key">"searchQuery"</span>: <span class="string">"NZCT grants apply New Zealand 2026"</span>
-    },
-    {
-      <span class="key">"name"</span>: <span class="string">"Whangarei District Council"</span>,
-      <span class="key">"category"</span>: <span class="string">"Local Council"</span>,
-      <span class="key">"region"</span>: <span class="string">"Northland"</span>,
-      <span class="key">"searchQuery"</span>: <span class="string">"Whangarei District Council community grants apply 2026"</span>
-    }
-  ]
-}
+  <h3>charities</h3>
+  <p>Source-of-truth for funder identity. Populated from the NZ Charities Register and curated funders list.</p>
+  <pre>id              INTEGER PRIMARY KEY
+charity_number  TEXT            -- Charities Register number (null for curated-only)
+name            TEXT NOT NULL
+url             TEXT            -- website_url or homepage
+charity_status  TEXT
+primary_activity TEXT
+source          TEXT            -- 'register' | 'curated'
+curated_grant_url TEXT          -- hand-verified grants page URL
+regions         TEXT[]          -- region IDs this funder serves
+enriched_at     TIMESTAMPTZ    -- when grant programs were extracted
+created_at      TIMESTAMPTZ
+updated_at      TIMESTAMPTZ</pre>
 
-<span class="comment">// After region filter (user selected Auckland + Waikato):</span>
-<span class="comment">// - COGS: kept (region "national")</span>
-<span class="comment">// - NZCT: kept (region "national")</span>
-<span class="comment">// - Whangarei District Council: REMOVED (region "Northland" ≠ Auckland/Waikato)</span></div>
-  </div>
+  <h3>grants</h3>
+  <p>Individual grant programs, linked to funders. This is the table queried by the search API.</p>
+  <pre>id                  TEXT PRIMARY KEY   -- deterministic: 'g_' + sha256(funder|name|url)[:16]
+funder_id           INTEGER REFERENCES charities(id)
+name                TEXT NOT NULL
+type                TEXT               -- Government|Foundation|Corporate|Community|International|Other
+description         TEXT
+url                 TEXT               -- best known application/info URL
+source_url          TEXT               -- page the grant was extracted from
+amount_min          INTEGER            -- NZD
+amount_max          INTEGER            -- NZD
+regions             TEXT[]             -- region IDs (null/empty = national)
+sectors             TEXT[]             -- sector IDs
+eligibility         TEXT[]
+deadline            TEXT               -- ISO date, 'rolling', 'annual - typically ...', etc.
+is_recurring        BOOLEAN
+round_frequency     TEXT               -- annual|quarterly|rolling|irregular
+application_form_url TEXT
+checklist           JSONB              -- DeepSearchChecklistItem[]
+key_contacts        TEXT
+last_scraped_at     TIMESTAMPTZ
+last_verified_at    TIMESTAMPTZ
+is_active           BOOLEAN DEFAULT true
+scrape_notes        TEXT
+created_at          TIMESTAMPTZ
+updated_at          TIMESTAMPTZ
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o">GPT-4o</span> Programme Enumeration (1 call)</h3>
-    <p>A separate GPT call identifies 40-50 specific named <strong>programmes</strong> (not funders) that are directly relevant to this organisation. This finds sub-programmes within large funders that the category enumeration would miss.</p>
-  </div>
+-- Indexes:
+-- GIN on regions, sectors (fast overlap queries)
+-- FTS on name, description, funder_name
+-- B-tree on type, is_active, funder_id</pre>
 
-  <div class="example">
-    <div class="example-label">Example Programme Output (real programmes with curated URLs in nz.ts)</div>
-    <p><code>{"name": "Tu Manawa Active Aotearoa", "funder": "Sport NZ", "sector": "Sport", "searchQuery": "..."}</code> &mdash; curated at <code>sportnz.org.nz/funding/.../tu-manawa-active-aotearoa/</code><br>
-    <code>{"name": "Creative Communities Scheme", "funder": "Creative NZ", "sector": "Arts", "searchQuery": "..."}</code> &mdash; curated at <code>creativenz.govt.nz/funding-and-support/.../creative-communities-scheme</code><br>
-    <code>{"name": "Community Capability and Resilience Fund", "funder": "MSD", "sector": "Community Development", "searchQuery": "..."}</code> &mdash; curated at <code>msd.govt.nz/what-we-can-do/community/...</code></p>
-  </div>
+  <h3>Runtime Storage Tables</h3>
+  <p>Created automatically by <code>ensureStorageTables()</code> in <code>lib/db.ts</code> on first API call.</p>
 
-  <div class="detail-card">
-    <h3>Post-enumeration: Deduplication + Merge</h3>
-    <p>Results from all 7 category calls are merged. Funders are deduplicated by lowercased name (first-seen wins). Typically produces <strong>~170 unique funders</strong>.</p>
-  </div>
-
-  <div class="filter-step">
-    <strong>REGION FILTER</strong>
-    <span>Enumerated funders filtered to user's selected regions + national/nationwide/unspecified. For an Auckland+Waikato search, this removes councils from Southland, trusts from Canterbury, etc. Typically cuts ~50% of funders. This is a <strong>cost optimisation</strong> &mdash; it prevents hundreds of wasted Serper queries and Tavily extractions on funders the org can't apply to.</span>
-  </div>
-
-  <div class="cost-box">
-    <div class="cost-label">Cost for this step</div>
-    <p style="font-size:13px; color:var(--text-muted);">GPT-4o: 7 calls (4 category + 1 programme + 1 org extract + 1 Tavily) = <strong>~$0.80-1.50</strong> depending on token usage</p>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 2: MULTI-SOURCE SEARCH -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">2</div>
-  <h2>Multi-Source Web Search</h2>
-  <p class="step-purpose">Search the web for grant application pages using 7 different strategies simultaneously. Every URL found is tagged with its origin for diagnostics.</p>
-
-  <p>All search tasks run concurrently (up to 20 parallel Serper connections). Results are pooled into a single <code>rawSearchHits[]</code> array. Each Serper query returns ~10 results.</p>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> Enum Searches <code style="color:var(--accent-purple);">origin: 'enum'</code></h3>
-    <p>One Serper query per enumerated funder/programme. Uses the <code>searchQuery</code> generated by GPT in Step 1.</p>
-    <p>This is typically the <strong>highest-yield source</strong> &mdash; produces the most kept grants per URL. The query is highly targeted: it contains the exact funder name + "grants apply" + the current year.</p>
+  <div class="col-2">
+    <div class="card">
+      <div class="card-header" style="color: var(--accent-blue);">saved_searches</div>
+      <div class="card-body" style="color: var(--text-muted);">
+        <code>id</code> TEXT PK, <code>name</code>, <code>saved_at</code>, <code>grant_count</code>, <code>org_summary</code>, <code>market</code>, <code>result_json</code> JSONB
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header" style="color: var(--accent-pink);">shortlisted_grants</div>
+      <div class="card-body" style="color: var(--text-muted);">
+        <code>grant_id</code> TEXT PK, <code>grant_json</code> JSONB, <code>search_title</code>, <code>shortlisted_at</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header" style="color: var(--accent-amber);">deep_searches</div>
+      <div class="card-body" style="color: var(--text-muted);">
+        <code>grant_id</code> TEXT PK, <code>result_json</code> JSONB (DeepSearchResult), <code>searched_at</code>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header" style="color: var(--accent-green);">grant_applications</div>
+      <div class="card-body" style="color: var(--text-muted);">
+        <code>grant_id</code> TEXT PK, <code>id</code>, <code>grant_json</code> JSONB, <code>search_title</code>, <code>status</code>, <code>status_history</code> JSONB, <code>notes</code>, <code>started_at</code>, <code>submitted_at</code>, <code>decided_at</code>, <code>amount_requested</code>, <code>amount_awarded</code>
+      </div>
+    </div>
   </div>
 
-  <div class="example">
-    <div class="example-label">Example Queries (using real curated funders from nz.ts)</div>
-    <p><code>"Pub Charity grants apply New Zealand 2026"</code> &rarr; finds <code>pubcharitylimited.org.nz/grants</code> (curated URL in config)<br>
-    <code>"Foundation North funding apply 2026"</code> &rarr; finds <code>foundationnorth.org.nz/funding</code> (curated, regions: Auckland, Northland)<br>
-    <code>"Auckland Council community grants apply 2026"</code> &rarr; finds <code>aucklandcouncil.govt.nz/grants/.../default.aspx</code> (curated, regions: Auckland)<br>
-    <code>"NZCT grants apply New Zealand 2026"</code> &rarr; finds <code>nzct.org.nz/grants/</code> (curated, national)</p>
-  </div>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 3. SEARCH API -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="search-api">3. Search API &mdash; POST /api/search</h2>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> Seed Queries <code style="color:var(--accent-blue);">origin: 'seed'</code></h3>
-    <p>Static, hardcoded queries from the market config's <code>seedQueryTemplates</code> (8 templates in NZ config). These are broad, market-wide searches designed to catch funders that GPT didn't enumerate. Templates use placeholders: <code>{country}</code>, <code>{purpose}</code>, <code>{year}</code>, <code>{currency}</code>.</p>
-  </div>
+  <p>File: <code>app/api/search/route.ts</code></p>
 
-  <div class="example">
-    <div class="example-label">Actual NZ Seed Query Templates (from nz.ts)</div>
-    <p><code>"New Zealand grants apply "$10,000 for an IT systems upgrade" non-profit 2026"</code><br>
-    <code>"New Zealand community charitable trust grants 2026 apply"</code><br>
-    <code>"New Zealand local council community grants apply 2026"</code><br>
-    <code>"site:communitymatters.govt.nz lottery grants apply"</code><br>
-    <code>"New Zealand corporate foundation community grants apply 2026"</code><br>
-    <code>"New Zealand government grants not-for-profit 2026"</code><br>
-    <code>"NZ gaming trust grants apply 2026"</code><br>
-    <code>"pokie trust grants New Zealand community apply 2026"</code></p>
-  </div>
+  <h3>Request (OrgInfo)</h3>
+  <pre>{
+  website: string,         // org website URL
+  linkedin?: string,       // org LinkedIn URL
+  fundingPurpose: string,  // what funding is for
+  fundingAmount: number,   // NZD amount sought
+  market: string,          // 'nz' | 'au'
+  regions: string[],       // region IDs the org operates in
+  sectors: string[],       // sector IDs (e.g. ['health', 'youth'])
+  orgType: string,         // 'registered-charity' | 'charitable-trust' | ...
+  previousFunders?: string // free text
+}</pre>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> Regional Searches <code style="color:var(--accent-cyan);">origin: 'regional'</code></h3>
-    <p>The 20-30 GPT-generated queries from Step 0 are executed here. These specifically target small/local funders in the user's operating regions &mdash; community trusts, district councils, family foundations.</p>
-  </div>
+  <h3>Pipeline</h3>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> Directory Deep-Dive <code style="color:var(--accent-green);">origin: 'directory-deepdive'</code></h3>
-    <p>For each of the 12 grant directories, runs a <code>site:domain</code> search scoped to the user's funding purpose. This finds sector-specific pages within directories that the Step 0 broad crawl may have missed.</p>
-  </div>
+  <p><strong>Step 1: DB Query</strong> &mdash; <code>searchGrants(sectors, regions)</code> queries the grants table with:</p>
+  <ul>
+    <li>Region filter: empty regions = nationwide (no filter); non-empty = overlap match (<code>&&</code> operator)</li>
+    <li>Grants with NULL/empty regions always included (nationwide grants)</li>
+    <li>Order: sector overlap count DESC, funder name ASC</li>
+    <li>Returns all active grants matching (typically 500&ndash;4,500)</li>
+  </ul>
 
-  <div class="example">
-    <div class="example-label">Example</div>
-    <p><code>"site:communitymatters.govt.nz IT systems upgrade community"</code><br>
-    <code>"site:perpetualguardian.co.nz IT systems upgrade community"</code></p>
-  </div>
+  <p><strong>Step 2: Pass 1 &mdash; Triage</strong> (GPT-4o-mini)</p>
+  <ul>
+    <li>All grants split into batches of 100</li>
+    <li>Each batch sent to GPT-4o-mini with the <code>RELEVANCE_TRIAGE_PROMPT</code></li>
+    <li>Model classifies each grant as <code>RELEVANT</code> or <code>SKIP</code></li>
+    <li>SKIP only when &ge;90% confident: wrong sector, wrong region, wrong org type, dramatic amount mismatch, or non-grant content</li>
+    <li>On error, defaults all to RELEVANT (never drops grants due to API failure)</li>
+    <li>Concurrency: 15 parallel batches</li>
+    <li>Typically filters to 200&ndash;400 relevant grants</li>
+  </ul>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span> <span class="api-tag tag-serper">Serper</span> Purpose Seeds <code style="color:var(--accent-amber);">origin: 'purpose'</code></h3>
-    <p>GPT-4o-mini generates 10 highly-targeted queries based on the org's specific funding purpose and website content. These find niche programmes the general enumeration would miss.</p>
-    <p>The prompt instructs GPT to vary by approach: sector, activity type, population served, funding mechanism.</p>
-  </div>
+  <p><strong>Step 3: Pass 2 &mdash; Scoring</strong> (GPT-4o-mini)</p>
+  <ul>
+    <li>Relevant grants split into batches of 25</li>
+    <li>Each batch sent with <code>SCORING_SYSTEM_PROMPT</code> + org context</li>
+    <li>Model scores on 3 dimensions: alignment (0&ndash;10), ease (0&ndash;10), attainability (0&ndash;10)</li>
+    <li>Overall = (alignment &times; 0.5) + (attainability &times; 0.3) + (ease &times; 0.2)</li>
+    <li>First batch also generates <code>orgSummary</code> (2&ndash;3 sentence org description)</li>
+    <li>Concurrency: 15 parallel batches</li>
+    <li>Includes multi-check logic: URL quality, geographic eligibility, form-of-support match, regional relevance, deadline validation</li>
+  </ul>
 
-  <div class="example">
-    <div class="example-label">Example Purpose Seed Queries (for IT upgrade)</div>
-    <p><code>"New Zealand technology upgrade grant community organisations 2026"</code><br>
-    <code>"digital capability fund nonprofits NZ apply"</code><br>
-    <code>"IT infrastructure grants charitable organisations New Zealand"</code></p>
-  </div>
+  <p><strong>Step 4: Filter &amp; Return</strong></p>
+  <ul>
+    <li>Remove grants with alignment &lt; 5.0</li>
+    <li>Assign deterministic IDs: <code>g_</code> + sha256(funder|name|url)[:16]</li>
+    <li>Return <code>SearchResult</code> with grants array, orgSummary, timestamp, market, original inputs</li>
+  </ul>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span> <span class="api-tag tag-serper">Serper</span> Associative Gap-Fill <code style="color:var(--accent-pink);">origin: 'associative'</code></h3>
-    <p>After enumeration, GPT analyses the funder list and identifies <strong>gaps</strong> &mdash; funders that should exist but weren't listed. It looks for:</p>
-    <ul>
-      <li><strong>Regional peers:</strong> If a community trust in one region is listed but the equivalent in the org's region isn't</li>
-      <li><strong>Peers of previous funders:</strong> Similar funders to ones the org has been funded by before</li>
-      <li><strong>Sector-specific trusts:</strong> Dedicated health/education/environment trusts missing from the list</li>
-      <li><strong>Small/local trusts:</strong> Family foundations, community endowments too niche for enumeration</li>
-      <li><strong>Recently rebranded organisations</strong></li>
-    </ul>
-    <p>Generates 10-15 targeted queries. From the diagnostics, this source produces the <strong>highest average scores</strong> (7.7 in our test) despite low volume &mdash; it finds high-quality matches the other steps miss.</p>
-  </div>
+  <h3>Response (SearchResult)</h3>
+  <pre>{
+  grants: GrantOpportunity[],  // scored grants
+  orgSummary: string,          // AI-generated org description
+  searchedAt: string,          // ISO timestamp
+  market: string,              // 'nz'
+  inputs?: OrgInfo             // echoed for re-use
+}</pre>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> Broad Category Searches <code style="color:var(--accent-orange);">origin: 'broad'</code></h3>
-    <p>Automated query generation that combines grant terminology &times; sectors &times; regions. No GPT involved &mdash; purely algorithmic. Covers:</p>
-    <p>Uses 7 hardcoded grant terminology variations from <code>generateBroadCategorySearches()</code>:</p>
-    <ul style="margin-bottom: 12px;">
-      <li><code>"grants apply"</code>, <code>"funding opportunities"</code>, <code>"community grants"</code>, <code>"charitable trust grants"</code>, <code>"grant applications open"</code>, <code>"funding available nonprofits"</code>, <code>"community fund apply"</code></li>
-    </ul>
-    <p>These are combined with sectors, regions, and purpose keywords:</p>
-    <ul>
-      <li><strong>Sector &times; region:</strong> <code>"Auckland New Zealand Children & Young People grants apply"</code>, <code>"Community Development funding Waikato New Zealand nonprofits"</code></li>
-      <li><strong>Region-wide:</strong> <code>"Auckland New Zealand grants apply"</code>, <code>"Waikato New Zealand community grants"</code></li>
-      <li><strong>Purpose keywords:</strong> individual words &gt;4 chars from the funding purpose: <code>"systems grants New Zealand apply"</code>, <code>"upgrade funding New Zealand nonprofits"</code></li>
-      <li><strong>Grant types:</strong> 5 fixed types: <code>"New Zealand project grants nonprofits apply"</code>, <code>"New Zealand operational funding nonprofits apply"</code>, <code>"New Zealand capital grants nonprofits apply"</code>, <code>"New Zealand programme funding nonprofits apply"</code>, <code>"New Zealand capacity building grants nonprofits apply"</code></li>
-    </ul>
-    <p>Typically generates 60-100 unique queries.</p>
-  </div>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 4. DEEP SEARCH API -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="deep-search-api">4. Deep Search API &mdash; POST /api/deep-search</h2>
 
-  <div class="cost-box">
-    <div class="cost-label">Cost for Step 2</div>
-    <p style="font-size:13px; color:var(--text-muted);">Serper: ~200-400 queries &times; $0.001 = <strong>$0.20-0.40</strong> &bull; GPT-4o-mini: 3 calls (purpose + regional + associative) = <strong>&lt;$0.02</strong></p>
-  </div>
-</div>
+  <p>File: <code>app/api/deep-search/route.ts</code></p>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 2b: GAP-FILL -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(248, 113, 113, 0.15); color: var(--accent-red);">2b</div>
-  <h2>Gap-Fill Search</h2>
-  <p class="step-purpose">Second-pass analysis &mdash; identify which funder categories are still underrepresented in the search results and run targeted queries to fill the gaps.</p>
+  <p>Triggered per-grant by the user. Performs live web research to find precise details the DB may lack.</p>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span> <span class="api-tag tag-serper">Serper</span> Gap Analysis <code style="color:var(--accent-red);">origin: 'gap-fill'</code></h3>
-    <p>GPT-4o-mini receives a list of <strong>all domains found so far</strong> and identifies which funder categories are underrepresented. It then generates targeted queries to fill those gaps.</p>
-    <p>For example, if no URLs from gaming trusts have been found, it might generate <code>"NZ gaming trust grants community apply 2026"</code>.</p>
-  </div>
-</div>
+  <h3>Phase 1: Web Search (Serper)</h3>
+  <ul>
+    <li>6&ndash;8 parallel search queries targeting: application forms, guidelines, deadlines, eligibility, past recipients</li>
+    <li>Site-specific searches on the funder's own domain</li>
+    <li>Collects unique URLs, prioritises funder's own domain</li>
+  </ul>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 2c: SITE CRAWL -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(129, 140, 248, 0.15); color: #818cf8;">2c</div>
-  <h2>Per-Domain Site Crawl</h2>
-  <p class="step-purpose">Many funder searches return homepages. Crawl within each discovered domain to find grant/apply pages buried deeper. Currently DISABLED via toggle.</p>
+  <h3>Phase 2: Content Extraction (Tavily)</h3>
+  <ul>
+    <li>Up to 10 discovered URLs extracted via Tavily</li>
+    <li>Full page content (bypasses JS-rendered pages, 403s)</li>
+    <li>Funder's own domain URLs prioritised</li>
+  </ul>
 
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> Domain Crawl <code style="color:#818cf8;">origin: 'site-crawl'</code></h3>
-    <p>For each unique domain found in rawSearchHits (excluding known non-grant domains), runs 4 Serper queries:</p>
-    <ul>
-      <li><code>site:foundationnorth.org.nz grants apply</code></li>
-      <li><code>site:foundationnorth.org.nz funding apply</code></li>
-      <li><code>site:foundationnorth.org.nz community grants</code></li>
-      <li><code>site:foundationnorth.org.nz grant application</code></li>
-    </ul>
-    <p>These are the 4 fixed query patterns from <code>crawlFunderSites()</code> in route.ts (line ~911). Every domain gets the same 4 queries.</p>
-    <p>This is the <strong>most expensive search step</strong> by volume. Before optimisation, it ran ~2,600 Serper queries and produced ~5,900 raw URLs but only ~18 kept grants (10% of total). Now controlled by two filters:</p>
-    <ol>
-      <li><strong>Skip already-capped domains:</strong> Domains with 3+ URLs already found are skipped &mdash; any new URLs would be discarded by the per-domain cap anyway.</li>
-      <li><strong>Cap at 200 domains:</strong> Only crawls the first 200 qualifying domains (ordered by search relevance).</li>
-    </ol>
-  </div>
+  <h3>Phase 3: AI Analysis (GPT-4o)</h3>
+  <ul>
+    <li>All extracted content sent to GPT-4o (full model, not mini) for structured analysis</li>
+    <li>Extracts: precise amounts, open/close dates, eligibility criteria, application form URL &amp; type, checklist of required/optional documents, key contacts, past recipient insights</li>
+    <li>Recalibrates all three scores (alignment, ease, attainability) with reasoning for each change</li>
+  </ul>
 
-  <div class="note">
-    <div class="note-label">Toggle</div>
-    <p style="font-size:13px; color:var(--text-muted);">Site crawl is controlled by <code>ENABLE_SITE_CRAWL</code> at the top of route.ts. Currently set to <code>false</code>. When disabled, logs <code>"Step 2c: Site crawl DISABLED"</code> and skips this entire step.</p>
-  </div>
-</div>
+  <h3>Phase 4: DB Write-back</h3>
+  <ul>
+    <li>Discovered fields written back to the grants table via <code>writeDeepSearchUpdates()</code></li>
+    <li>Only fills NULL fields &mdash; existing data is never overwritten</li>
+    <li>Fields: <code>application_form_url</code>, <code>amount_min</code>, <code>amount_max</code>, <code>deadline</code></li>
+    <li>Benefits all future searches (not just the user who triggered deep search)</li>
+  </ul>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- DEDUP + MERGE -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(248, 113, 113, 0.15); color: var(--accent-red);">&#x25BC;</div>
-  <h2>Deduplication, Merge &amp; Filtering</h2>
-  <p class="step-purpose">Reduce thousands of raw URLs down to a manageable extraction list. Four filtering stages, each with a specific purpose.</p>
+  <h3>Response (DeepSearchResult)</h3>
+  <pre>{
+  grantId, grantName, funder, grantUrl, searchedAt,
+  amountMin?, amountMax?, amountNotes?,
+  applicationOpenDate?, applicationCloseDate?, dateNotes?,
+  checklist: DeepSearchChecklistItem[],
+  applicationFormUrl?, applicationFormType?, applicationFormNotes?,
+  eligibilityCriteria: string[],
+  scores: { alignment, ease, attainability, overall },
+  scoreChanges: { alignment: { old, new, reason }, ease: ..., attainability: ... },
+  additionalInfo?, keyContacts?, pastRecipientNotes?,
+  sourcesUsed: { url, title }[]
+}</pre>
 
-  <div class="detail-card">
-    <h3>Stage 1: URL Deduplication</h3>
-    <p><code>deduplicateByUrl(rawSearchHits)</code> &mdash; normalises each URL (strips www., lowercases, removes trailing slashes) and keeps only the <strong>first occurrence</strong>. The origin tag of the first-seen hit is preserved for diagnostics.</p>
-  </div>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 5. STORAGE APIS -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="storage-apis">5. Storage APIs</h2>
 
-  <div class="example">
-    <div class="example-label">Normalisation Example (using normaliseUrl() from route.ts line ~423)</div>
-    <p>Strips <code>www.</code>, lowercases, removes trailing slashes:<br>
-    <code>https://www.FoundationNorth.org.nz/Funding/</code> &rarr; <code>foundationnorth.org.nz/funding</code><br>
-    <code>https://foundationnorth.org.nz/funding</code> &rarr; same key &rarr; deduplicated<br><br>
-    Curated URL <code>https://www.foundationnorth.org.nz/funding</code> (from nz.ts line 148) and a Serper hit for <code>https://www.foundationnorth.org.nz/funding/</code> normalise to the same key. The curated version wins because curated URLs are first in the merge order.</p>
-  </div>
+  <p>All storage uses Neon Postgres (no localStorage). Tables created on first use.</p>
 
-  <div class="detail-card">
-    <h3>Stage 2: Three-Source Merge</h3>
-    <p>Three URL sources are merged into a single list, in this priority order:</p>
-    <ol>
-      <li><strong>Curated URLs</strong> (~200 entries from <code>nz.ts curatedFunderUrls</code>) &mdash; hand-verified funder pages with optional <code>regions</code> tags, filtered to user's selected regions. Examples: <code>nzct.org.nz/grants/</code> (national), <code>foundationnorth.org.nz/funding</code> (regions: Auckland, Northland), <code>trustwaikato.co.nz/funding</code> (regions: Waikato). National funders (no <code>regions</code> tag) always included.</li>
-      <li><strong>Discovered URLs</strong> (Step 0) &mdash; funder URLs from directory pages + DB unenriched funders.</li>
-      <li><strong>Search hits</strong> (Step 2) &mdash; URLs from all 9 search strategies.</li>
-    </ol>
-    <p>Priority matters because deduplication keeps the first occurrence. If a URL appears in both curated and search hits, it gets origin <code>'curated'</code>.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>Stage 3: Grant Page Filter</h3>
-    <p><code>isGrantPage(url)</code> removes URLs that are categorically never grant application pages. The filter combines <code>NON_GRANT_PATH_PATTERNS</code> (~30 regex patterns, route.ts line ~262) with the market's <code>excludedDomains</code> list:</p>
-    <ul>
-      <li>News/media: <code>/press-release/</code>, <code>/media-release/</code>, <code>/blog/</code></li>
-      <li>Auth: <code>/login</code>, <code>/signin</code>, <code>/register</code></li>
-      <li>Legal: <code>/privacy-policy</code>, <code>/terms-of-use</code></li>
-      <li>Jobs: <code>/careers/</code>, <code>/vacancies/</code>, <code>/jobs/</code></li>
-      <li>Excluded domains (NZ config): <code>nzherald.co.nz</code>, <code>stuff.co.nz</code>, <code>rnz.co.nz</code>, <code>scoop.co.nz</code>, <code>wikipedia.org</code>, <code>linkedin.com</code>, <code>facebook.com</code>, etc.</li>
-    </ul>
-    <p><strong>Curated URLs bypass this filter entirely</strong> &mdash; they're hand-verified as grant pages.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>Stage 4: Per-Domain Cap</h3>
-    <p><code>MAX_PER_DOMAIN = 3</code> &mdash; maximum 3 URLs per domain are sent to extraction. This prevents one funder's site from consuming a disproportionate share of the Tavily budget.</p>
-    <p>URLs are processed in merge order (curated first), so if a domain has 2 curated URLs and 5 search hits, only the 2 curated + 1 search hit are kept.</p>
-  </div>
-
-  <div class="example">
-    <div class="example-label">Typical Funnel (Auckland + Waikato search)</div>
-    <p><span class="metric">~3,500</span> raw search hits &rarr; <span class="metric">~1,100</span> after dedup &rarr; <span class="metric">~900</span> after grant filter &rarr; <span class="metric">~800</span> after per-domain cap</p>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 3: CONTENT EXTRACTION -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">3</div>
-  <h2>Content Extraction</h2>
-  <p class="step-purpose">Extract full page content from every URL that survived filtering. Four extraction layers with progressive fallbacks. This is the most expensive step.</p>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-tavily">Tavily</span> 3a &mdash; Primary Extraction</h3>
-    <p>All URLs in <code>allUrlsToExtract</code> are sent to Tavily in batches of 20, with 8 concurrent batch connections. Tavily renders the page (including JavaScript), extracts the raw text content, and returns up to 8,000 characters per page.</p>
-    <p>Typical success rate: ~70-80%. Failures happen due to bot blocking, JavaScript-heavy SPAs, server timeouts, or CAPTCHA walls.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-serper">Serper</span> 3b &mdash; Search Fallback</h3>
-    <p>For URLs that Tavily couldn't extract, groups them by domain and runs <code>site:domain grants apply funding</code> via Serper. If the search returns results with content longer than 100 characters, those snippets become the page content.</p>
-    <p>This catches sites that block Tavily's scraper but are indexed by Google.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-free">Free</span> 3c &mdash; Snippet Promotion</h3>
-    <p>For URLs that both Tavily and the search fallback failed on, promotes the <strong>original Serper search snippet</strong> from Step 2 (if it's longer than 200 characters). This is the last resort before giving up on a URL.</p>
-    <p>Snippets are short (~200-500 chars) but often contain enough information for GPT to identify the grant programme name, funder, and basic eligibility criteria.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-db">DB</span> 3d &mdash; DB Enrichment Injection</h3>
-    <p>Enriched Charities Register funders (those with a <code>grantSummary</code> field from previous research) are injected as synthetic pages. Their content is constructed from the database fields: name + grant summary + registered purpose.</p>
-    <p><strong>Zero Tavily cost.</strong> This is why enriching the charities database pays for itself &mdash; each enriched entry is a "free" page that doesn't need Tavily extraction.</p>
-  </div>
-
-  <div class="cost-box">
-    <div class="cost-label">Cost for Step 3</div>
-    <p style="font-size:13px; color:var(--text-muted);">Tavily: ~800 URLs &times; $0.008 = <strong>~$6.40</strong> &bull; This is typically <strong>~80-91% of total search cost</strong>. The region filter in Step 1 and site-crawl toggle are specifically designed to reduce this number.</p>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 4: GRANT EXTRACTION -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">4</div>
-  <h2>Grant Extraction</h2>
-  <p class="step-purpose">GPT reads every extracted page and identifies individual grant programmes with structured metadata. Many pages contain multiple grants.</p>
-
-  <div class="filter-step">
-    <strong>PRE-FILTER</strong>
-    <span><code>isGrantPage(url)</code> applied again to extracted pages. This second pass catches pages whose content reveals they're not grant-related (the first pass in the merge stage only checks URL patterns).</span>
-  </div>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span> Page Batch Processing</h3>
-    <p>Filtered pages are batched in groups of <code>PAGE_BATCH_SIZE = 4</code> and sent to GPT-4o-mini. Each batch is a single API call that receives the full content of 4 pages and must extract every grant programme it finds.</p>
-    <p>15 batches run concurrently. For 800 pages, this means ~200 batches = ~200 GPT-4o-mini calls.</p>
-
-    <p><strong>The extraction prompt</strong> is detailed and contains several important rules:</p>
-    <ul>
-      <li>Error pages (404, access denied) &rarr; return <code>[]</code> immediately</li>
-      <li>News articles about grants &rarr; only extract if a direct link to the actual grant page is found in the content</li>
-      <li>"Record of grants" (past recipient lists) &rarr; extract only the parent programme, not individual entries</li>
-      <li>Extract ALL grants regardless of apparent relevance &mdash; scoring will assess fit</li>
-      <li>Skip only: commercial-only grants, grants restricted to a different country</li>
-      <li>URL field: use the most specific URL available (look for hyperlinks in the page content pointing to the actual application page)</li>
-      <li>Include a 1,500-char verbatim excerpt of the most relevant content</li>
-    </ul>
-  </div>
-
-  <div class="example">
-    <div class="example-label">Example Input (one page in a batch &mdash; using real curated URL pubcharitylimited.org.nz/grants from nz.ts line 131)</div>
-<div class="code-block">=== PAGE 2 ===
-URL: https://www.pubcharitylimited.org.nz/grants
-
-<span class="comment">Pub Charity Limited — Grants</span>
-<span class="comment">We distribute grants from gaming proceeds to support community</span>
-<span class="comment">organisations across New Zealand. We fund a wide range of community</span>
-<span class="comment">activities including sport, education, health, and community wellbeing.</span>
-<span class="comment"></span>
-<span class="comment">Grant types available:</span>
-<span class="comment">- Community Grants: up to $50,000 for community projects</span>
-<span class="comment">- Sports Grants: up to $100,000 for sports facilities and equipment</span>
-<span class="comment">- Health & Wellbeing: up to $30,000 for health-related community initiatives</span>
-<span class="comment">...</span></div>
-  </div>
-
-  <div class="example">
-    <div class="example-label">Example Output (grants extracted from that page)</div>
-<div class="code-block"><span class="comment">// GPT extracts multiple grants from one page — Pub Charity has several grant categories</span>
-[
-  {
-    <span class="key">"name"</span>: <span class="string">"Pub Charity Community Grants"</span>,
-    <span class="key">"funder"</span>: <span class="string">"Pub Charity Limited"</span>,
-    <span class="key">"type"</span>: <span class="string">"Community"</span>,
-    <span class="key">"description"</span>: <span class="string">"Grants up to $50,000 for community projects..."</span>,
-    <span class="key">"amountMin"</span>: 1000,
-    <span class="key">"amountMax"</span>: 50000,
-    <span class="key">"url"</span>: <span class="string">"https://www.pubcharitylimited.org.nz/grants"</span>,
-    <span class="key">"pageContent"</span>: <span class="string">"Pub Charity Limited distributes grants from gaming proceeds..."</span>
-  },
-  {
-    <span class="key">"name"</span>: <span class="string">"Pub Charity Sports Grants"</span>,
-    <span class="key">"funder"</span>: <span class="string">"Pub Charity Limited"</span>,
-    <span class="key">"type"</span>: <span class="string">"Community"</span>,
-    <span class="key">"description"</span>: <span class="string">"Grants up to $100,000 for sports facilities..."</span>,
-    <span class="key">"amountMin"</span>: 1000,
-    <span class="key">"amountMax"</span>: 100000,
-    <span class="key">"url"</span>: <span class="string">"https://www.pubcharitylimited.org.nz/grants"</span>,
-    <span class="key">"pageContent"</span>: <span class="string">"..."</span>
-  }
-]
-
-<span class="comment">// Note: both grants share the same source page URL. The per-domain cap (3) applied</span>
-<span class="comment">// earlier limits how many Pub Charity pages we extract, but one page can yield</span>
-<span class="comment">// multiple grants. This is why the grants count often exceeds the extracted count.</span></div>
-  </div>
-
-  <div class="detail-card">
-    <h3>Grant Provenance Tracking</h3>
-    <p>During batch processing, each extracted grant is assigned the <strong>origin of its source page</strong>. The matching priority:</p>
-    <ol>
-      <li>Exact URL match: grant URL matches a URL in the origin map</li>
-      <li>Domain match: grant URL's domain matches a source page in the same batch</li>
-      <li>Batch fallback: most common non-unknown origin among the batch's source pages</li>
-    </ol>
-    <p>This ensures near-zero "unknown" origin grants in the diagnostics table.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>Grant Deduplication</h3>
-    <p><code>deduplicateGrants()</code> removes duplicate grants by normalised <code>funder||name</code> key. The same grant may appear on multiple pages (e.g. a directory listing AND the funder's own site). First-seen wins.</p>
-  </div>
-
-  <div class="cost-box">
-    <div class="cost-label">Cost for Step 4</div>
-    <p style="font-size:13px; color:var(--text-muted);">GPT-4o-mini: ~200 batch calls &times; ~2K input tokens each = <strong>~$0.06-0.12</strong>. Very cheap relative to Step 3.</p>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- STEP 5: SCORING -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(167, 139, 250, 0.15); color: var(--accent-purple);">5</div>
-  <h2>Scoring &amp; Ranking</h2>
-  <p class="step-purpose">GPT-4o reads every discovered grant with full org context and scores it on three dimensions. This is the quality gate.</p>
-
-  <div class="detail-card">
-    <h3><span class="api-tag tag-gpt4o">GPT-4o</span> Batch Scoring</h3>
-    <p>Grants batched in groups of <code>SCORE_BATCH = 25</code>. Each batch sent to GPT-4o with:</p>
-    <ul>
-      <li>Full org context (website, type, regions, sectors, purpose, amount, previous funders)</li>
-      <li>Org website content (first 1,500 chars)</li>
-      <li>Current date</li>
-      <li>Each grant's metadata + up to 2,000 chars of page content</li>
-    </ul>
-    <p>15 concurrent scoring calls. The first batch also generates <code>orgSummary</code>.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>Scoring Prompt &mdash; Pre-Scoring Checks</h3>
-    <p>Before scoring, GPT applies three sequential checks:</p>
-
-    <p><strong>1. URL Quality Check:</strong> If the content reads like a news article, press release, or past recipients list (rather than an actual grant page), zero out all scores. This catches grants that slipped past the extraction prompt's rules.</p>
-
-    <p><strong>2. Geographic Eligibility Check:</strong> If the grant explicitly restricts applicants to a different country (e.g. "US-based organisations only"), zero out scores. International/global programmes are eligible.</p>
-
-    <p><strong>3. Regional Relevance:</strong> National funders always score normally. Regional funders that don't serve the org's regions get a 3-4 point attainability reduction.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>Scoring Dimensions</h3>
-    <table>
+  <table>
+    <thead>
       <tr>
-        <th style="width:140px;">Dimension</th>
-        <th style="width:60px;">Weight</th>
-        <th>Scale</th>
-        <th>What it measures</th>
+        <th>Endpoint</th>
+        <th>Methods</th>
+        <th>Description</th>
       </tr>
-      <tr class="row-highlight">
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/api/saved-searches</code></td>
+        <td>GET, POST, DELETE</td>
+        <td>Save/list/delete search results. Auto-saved after each search. Stores full SearchResult as JSONB.</td>
+      </tr>
+      <tr>
+        <td><code>/api/shortlist</code></td>
+        <td>GET, POST, DELETE</td>
+        <td>Add/remove/list shortlisted grants. Batch check endpoint. Grouped by search title.</td>
+      </tr>
+      <tr>
+        <td><code>/api/deep-search-results</code></td>
+        <td>GET, POST, DELETE</td>
+        <td>Store/retrieve deep search results. Batch lookup by grant IDs.</td>
+      </tr>
+      <tr>
+        <td><code>/api/applications</code></td>
+        <td>GET, POST, PUT, DELETE</td>
+        <td>Full CRUD for application tracking. Status transitions, notes, financial amounts.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 6. FRONTEND PAGES -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="frontend-pages">6. Frontend Pages</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Route</th>
+        <th>File</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/</code></td>
+        <td><code>app/page.tsx</code></td>
+        <td><strong>Search form.</strong> Collects org info (website, purpose, amount, regions, sectors, org type). Loading animation with 9 progress stages. Auto-saves and redirects to results.</td>
+      </tr>
+      <tr>
+        <td><code>/results</code></td>
+        <td><code>app/results/page.tsx</code></td>
+        <td><strong>Search results.</strong> Filter by score, sort (overall/alignment/attainability/ease/deadline), group by funder, text search. Shortlist and deep-search actions per grant.</td>
+      </tr>
+      <tr>
+        <td><code>/shortlisted</code></td>
+        <td><code>app/shortlisted/page.tsx</code></td>
+        <td><strong>Shortlisted grants.</strong> Grouped by search. Expandable cards with deep-search insights, eligibility, checklists, scores. Start Application action.</td>
+      </tr>
+      <tr>
+        <td><code>/applications</code></td>
+        <td><code>app/applications/page.tsx</code></td>
+        <td><strong>Application tracker.</strong> Grouped by status (Preparing &rarr; Submitted &rarr; Under Review &rarr; Approved/Declined/Withdrawn). Notes, financial tracking, timeline.</td>
+      </tr>
+      <tr>
+        <td><code>/saved</code></td>
+        <td><code>app/saved/page.tsx</code></td>
+        <td><strong>Saved searches.</strong> List previous searches with grant count, summary, date. Re-run or delete.</td>
+      </tr>
+      <tr>
+        <td><code>/grant/[id]/deep-search</code></td>
+        <td><code>app/grant/[id]/deep-search/page.tsx</code></td>
+        <td><strong>Deep search detail.</strong> Full standalone view of deep search results with all sections.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 7. LIB MODULES -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="lib-modules">7. Library Modules</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Module</th>
+        <th>Exports</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>lib/db.ts</code></td>
+        <td><code>getPool</code>, <code>searchGrants</code>, <code>writeDeepSearchUpdates</code>, <code>generateGrantId</code>, <code>ensureStorageTables</code>, <code>GrantRow</code></td>
+        <td>Database access layer. Connection pooling, grants query with region/sector filtering, deep-search write-back, deterministic ID generation, storage table setup.</td>
+      </tr>
+      <tr>
+        <td><code>lib/types.ts</code></td>
+        <td><code>OrgInfo</code>, <code>GrantOpportunity</code>, <code>SearchResult</code>, <code>DeepSearchResult</code>, <code>GrantApplication</code>, etc.</td>
+        <td>All TypeScript interfaces for the app.</td>
+      </tr>
+      <tr>
+        <td><code>lib/formatting.ts</code></td>
+        <td><code>scoreColor</code>, <code>scoreTextClass</code>, <code>formatCurrency</code>, <code>formatAmountRange</code>, <code>formatDeadline</code></td>
+        <td>Shared UI formatting helpers used across results, shortlisted, applications, and deep-search pages.</td>
+      </tr>
+      <tr>
+        <td><code>lib/constants.ts</code></td>
+        <td><code>SECTORS</code> (17), <code>ORG_TYPES</code> (6)</td>
+        <td>Domain config arrays used by the search form.</td>
+      </tr>
+      <tr>
+        <td><code>lib/saved-searches.ts</code></td>
+        <td><code>useSavedSearches</code>, <code>saveSearch</code>, <code>deleteSaved</code>, <code>getSaved</code></td>
+        <td>Client-side SWR hooks + API calls for saved searches.</td>
+      </tr>
+      <tr>
+        <td><code>lib/shortlist-storage.ts</code></td>
+        <td><code>useShortlistedBySearch</code>, <code>batchCheckShortlisted</code>, <code>toggleShortlist</code></td>
+        <td>Client-side SWR hooks + API calls for shortlist management.</td>
+      </tr>
+      <tr>
+        <td><code>lib/deep-search-storage.ts</code></td>
+        <td><code>useDeepSearch</code>, <code>useDeepSearchBatch</code>, <code>batchCheckDeepSearch</code>, <code>saveDeepSearch</code></td>
+        <td>Client-side SWR hooks + API calls for deep search results.</td>
+      </tr>
+      <tr>
+        <td><code>lib/application-storage.ts</code></td>
+        <td><code>useApplicationsByStatus</code>, <code>useApplicationCheck</code>, <code>startApplication</code>, <code>updateApplicationStatus</code>, etc.</td>
+        <td>Client-side SWR hooks + API calls for application tracking.</td>
+      </tr>
+      <tr>
+        <td><code>lib/markets/</code></td>
+        <td><code>getMarket</code>, <code>listMarkets</code>, <code>NZ_MARKET</code>, <code>AU_MARKET</code></td>
+        <td>Market config: regions, sectors, currency, locale, curated funder URLs, excluded domains.</td>
+      </tr>
+      <tr>
+        <td><code>lib/openai.ts</code></td>
+        <td><code>openai</code></td>
+        <td>OpenAI client initialisation.</td>
+      </tr>
+      <tr>
+        <td><code>lib/tavily.ts</code></td>
+        <td><code>tavilyClient</code></td>
+        <td>Tavily client initialisation (used by deep search + scripts).</td>
+      </tr>
+      <tr>
+        <td><code>lib/serper.ts</code></td>
+        <td><code>serperSearch</code></td>
+        <td>Serper search wrapper (used by deep search only).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 8. DATA PIPELINE -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="data-pipeline">8. Data Pipeline Scripts</h2>
+
+  <p>All scripts run locally via <code>DATABASE_URL="..." npx tsx scripts/&lt;script&gt;.ts</code>. Some also require <code>OPENAI_API_KEY</code> and/or <code>TAVILY_API_KEY</code>.</p>
+
+  <h3>Core Pipeline (run in order)</h3>
+
+  <div class="card">
+    <div class="card-body" style="padding: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 30px;">#</th>
+            <th style="width: 260px;">Script</th>
+            <th>What it does</th>
+            <th style="width: 100px;">APIs used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1</td>
+            <td><code>import-charities.ts</code></td>
+            <td>Fetches charities from NZ Charities Register API (grant-makers + name-matched trusts/foundations). Batched inserts (500/batch). Filters noise (PTAs, churches, sports clubs). Safe to re-run (ON CONFLICT).</td>
+            <td style="color: var(--text-muted);">Register API</td>
+          </tr>
+          <tr>
+            <td>2</td>
+            <td><code>import-curated-funders.ts</code></td>
+            <td>Imports 272 hand-curated funders from <code>lib/markets/nz.ts</code>. URL normalisation + dedup. Single-program funders merged with register entries; multi-program funders inserted separately.</td>
+            <td style="color: var(--text-muted);">none</td>
+          </tr>
+          <tr>
+            <td>3</td>
+            <td><code>enrich-charities.ts</code></td>
+            <td>For each unenriched funder: fetches curated_grant_url (or homepage), extracts grant programs via GPT-4o-mini, inserts into grants table. Only processes enriched_at IS NULL records.</td>
+            <td style="color: var(--accent-blue);">GPT-4o-mini</td>
+          </tr>
+          <tr>
+            <td>4</td>
+            <td><code>classify-grant-makers.ts</code></td>
+            <td>GPT-4o classifies which charities are actual grant-makers vs grant-recipients incorrectly included. 1,762 non-grant-maker grants deactivated (<code>is_active = false</code>).</td>
+            <td style="color: var(--accent-purple);">GPT-4o</td>
+          </tr>
+          <tr>
+            <td>5</td>
+            <td><code>fill-missing-fields.ts</code></td>
+            <td>Targeted re-enrichment pass for grants with missing amounts, deadlines, or form URLs. Fetches source pages and uses GPT-4o-mini to extract specific fields.</td>
+            <td style="color: var(--accent-blue);">GPT-4o-mini</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>Quality &amp; Enhancement Scripts</h3>
+
+  <div class="card">
+    <div class="card-body" style="padding: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 260px;">Script</th>
+            <th>What it does</th>
+            <th style="width: 100px;">APIs used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>retag-new-sectors.ts</code></td>
+            <td>Re-tags all active grants with new sector IDs (<code>economic-development</code>, <code>animal-welfare</code>) using GPT-4o-mini. Only adds tags, never removes. Batches of 50.</td>
+            <td style="color: var(--accent-blue);">GPT-4o-mini</td>
+          </tr>
+          <tr>
+            <td><code>db-quality-fixes.ts</code></td>
+            <td>Comprehensive fixes: merge errors (Fillmor House, Aoraki, etc.), homepage &rarr; grants page URL corrections, funder deduplication (NZCT, Four Winds, etc.), contamination grant deactivation, enriched_at resets.</td>
+            <td style="color: var(--text-muted);">none (SQL only)</td>
+          </tr>
+          <tr>
+            <td><code>fill-apply-urls.ts</code></td>
+            <td>Finds application form URLs for grants missing them. Part B: Tavily extract on source_url + GPT for URL extraction. Part A: Tavily search fallback (portal domains only). Dry-run by default (<code>--write</code> to persist).</td>
+            <td style="color: var(--accent-green);">Tavily + GPT-4o-mini</td>
+          </tr>
+          <tr>
+            <td><code>fill-missing-fields-tavily.ts</code></td>
+            <td>Re-enrichment using Tavily (bypasses 403s / JS-rendered pages). Groups by source_url for efficiency. Targets eligibility, amounts, deadlines. Only fills NULL fields.</td>
+            <td style="color: var(--accent-green);">Tavily + GPT-4o-mini</td>
+          </tr>
+          <tr>
+            <td><code>seed-oct-grants.ts</code></td>
+            <td>Manually seeds Otago Community Trust grants (uses Fluxx portal that can't be scraped). Hardcoded grant programs inserted directly.</td>
+            <td style="color: var(--text-muted);">none</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 9. SCORING -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="scoring">9. Scoring System Details</h2>
+
+  <h3>Pre-checks (applied before scoring)</h3>
+  <ol>
+    <li><strong>URL Quality Check:</strong> If content is a news article, press release, or past-recipients list rather than a grant program page &rarr; all scores zeroed.</li>
+    <li><strong>Geographic Eligibility:</strong> If grant is restricted to a country/region that isn't NZ &rarr; alignment=0, attainability=0, overall=0.</li>
+  </ol>
+
+  <h3>Scoring Dimensions</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th>Weight</th>
+        <th>Factors</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
         <td><strong>Alignment</strong></td>
-        <td><strong>50%</strong></td>
-        <td>0-3 poor | 4-6 partial | 7-8 good | 9-10 exact</td>
-        <td>How well the grant's purpose AND form of support match the org's mission AND specific funding request. Includes the form-of-support check (cash vs in-kind).</td>
+        <td>50%</td>
+        <td>Grant purpose vs org mission, form of support match (cash vs in-kind), sector overlap, specific funding request match</td>
       </tr>
       <tr>
         <td><strong>Attainability</strong></td>
-        <td><strong>30%</strong></td>
-        <td>1-2 very competitive | 5-6 moderate | 9-10 strong match</td>
-        <td>Likelihood the org wins given competition level and eligibility fit. Regional/less-competitive funders score higher.</td>
+        <td>30%</td>
+        <td>Competition level, eligibility fit, regional relevance, org type match, amount range match</td>
       </tr>
       <tr>
         <td><strong>Ease</strong></td>
-        <td><strong>20%</strong></td>
-        <td>1-2 multi-stage | 5-6 full proposal | 9-10 simple form</td>
-        <td>How easy it is to apply. Simple online forms score highest; multi-stage processes with site visits score lowest.</td>
+        <td>20%</td>
+        <td>Application complexity: simple online form (9&ndash;10) vs multi-stage with site visits (1&ndash;2)</td>
       </tr>
-    </table>
+    </tbody>
+  </table>
+
+  <p><strong>Formula:</strong> Overall = (alignment &times; 0.5) + (attainability &times; 0.3) + (ease &times; 0.2), rounded to 1dp</p>
+  <p><strong>Filter:</strong> Only grants with alignment &ge; 5.0 are returned to the user.</p>
+
+  <h3>Score Recalibration (Deep Search)</h3>
+  <p>When deep search runs, GPT-4o recalibrates all three scores based on the detailed information discovered. Each change includes a <code>reason</code> explaining why the score moved (e.g. "Application requires detailed financials and site visit &mdash; reduced ease from 7 to 4").</p>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 10. MARKETS -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="markets">10. Market Configuration</h2>
+
+  <p>Each market (NZ, AU) is defined in <code>lib/markets/</code> with:</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Example (NZ)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td><code>id</code></td><td><code>'nz'</code></td></tr>
+      <tr><td><code>country</code></td><td><code>'New Zealand'</code></td></tr>
+      <tr><td><code>currency</code> / <code>currencySymbol</code></td><td><code>'NZD'</code> / <code>'$'</code></td></tr>
+      <tr><td><code>locale</code></td><td><code>'en-NZ'</code></td></tr>
+      <tr><td><code>regions</code></td><td>16 NZ regions (Auckland, Wellington, Canterbury, etc.)</td></tr>
+      <tr><td><code>curatedFunderUrls</code></td><td>~200 hand-verified funder URLs with optional region tags</td></tr>
+      <tr><td><code>excludedDomains</code></td><td>Domains to filter (e.g. givealittle.co.nz, facebook.com)</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Sectors (17)</h3>
+  <p style="font-family: monospace; font-size: 12px;">
+    health, mental-health, education, youth, children-families, elderly, disability, arts-culture, sport, environment, housing, community, social-services, indigenous, rural, economic-development, animal-welfare
+  </p>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- FOOTER -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 48px; padding-bottom: 24px;">
+    GrantSearch NZ &mdash; Last updated March 2026
   </div>
-
-  <div class="detail-card">
-    <h3>Score Formula</h3>
-<div class="code-block"><span class="highlight">overall</span> = (<span class="key">alignment</span> &times; 0.5) + (<span class="key">attainability</span> &times; 0.3) + (<span class="key">ease</span> &times; 0.2)
-
-<span class="comment">Example: alignment=8, attainability=7, ease=6</span>
-<span class="comment">overall = (8 &times; 0.5) + (7 &times; 0.3) + (6 &times; 0.2) = 4.0 + 2.1 + 1.2 = 7.3</span></div>
-  </div>
-
-  <div class="detail-card">
-    <h3>Form-of-Support Check</h3>
-    <p>Added to prevent false positives like "Digital Wings" (donated IT equipment) matching an org seeking $10,000 cash for an IT upgrade. The scorer explicitly checks:</p>
-    <ul>
-      <li><strong>Cash grants</strong> &mdash; direct monetary support</li>
-      <li><strong>In-kind donations</strong> &mdash; donated goods, equipment, materials</li>
-      <li><strong>Services</strong> &mdash; training, mentoring, capacity building</li>
-      <li><strong>Fee waivers</strong> &mdash; reduced-cost access to products/services</li>
-    </ul>
-    <p>If the org seeks cash but the grant provides in-kind support, alignment is capped at 3-4 regardless of topic overlap.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>Deadline Rule</h3>
-    <p>GPT only sets a <code>deadline</code> field if the page content contains a specific future date explicitly stated as a closing date. Past dates are ignored. No date stated = rolling/open cycle. This prevents false "closed" classifications.</p>
-  </div>
-
-  <div class="detail-card">
-    <h3>GPT Output per Grant</h3>
-<div class="code-block">{
-  <span class="key">"id"</span>: <span class="string">"g-1"</span>,
-  <span class="key">"name"</span>: <span class="string">"Community Organisation Grants Scheme (COGS)"</span>,
-  <span class="key">"funder"</span>: <span class="string">"Department of Internal Affairs"</span>,
-  <span class="key">"type"</span>: <span class="string">"Government"</span>,
-  <span class="key">"description"</span>: <span class="string">"Funding for local community projects up to $5,000..."</span>,
-  <span class="key">"amountMin"</span>: 500,
-  <span class="key">"amountMax"</span>: 5000,
-  <span class="key">"url"</span>: <span class="string">"https://www.communitymatters.govt.nz/cogs"</span>,
-  <span class="key">"scores"</span>: { <span class="key">"alignment"</span>: 7, <span class="key">"ease"</span>: 8, <span class="key">"attainability"</span>: 7, <span class="key">"overall"</span>: 7.2 },
-  <span class="key">"alignmentReason"</span>: <span class="string">"COGS directly funds community projects including IT/digital capability upgrades for registered charities..."</span>,
-  <span class="key">"applicationNotes"</span>: <span class="string">"Simple online application through the COGS portal, requires project description and budget..."</span>,
-  <span class="key">"attainabilityNotes"</span>: <span class="string">"Moderate competition but distributed across regional committees, giving local organisations good chances..."</span>
-}</div>
-  </div>
-
-  <div class="filter-step">
-    <strong>ALIGNMENT THRESHOLD</strong>
-    <span>Grants with <code>alignment &lt; 5</code> are removed from the final results. This removes geographic mismatches, wrong-sector grants, and in-kind/cash misalignment. Typically removes ~40-50% of scored grants.</span>
-  </div>
-
-  <div class="cost-box">
-    <div class="cost-label">Cost for Step 5</div>
-    <p style="font-size:13px; color:var(--text-muted);">GPT-4o: ~5-8 batch calls &times; ~6K input tokens each = <strong>~$0.30-0.80</strong>. Second most expensive step after Tavily extraction.</p>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- OUTPUT -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<div class="step">
-  <div class="step-number" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">&#x2713;</div>
-  <h2>Output &amp; Diagnostics</h2>
-  <p class="step-purpose">Final results are returned to the frontend. Console logs provide full cost and provenance diagnostics.</p>
-
-  <div class="detail-card">
-    <h3>API Response</h3>
-    <p>The search API returns a JSON object containing:</p>
-    <ul>
-      <li><code>grants[]</code> &mdash; scored GrantOpportunity objects, sorted by overall score</li>
-      <li><code>orgSummary</code> &mdash; GPT's 2-3 sentence description of the organisation</li>
-      <li><code>searchedAt</code> &mdash; ISO timestamp</li>
-      <li><code>market</code> &mdash; "nz" (used for currency formatting)</li>
-      <li><code>inputs</code> &mdash; original form inputs (saved for re-running searches)</li>
-      <li><code>diagnostics</code> &mdash; per-step provenance breakdown (see below)</li>
-    </ul>
-  </div>
-
-  <div class="detail-card">
-    <h3>Pipeline Diagnostics Table</h3>
-    <p>Logged to the server console after every search. Shows the full funnel per discovery step:</p>
-<div class="code-block"><span class="highlight">[GrantSearch] ═══ PIPELINE DIAGNOSTICS ═══</span>
-Step                   Raw URLs   Unique  Extracted    Grants   Kept  Avg Score
-──────────────────────────────────────────────────────────────────────────────────
-curated                       0       96         88       48     32        6.7
-enum                        801      531        361      121     59        6.5
-seed                         69       28         21       10      4        6.9
-regional                    270       76         47       19      8        6.1
-purpose                      93       29         14        8      6        6.6
-associative                 142       51         35        4      4        7.7
-broad                       657      105         74       15      9        6.1
-gap-fill                    239       74         48        3      2        6.5
-site-crawl                 5945     3187        366       78     18        6.2
-──────────────────────────────────────────────────────────────────────────────────
-TOTAL                      8230     4933       1135      322    179        6.5</div>
-    <p><strong>Column definitions:</strong></p>
-    <ul>
-      <li><strong>Raw URLs</strong> &mdash; total hits from this step before any deduplication (curated/directory show 0 because they don't go through rawSearchHits)</li>
-      <li><strong>Unique</strong> &mdash; URLs that survived deduplication (first-seen wins across all steps)</li>
-      <li><strong>Extracted</strong> &mdash; URLs that survived the grant filter + per-domain cap and were sent to Tavily</li>
-      <li><strong>Grants</strong> &mdash; raw grants extracted by GPT from pages originating from this step</li>
-      <li><strong>Kept</strong> &mdash; grants that passed the alignment &ge; 5 scoring threshold</li>
-      <li><strong>Avg Score</strong> &mdash; average overall score of kept grants from this step</li>
-    </ul>
-  </div>
-
-  <div class="detail-card">
-    <h3>Cost Breakdown</h3>
-<div class="code-block"><span class="highlight">[GrantSearch] Cost breakdown:</span>
-{
-  <span class="key">'GPT-4o'</span>:      <span class="string">'$1.2400 (124000 in / 18000 out tokens)'</span>,
-  <span class="key">'GPT-4o-mini'</span>: <span class="string">'$0.0840 (420000 in / 38000 out tokens)'</span>,
-  <span class="key">'Tavily'</span>:      <span class="string">'$6.4000 (800 URLs)'</span>,
-  <span class="key">'Serper'</span>:      <span class="string">'$0.3500 (350 queries)'</span>,
-  <span class="key">'TOTAL'</span>:       <span class="string">'$8.0740'</span>
-}</div>
-  </div>
-</div>
-
-<hr>
-
-<p style="text-align: center; color: var(--text-dim); font-size: 12px; padding: 20px 0;">
-  Generated from <code>app/api/search/route.ts</code> &mdash; Grant Search Pipeline &mdash; Detailed Reference v1
-</p>
 
 </div>
 </body>

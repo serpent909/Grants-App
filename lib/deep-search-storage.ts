@@ -34,17 +34,6 @@ export function useDeepSearchBatch(grantIds: string[]) {
 
 // ─── Read functions ────────────────────────────────────────────────────────
 
-export async function getDeepSearch(grantId: string): Promise<DeepSearchResult | null> {
-  const res = await fetch(`/api/deep-search-results?grantId=${encodeURIComponent(grantId)}`);
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export async function hasDeepSearch(grantId: string): Promise<boolean> {
-  const result = await getDeepSearch(grantId);
-  return result !== null;
-}
-
 export async function batchCheckDeepSearch(grantIds: string[]): Promise<Map<string, string>> {
   if (grantIds.length === 0) return new Map();
   const res = await fetch(`/api/deep-search-results?grantIds=${grantIds.join(',')}`);

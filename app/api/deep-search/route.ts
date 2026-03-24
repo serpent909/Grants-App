@@ -4,6 +4,7 @@ import { tavilyClient } from '@/lib/tavily';
 import { serperSearch } from '@/lib/serper';
 import { OrgInfo, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
+import { writeDeepSearchUpdates } from '@/lib/db';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -429,6 +430,14 @@ Be thorough but factual — only include information that is directly supported 
       pastRecipientNotes: parsed.pastRecipientNotes || undefined,
       sourcesUsed: Array.isArray(parsed.sourcesUsed) ? parsed.sourcesUsed : [],
     };
+
+    // Write discovered fields back to DB (only fills NULLs — never overwrites existing data)
+    await writeDeepSearchUpdates(grant.id, {
+      applicationFormUrl: deepResult.applicationFormUrl,
+      amountMin: deepResult.amountMin,
+      amountMax: deepResult.amountMax,
+      deadline: deepResult.applicationCloseDate,
+    });
 
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     const cost = computeCost(costs);
