@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { getPool } from './db';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   pages: {
     signIn: '/login',
   },
@@ -48,20 +49,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async authorized({ auth: session, request }) {
-      const isLoggedIn = !!session?.user;
-      const isApiRoute = request.nextUrl.pathname.startsWith('/api');
-
-      if (!isLoggedIn) {
-        if (isApiRoute) {
-          // API routes: return false → NextAuth returns 401
-          return false;
-        }
-        // Pages: redirect to login
-        return false;
-      }
-      return true;
-    },
     async jwt({ token, user }) {
       // On initial sign-in, user object is present
       if (user) {

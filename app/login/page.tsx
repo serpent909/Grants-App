@@ -1,17 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
 import { Loader2, LogIn } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
-  const router = useRouter();
+  const { status } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // If already authenticated, redirect to home
+  useEffect(() => {
+    if (status === 'authenticated') {
+      window.location.href = '/';
+    }
+  }, [status]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,16 +33,13 @@ export default function LoginPage() {
     if (result?.error) {
       setError('Invalid email or password');
       setLoading(false);
-    } else {
-      router.push('/');
-      router.refresh();
     }
+    // On success, useSession will update to 'authenticated' and the useEffect redirects
   }
 
   return (
     <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-zinc-900">GrantSearch</h1>
           <p className="text-sm text-zinc-500 mt-1">Sign in to your account</p>

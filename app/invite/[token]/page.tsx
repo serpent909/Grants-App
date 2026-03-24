@@ -71,8 +71,7 @@ export default function InvitePage() {
         setError('Account created but sign-in failed. Try logging in.');
         setLoading(false);
       } else {
-        router.push('/');
-        router.refresh();
+        window.location.href = '/';
       }
     } catch {
       setError('Something went wrong. Please try again.');
