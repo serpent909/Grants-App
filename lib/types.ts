@@ -37,15 +37,7 @@ export interface SearchResult {
   orgSummary: string;
   searchedAt: string;
   market: string; // echoed from request so results page can format currency/dates
-  inputs?: OrgInfo; // original form inputs, saved for diagnostics and re-use
-  diagnostics?: Record<string, {
-    rawUrls: number;
-    uniqueUrls: number;
-    extractedUrls: number;
-    grantsFound: number;
-    grantsKept: number;
-    avgScore: number | null;
-  }>;
+  inputs?: OrgInfo; // original form inputs, saved for re-use
 }
 
 // ─── Deep Search ─────────────────────────────────────────────────────────────

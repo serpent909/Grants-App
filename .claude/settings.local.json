@@ -1,9 +1,28 @@
 {
   "permissions": {
     "allow": [
+      "Bash(*)",
       "WebFetch(domain:wellington.govt.nz)",
       "WebFetch(domain:ccc.govt.nz)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:www.oct.org.nz)",
+      "WebFetch(domain:www.clt.net.nz)",
+      "WebFetch(domain:comtrust.org.nz)",
+      "WebFetch(domain:www.aorakifoundation.org.nz)",
+      "WebFetch(domain:momentumwaikato.nz)",
+      "WebFetch(domain:www.baytrust.org.nz)",
+      "WebFetch(domain:www.jrmckenzie.org.nz)",
+      "WebFetch(domain:www.wfct.org.nz)",
+      "WebFetch(domain:www.nikaufoundation.org.nz)",
+      "WebFetch(domain:mainlandfoundation.co.nz)",
+      "WebFetch(domain:toifoundation.org.nz)",
+      "WebFetch(domain:terourou.one.nz)",
+      "WebFetch(domain:wct.org.nz)",
+      "WebFetch(domain:www.nzct.org.nz)",
+      "WebFetch(domain:www.toddfoundation.org.nz)",
+      "WebFetch(domain:www.nikaufoundation.nz)",
+      "WebFetch(domain:one.nz)",
+      "WebFetch(domain:wellingtoncommunityfund.org.nz)"
     ]
   }
 }

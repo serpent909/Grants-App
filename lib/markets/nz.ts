@@ -133,12 +133,14 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://onefoundation.nz/grants' },
     { url: 'https://www.agt.nz/funding/applying-for-funding' },
     { url: 'https://www.grassrootstrust.co.nz/apply-for-a-grant/' },
-    { url: 'https://mainlandfoundation.co.nz/' },
+    { url: 'https://mainlandfoundation.co.nz/grant-funding/' },
     { url: 'https://bluesky.org.nz/grants/grants.html' },
     { url: 'https://www.dragon.org.nz/grants' },
     { url: 'https://www.firstlightfoundation.co.nz/grants.html', regions: ['hawkes-bay', 'bay-of-plenty'] },
     // ── Community trusts — additional regional ─────────────────────────────
     { url: 'https://www.communitytrustsouth.nz/what-we-fund/', regions: ['southland', 'otago'] },
+    { url: 'https://www.clt.net.nz/funding', regions: ['otago'] },                                      // Central Lakes Trust (Queenstown Lakes / Central Otago)
+    { url: 'https://comtrust.org.nz', regions: ['canterbury'] },                                        // Community Trust Mid & South Canterbury
     { url: 'https://www.taranakielectricitytrust.co.nz/grants/', regions: ['taranaki'] },
     // ── Casino community trusts — regional ──────────────────────────────────
     { url: 'https://skycityauckland.co.nz/about-us/community-trust/how-to-apply/', regions: ['auckland', 'northland'] },
@@ -147,13 +149,13 @@ export const NZ_MARKET: MarketConfig = {
     // ── Community trusts — regional ─────────────────────────────────────────
     { url: 'https://www.foundationnorth.org.nz/funding', regions: ['auckland', 'northland'] },
     { url: 'https://www.trustwaikato.co.nz/funding', regions: ['waikato'] },
-    { url: 'https://www.baytrust.org.nz/', regions: ['bay-of-plenty'] },
+    { url: 'https://www.baytrust.org.nz/apply-for-funding', regions: ['bay-of-plenty'] },
     { url: 'https://www.tect.org.nz/our-funds/', regions: ['bay-of-plenty'] },
     { url: 'https://ecct.org.nz/funding', regions: ['gisborne', 'hawkes-bay', 'manawatu-whanganui'] },
-    { url: 'https://wct.org.nz/', regions: ['wellington'] },
+    { url: 'https://wct.org.nz/funding/', regions: ['wellington'] },
     { url: 'https://ratafoundation.org.nz/en/funding', regions: ['canterbury', 'west-coast', 'nelson', 'tasman', 'marlborough'] },
-    { url: 'https://www.oct.org.nz/', regions: ['otago'] },
-    { url: 'https://toifoundation.org.nz/', regions: ['taranaki'] },
+    { url: 'https://www.oct.org.nz/funding/apply-for-funding', regions: ['otago'] },
+    { url: 'https://toifoundation.org.nz/how-we-fund/', regions: ['taranaki'] },
     { url: 'https://welenergytrust.co.nz/grants', regions: ['waikato'] },
     { url: 'https://www.centralenergytrust.org.nz/community-grants', regions: ['manawatu-whanganui'] },
     { url: 'https://www.trusthorizon.org.nz/funding', regions: ['bay-of-plenty'] },
@@ -161,11 +163,11 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://rotoruatrust.org.nz/grants/', regions: ['bay-of-plenty'] },
     // ── Community foundations — regional ─────────────────────────────────────
     { url: 'https://www.acornfoundation.org.nz/apply-funding/how-to-apply-for-funding', regions: ['bay-of-plenty'] },
-    { url: 'https://www.nikaufoundation.org.nz/', regions: ['wellington'] },
+    { url: 'https://www.nikaufoundation.nz/funding-hub', regions: ['wellington'] },
     { url: 'https://www.aucklandfoundation.org.nz/apply-for-grants', regions: ['auckland'] },
     { url: 'https://momentumwaikato.nz/how-we-fund', regions: ['waikato'] },
     { url: 'https://www.sunrisefoundation.org.nz/grants', regions: ['gisborne'] },
-    { url: 'https://www.aorakifoundation.co.nz/endowment-funds', regions: ['canterbury'] },
+    { url: 'https://www.aorakifoundation.org.nz/apply-for-a-grant', regions: ['canterbury'] },  // Aoraki Foundation (community foundation, Timaru)
     { url: 'https://www.ebcf.nz/apply-for-funding/', regions: ['bay-of-plenty'] },
     { url: 'https://hawkesbayfoundation.org.nz/grant/how-to-apply-for-funding/', regions: ['hawkes-bay'] },
     { url: 'https://geysercf.org.nz/get/community-funding/', regions: ['bay-of-plenty', 'waikato'] },
@@ -179,7 +181,7 @@ export const NZ_MARKET: MarketConfig = {
     // ── Charitable / philanthropic trusts — national ────────────────────────
     { url: 'https://www.toddfoundation.org.nz/who-we-fund/' },
     { url: 'https://tindall.org.nz/community/' },
-    { url: 'https://www.jrmckenzie.org.nz' },
+    { url: 'https://www.jrmckenzie.org.nz/what' },
     { url: 'https://www.perpetualguardian.co.nz/philanthropy/grant-seekers/' },
     { url: 'https://www.kct.co.nz/' },
     { url: 'https://sutherlandselfhelptrust.org.nz/grant-application/' },

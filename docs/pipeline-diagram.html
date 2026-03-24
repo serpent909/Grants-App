@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Grant Search Pipeline — End-to-End Diagram</title>
+<title>GrantSearch NZ — End-to-End Overview</title>
 <style>
   :root {
     --bg: #0f1117;
@@ -32,10 +32,7 @@
     min-height: 100vh;
   }
 
-  .container {
-    max-width: 1200px;
-    margin: 0 auto;
-  }
+  .container { max-width: 1200px; margin: 0 auto; }
 
   h1 {
     font-size: 28px;
@@ -54,7 +51,6 @@
     margin-bottom: 48px;
   }
 
-  /* ─── Pipeline Section ─── */
   .pipeline-section {
     position: relative;
     margin-bottom: 32px;
@@ -79,19 +75,16 @@
     flex-shrink: 0;
   }
 
-  .section-title {
-    font-size: 18px;
-    font-weight: 600;
-  }
+  .section-title { font-size: 18px; font-weight: 600; }
 
   .section-desc {
     font-size: 13px;
     color: var(--text-muted);
     margin-left: 48px;
     margin-bottom: 12px;
+    line-height: 1.6;
   }
 
-  /* ─── Cards ─── */
   .card-row {
     display: flex;
     gap: 12px;
@@ -103,849 +96,415 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 16px;
+    overflow: hidden;
     flex: 1;
-    min-width: 200px;
-    max-width: 380px;
-    position: relative;
-    transition: border-color 0.2s;
+    min-width: 220px;
   }
 
-  .card:hover {
-    border-color: var(--accent-blue);
-  }
+  .card-wide { min-width: 100%; flex: none; }
 
-  .card-label {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .card-body {
-    font-size: 13px;
-    color: var(--text-muted);
-    line-height: 1.6;
-  }
-
-  .card-body code {
-    background: var(--surface2);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 11px;
-    color: var(--accent-cyan);
-  }
-
-  .api-tag {
-    display: inline-block;
-    padding: 2px 7px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-  }
-
-  .tag-gpt4o { background: rgba(167, 139, 250, 0.15); color: var(--accent-purple); }
-  .tag-gpt4o-mini { background: rgba(91, 156, 245, 0.15); color: var(--accent-blue); }
-  .tag-tavily { background: rgba(52, 211, 153, 0.15); color: var(--accent-green); }
-  .tag-serper { background: rgba(251, 191, 36, 0.15); color: var(--accent-amber); }
-  .tag-db { background: rgba(244, 114, 182, 0.15); color: var(--accent-pink); }
-
-  .cost-note {
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-top: 8px;
-    font-style: italic;
-  }
-
-  /* ─── Connector arrows ─── */
-  .connector {
-    display: flex;
-    justify-content: center;
-    margin: 8px 0;
-    margin-left: 48px;
-  }
-
-  .connector svg {
-    display: block;
-  }
-
-  .arrow-down {
-    width: 24px;
-    height: 32px;
-  }
-
-  /* ─── Parallel indicator ─── */
-  .parallel-group {
-    border: 1px dashed var(--border);
-    border-radius: 16px;
-    padding: 20px 16px 16px;
-    margin-left: 48px;
-    margin-bottom: 8px;
-    position: relative;
-  }
-
-  .parallel-label {
-    position: absolute;
-    top: -10px;
-    left: 20px;
-    background: var(--bg);
-    padding: 0 10px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--accent-amber);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .parallel-group .card-row {
-    margin-left: 0;
-  }
-
-  /* ─── Funnel / filter indicator ─── */
-  .filter-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-left: 48px;
-    padding: 10px 16px;
-    background: linear-gradient(90deg, rgba(248, 113, 113, 0.08), transparent);
-    border-left: 3px solid var(--accent-red);
-    border-radius: 0 8px 8px 0;
-    margin-bottom: 8px;
-  }
-
-  .filter-bar .filter-icon {
-    font-size: 16px;
-    flex-shrink: 0;
-  }
-
-  .filter-bar .filter-text {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
-
-  .filter-bar .filter-text strong {
-    color: var(--accent-red);
-    font-weight: 600;
-  }
-
-  /* ─── Output box ─── */
-  .output-box {
-    margin-left: 48px;
+  .card-header {
     padding: 12px 16px;
-    background: var(--surface2);
-    border-radius: 8px;
-    font-size: 12px;
-    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 4px;
   }
 
-  .output-box .output-label {
-    color: var(--accent-green);
-    font-weight: 600;
+  .card-body { padding: 16px; font-size: 13px; line-height: 1.6; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
     font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    white-space: nowrap;
+    font-weight: 600;
+    margin-right: 4px;
   }
 
-  /* ─── Divider ─── */
-  .divider {
+  .flow-arrow {
+    display: flex;
+    justify-content: center;
+    margin: 16px 0;
+    color: var(--text-muted);
+    font-size: 24px;
+  }
+
+  hr.divider {
     border: none;
     border-top: 1px solid var(--border);
-    margin: 32px 48px 24px;
+    margin: 40px 48px;
   }
 
-  /* ─── Legend ─── */
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    justify-content: center;
-    margin-bottom: 40px;
-    padding: 16px;
-    background: var(--surface);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600; }
+  td { padding: 8px 12px; }
+  tr + tr { border-top: 1px solid var(--border); }
 
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  code {
+    background: var(--surface2);
+    padding: 1px 6px;
+    border-radius: 4px;
     font-size: 12px;
-    color: var(--text-muted);
   }
-
-  /* ─── Wide card ─── */
-  .card-wide {
-    max-width: 100%;
-  }
-
-  /* ─── Sub-items list ─── */
-  .sub-items {
-    list-style: none;
-    margin-top: 8px;
-  }
-
-  .sub-items li {
-    padding: 4px 0;
-    font-size: 12px;
-    color: var(--text-muted);
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .sub-items li::before {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 5px;
-  }
-
-  .origin-enum::before { background: var(--accent-purple); }
-  .origin-seed::before { background: var(--accent-blue); }
-  .origin-regional::before { background: var(--accent-cyan); }
-  .origin-directory::before { background: var(--accent-green); }
-  .origin-purpose::before { background: var(--accent-amber); }
-  .origin-associative::before { background: var(--accent-pink); }
-  .origin-broad::before { background: var(--accent-orange); }
-  .origin-gapfill::before { background: var(--accent-red); }
-  .origin-sitecrawl::before { background: #818cf8; }
-  .origin-curated::before { background: #2dd4bf; }
-  .origin-db::before { background: var(--accent-pink); }
 
   .dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
-    flex-shrink: 0;
   }
 
-  /* ─── Stats grid ─── */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 8px;
-    margin-top: 10px;
-  }
-
-  .stat-item {
-    background: var(--surface2);
-    border-radius: 8px;
-    padding: 10px 12px;
-    text-align: center;
-  }
-
-  .stat-value {
-    font-size: 20px;
-    font-weight: 700;
-  }
-
-  .stat-label {
-    font-size: 10px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    margin-top: 2px;
-  }
-
-  /* ─── Flow arrows between sections ─── */
-  .flow-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 12px 0;
-    margin-left: 48px;
-  }
-
-  .flow-arrow svg {
-    opacity: 0.4;
-  }
-
-  /* Responsive */
   @media (max-width: 768px) {
-    .card-row { flex-direction: column; }
-    .card { max-width: 100%; }
-    .parallel-group { padding: 16px 12px 12px; }
+    .card-row { margin-left: 0; }
+    .section-desc { margin-left: 0; }
   }
 </style>
 </head>
 <body>
 <div class="container">
+  <h1>GrantSearch NZ &mdash; How It Works</h1>
+  <p class="subtitle">End-to-end overview of the grant search, deep search, and application tracking pipeline</p>
 
-  <h1>Grant Search Pipeline</h1>
-  <p class="subtitle">End-to-end flow from user input to scored grant results &mdash; app/api/search/route.ts</p>
-
-  <!-- Legend -->
-  <div class="legend">
-    <div class="legend-item"><span class="api-tag tag-gpt4o">GPT-4o</span> $2.50 / $10.00 per 1M tokens</div>
-    <div class="legend-item"><span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span> $0.15 / $0.60 per 1M tokens</div>
-    <div class="legend-item"><span class="api-tag tag-tavily">Tavily</span> $0.008 per URL</div>
-    <div class="legend-item"><span class="api-tag tag-serper">Serper</span> $0.001 per query</div>
-    <div class="legend-item"><span class="api-tag tag-db">Charities DB</span> Local SQLite</div>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 0 + 1: Parallel discovery -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: DATABASE -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <div class="pipeline-section">
     <div class="section-header">
-      <div class="step-badge" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">0+1</div>
-      <div class="section-title">Discovery &amp; Enumeration</div>
+      <div class="step-badge" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">DB</div>
+      <div class="section-title">Grants Database (Neon Postgres)</div>
     </div>
-    <p class="section-desc">Three parallel workstreams: discover funder URLs from directories, enumerate all known funders via GPT, and look up local charities DB.</p>
-
-    <div class="parallel-group">
-      <span class="parallel-label">Runs in parallel</span>
-
-      <div class="card-row" style="margin-bottom: 12px;">
-        <!-- Step 0: Directory Discovery -->
-        <div class="card">
-          <div class="card-label" style="color: var(--accent-green);">
-            <span class="api-tag tag-tavily">Tavily</span>
-            Step 0 &mdash; Directory Discovery
-          </div>
-          <div class="card-body">
-            Extract org website for context (1 URL).<br>
-            Extract grant directory pages to find funder URLs.<br>
-            Discover additional directories via search.
-          </div>
-          <div class="cost-note">~12 grant directories &times; Tavily extract</div>
-        </div>
-
-        <!-- Step 1: Funder Enumeration -->
-        <div class="card">
-          <div class="card-label" style="color: var(--accent-purple);">
-            <span class="api-tag tag-gpt4o">GPT-4o</span>
-            Step 1 &mdash; Funder Enumeration
-          </div>
-          <div class="card-body">
-            4 parallel GPT-4o calls, each with a subset of funder type categories (gaming trusts, govt, corporate, etc.).<br>
-            1 GPT-4o call for programme enumeration.<br>
-            Each returns named funders with search queries and region tags.
-          </div>
-          <div class="cost-note">~19 funder type hints &rarr; 4 category groups &rarr; no fixed limit (typically ~170 funders)</div>
-        </div>
-
-        <!-- Charities DB -->
-        <div class="card">
-          <div class="card-label" style="color: var(--accent-pink);">
-            <span class="api-tag tag-db">DB</span>
-            Charities Register Lookup
-          </div>
-          <div class="card-body">
-            SQLite full-text search on NZ Charities Register.<br>
-            Matches by sector + region + funding purpose.<br>
-            Enriched funders (with grant summary) bypass Tavily entirely &mdash; injected as synthetic pages at Step 3d.
-          </div>
-        </div>
-      </div>
-
-      <div class="card-row">
-        <!-- Regional Search Gen -->
-        <div class="card">
-          <div class="card-label" style="color: var(--accent-cyan);">
-            <span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span>
-            Regional Query Generation
-          </div>
-          <div class="card-body">
-            Generates 20&ndash;30 search queries per search targeting small/obscure local funders: community trusts, district councils, family foundations, sub-regional areas.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Filter -->
-    <div class="filter-bar">
-      <span class="filter-icon">&darr;</span>
-      <span class="filter-text">
-        <strong>Region filter</strong> &mdash; Enumerated funders filtered to user's selected regions + national. Out-of-region councils/trusts removed before any Serper queries run.
-      </span>
-    </div>
-
-    <div class="output-box">
-      <span class="output-label">Output &rarr;</span>
-      Enumerated funders (region-filtered) + programmes &bull; Discovered URLs &bull; DB funders &bull; Regional queries &bull; Org content
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 2: Multi-source Search -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">2</div>
-      <div class="section-title">Multi-Source Web Search</div>
-    </div>
-    <p class="section-desc">9 search strategies run in parallel, each Serper query returns ~10 results. All hits are pooled into <code>rawSearchHits</code> with origin tags for diagnostics.</p>
-
-    <div class="parallel-group">
-      <span class="parallel-label">Concurrent &mdash; 20 parallel connections</span>
-
-      <div class="card-row" style="margin-bottom: 12px;">
-        <div class="card card-wide" style="max-width: 100%; flex: none; width: 100%;">
-          <div class="card-label" style="color: var(--accent-amber);">
-            <span class="api-tag tag-serper">Serper</span>
-            Search Sources &rarr; rawSearchHits[]
-          </div>
-          <ul class="sub-items">
-            <li class="origin-enum"><strong style="color: var(--accent-purple); min-width: 140px; display: inline-block;">Enum Searches</strong> One Serper query per enumerated funder/programme &mdash; searches for their grant application page</li>
-            <li class="origin-seed"><strong style="color: var(--accent-blue); min-width: 140px; display: inline-block;">Seed Queries</strong> Static market-wide queries from <code>buildSeedQueries()</code> e.g. "NZ community grants apply 2026"</li>
-            <li class="origin-regional"><strong style="color: var(--accent-cyan); min-width: 140px; display: inline-block;">Regional</strong> 20-30 GPT-generated queries targeting local/obscure funders in user's regions</li>
-            <li class="origin-directory"><strong style="color: var(--accent-green); min-width: 140px; display: inline-block;">Directory Deep-dive</strong> <code>site:domain</code> searches within known grant directories for user's sector/purpose</li>
-            <li class="origin-purpose"><strong style="color: var(--accent-amber); min-width: 140px; display: inline-block;">Purpose Seeds</strong> GPT-4o-mini generates purpose-specific queries from org's funding need</li>
-            <li class="origin-associative"><strong style="color: var(--accent-pink); min-width: 140px; display: inline-block;">Associative</strong> GPT-4o gap analysis: finds funders that should exist but weren't enumerated</li>
-            <li class="origin-broad"><strong style="color: var(--accent-orange); min-width: 140px; display: inline-block;">Broad Category</strong> Automated combinations of funder terminology &times; sectors &times; regions</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div class="output-box">
-      <span class="output-label">Output &rarr;</span>
-      rawSearchHits[] &mdash; thousands of URL + snippet pairs, each tagged with discovery origin
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 2b: Gap-fill -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(248, 113, 113, 0.15); color: var(--accent-red);">2b</div>
-      <div class="section-title">Gap-Fill Search</div>
-    </div>
-    <p class="section-desc">GPT-4o-mini analyses which funder categories are missing from the domains found so far, then generates targeted queries to fill the gaps.</p>
+    <p class="section-desc">
+      The grants database is the foundation of the search pipeline. It contains <strong>~4,500 active grants</strong> from NZ funders,
+      populated via a multi-step data pipeline and continuously enriched. Grants are pre-tagged with regions and sectors
+      so searches can filter and rank without any external API calls.
+    </p>
 
     <div class="card-row">
       <div class="card">
-        <div class="card-label" style="color: var(--accent-red);">
-          <span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span>
-          <span class="api-tag tag-serper">Serper</span>
-          Gap Analysis + Search
+        <div class="card-header" style="color: var(--accent-blue);">
+          <span class="dot" style="background: var(--accent-blue);"></span> charities table
         </div>
-        <div class="card-body">
-          Input: list of all domains found so far.<br>
-          GPT identifies missing funder types, generates targeted queries.<br>
-          Serper runs each query &rarr; results added with <code>origin: 'gap-fill'</code>.
+        <div class="card-body" style="color: var(--text-muted);">
+          ~6,300 records from the NZ Charities Register + 272 curated funders.
+          Each row has a <code>curated_grant_url</code> and <code>regions[]</code>.
+          Source of truth for funder identity.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-green);">
+          <span class="dot" style="background: var(--accent-green);"></span> grants table
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Individual grant programs linked to funders via <code>funder_id</code>.
+          Fields: name, type, description, url, amount range, deadline, regions[], sectors[], eligibility[], application_form_url.
+          GIN indexes on regions &amp; sectors for fast overlap queries.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-purple);">
+          <span class="dot" style="background: var(--accent-purple);"></span> Runtime storage
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          4 tables created on first use: <code>saved_searches</code>, <code>shortlisted_grants</code>,
+          <code>deep_searches</code>, <code>grant_applications</code>.
+          All store JSON payloads alongside metadata.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
+  <div class="flow-arrow">&darr;</div>
 
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 2c: Site Crawl -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: SEARCH PIPELINE -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <div class="pipeline-section">
     <div class="section-header">
-      <div class="step-badge" style="background: rgba(129, 140, 248, 0.15); color: #818cf8;">2c</div>
-      <div class="section-title">Per-Domain Site Crawl</div>
+      <div class="step-badge" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">1</div>
+      <div class="section-title">Grant Search (Two-Pass Pipeline)</div>
     </div>
-    <p class="section-desc">Many funder searches return homepages. Crawl within each discovered domain to find grant/apply pages buried deeper in the site.</p>
+    <p class="section-desc">
+      User submits a search form with their org details, sectors, regions, and funding purpose.
+      The API queries the grants DB and runs a two-pass AI pipeline: cheap triage then full scoring.
+      <strong>No web scraping or external search &mdash; only GPT-4o-mini token costs.</strong>
+    </p>
 
     <div class="card-row">
-      <div class="card">
-        <div class="card-label" style="color: #818cf8;">
-          <span class="api-tag tag-serper">Serper</span>
-          Domain Crawl
-        </div>
-        <div class="card-body">
-          For each domain found in rawSearchHits:<br>
-          4 <code>site:domain</code> queries &times; ["grants apply", "funding apply", "community grants", "grant application"]<br>
-          Results added with <code>origin: 'site-crawl'</code>.
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-red);">Crawl Filters (cost control)</div>
-        <div class="card-body">
-          <strong>1.</strong> Skip domains already at per-domain URL cap (3+ URLs found) &mdash; crawling would discover URLs that get capped anyway.<br><br>
-          <strong>2.</strong> Cap total crawl domains at 200 &mdash; tail domains produce diminishing returns at 4 queries each.
-        </div>
-        <div class="cost-note">Without caps: 652 domains &times; 4 queries = 2,608 Serper queries</div>
-      </div>
-    </div>
-
-    <div class="output-box" style="margin-top: 12px;">
-      <span class="output-label">Output &rarr;</span>
-      rawSearchHits[] now complete &mdash; all search strategies have contributed
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- DEDUP + MERGE + FILTER -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(248, 113, 113, 0.15); color: var(--accent-red);">&#x25BC;</div>
-      <div class="section-title">URL Deduplication, Merge &amp; Filtering</div>
-    </div>
-    <p class="section-desc">All URL sources are merged, deduplicated, filtered for grant-relevance, and capped per-domain before extraction.</p>
-
-    <div class="filter-bar">
-      <span class="filter-icon">1</span>
-      <span class="filter-text"><strong>Deduplicate</strong> rawSearchHits by normalised URL &mdash; first-seen wins (preserves origin tag)</span>
-    </div>
-    <div class="filter-bar">
-      <span class="filter-icon">2</span>
-      <span class="filter-text"><strong>Merge</strong> three URL sources: curated market URLs (region-filtered) + Step 0 discovered URLs + deduplicated search hits. Priority order: curated &gt; directory &gt; search.</span>
-    </div>
-    <div class="filter-bar">
-      <span class="filter-icon">3</span>
-      <span class="filter-text"><strong>Grant page filter</strong> &mdash; <code>isGrantPage(url)</code> removes non-grant URLs (careers, login, news, about pages). Curated URLs bypass this filter.</span>
-    </div>
-    <div class="filter-bar">
-      <span class="filter-icon">4</span>
-      <span class="filter-text"><strong>Per-domain cap</strong> &mdash; max 3 URLs per domain to avoid over-extracting one funder. Excess URLs silently discarded.</span>
-    </div>
-
-    <div class="output-box" style="margin-top: 12px;">
-      <span class="output-label">Output &rarr;</span>
-      allUrlsToExtract[] &mdash; final list of URLs to send to content extraction
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 3: Content Extraction -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">3</div>
-      <div class="section-title">Content Extraction</div>
-    </div>
-    <p class="section-desc">Extract page content from all URLs via Tavily, with multiple fallback layers for failed extractions. This is typically the most expensive step (~91% of total cost).</p>
-
-    <div class="card-row">
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-green);">
-          <span class="api-tag tag-tavily">Tavily</span>
-          3a &mdash; Primary Extraction
-        </div>
-        <div class="card-body">
-          Tavily extracts full page content from every URL in <code>allUrlsToExtract</code>.<br>
-          Concurrent batch processing.
-        </div>
-        <div class="cost-note">$0.008 per URL &mdash; dominant cost driver</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-amber);">
-          <span class="api-tag tag-serper">Serper</span>
-          3b &mdash; Search Fallback
-        </div>
-        <div class="card-body">
-          URLs that Tavily couldn't extract (JS-heavy sites, bot blocking, timeouts) &mdash; retry via <code>site:domain</code> Serper search to get snippet content.
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--text-muted);">
-          3c &mdash; Snippet Promotion
-        </div>
-        <div class="card-body">
-          Still-unextracted URLs get their original Serper search snippet promoted as content (if &gt;200 chars). Last resort before giving up.
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-pink);">
-          <span class="api-tag tag-db">DB</span>
-          3d &mdash; DB Enrichment Injection
-        </div>
-        <div class="card-body">
-          Enriched Charities Register funders (those with <code>grantSummary</code>) injected as synthetic pages. <strong>Zero Tavily cost</strong> &mdash; content comes from the database.
-        </div>
-      </div>
-    </div>
-
-    <div class="output-box" style="margin-top: 12px;">
-      <span class="output-label">Output &rarr;</span>
-      extractedPages[] &mdash; { url, content } pairs ready for grant extraction
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 4: Grant Extraction -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">4</div>
-      <div class="section-title">Grant Extraction</div>
-    </div>
-    <p class="section-desc">GPT reads extracted page content and identifies individual grant programmes with structured metadata.</p>
-
-    <div class="filter-bar">
-      <span class="filter-icon">&darr;</span>
-      <span class="filter-text"><strong>Pre-filter</strong> &mdash; <code>isGrantPage(url)</code> applied again to extracted pages. Non-grant pages removed before GPT processing.</span>
-    </div>
-
-    <div class="card-row" style="margin-top: 8px;">
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-blue);">
-          <span class="api-tag tag-gpt4o-mini">GPT-4o-mini</span>
-          Page Batch Processing
-        </div>
-        <div class="card-body">
-          Pages batched in groups of <strong>4</strong>.<br>
-          Each batch sent to GPT-4o-mini with the extraction prompt.<br>
-          GPT extracts: name, funder, type, description, amount range, URL for every grant found on those pages.<br>
-          15 concurrent batch calls.
-        </div>
-        <div class="cost-note">e.g. 1,200 pages &rarr; 300 batches &rarr; 300 GPT calls</div>
-      </div>
-    </div>
-
-    <div class="filter-bar" style="margin-top: 12px;">
-      <span class="filter-icon">&darr;</span>
-      <span class="filter-text"><strong>Deduplicate grants</strong> by normalised name+funder &mdash; merges duplicates found across multiple pages</span>
-    </div>
-
-    <div class="output-box" style="margin-top: 8px;">
-      <span class="output-label">Output &rarr;</span>
-      allDiscovered[] &mdash; unique DiscoveredGrant objects with provenance tracking via grantOriginMap
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- STEP 5: Scoring -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(167, 139, 250, 0.15); color: var(--accent-purple);">5</div>
-      <div class="section-title">Scoring &amp; Ranking</div>
-    </div>
-    <p class="section-desc">GPT-4o scores every discovered grant against the organisation's profile, purpose, region, and funding amount.</p>
-
-    <div class="card-row">
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-purple);">
-          <span class="api-tag tag-gpt4o">GPT-4o</span>
-          Batch Scoring
-        </div>
-        <div class="card-body">
-          Grants batched in groups of <strong>25</strong>.<br>
-          Each batch scored by GPT-4o with full org context + page content (2000 char cap per grant).<br>
-          15 concurrent scoring calls.
-        </div>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <div class="stat-label">Alignment</div>
-            <div class="stat-value" style="color: var(--accent-blue);">50%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">Attainability</div>
-            <div class="stat-value" style="color: var(--accent-green);">30%</div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">Ease of Apply</div>
-            <div class="stat-value" style="color: var(--accent-amber);">20%</div>
-          </div>
-        </div>
-        <div class="card-body" style="margin-top: 10px;">
-          <strong>Scoring checks:</strong><br>
-          &bull; Regional relevance (org regions vs grant regions)<br>
-          &bull; Form-of-support (cash vs in-kind vs services)<br>
-          &bull; Amount alignment (grant range vs amount sought)<br>
-          &bull; Sector/purpose match
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-purple);">Score Formula</div>
-        <div class="card-body" style="font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; color: var(--accent-cyan); line-height: 2;">
-          overall = (alignment &times; 0.5)<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; + (attainability &times; 0.3)<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; + (ease &times; 0.2)
-        </div>
-        <div class="card-body" style="margin-top: 12px;">
-          Each dimension scored 0&ndash;10.<br>
-          First batch also generates <code>orgSummary</code>.
-        </div>
-      </div>
-    </div>
-
-    <div class="filter-bar" style="margin-top: 12px;">
-      <span class="filter-icon">&darr;</span>
-      <span class="filter-text"><strong>Alignment threshold</strong> &mdash; grants with <code>alignment &lt; 5</code> are removed from final results</span>
-    </div>
-
-    <div class="output-box" style="margin-top: 8px;">
-      <span class="output-label">Output &rarr;</span>
-      Scored GrantOpportunity[] sorted by overall score, with alignmentReason, applicationNotes, attainabilityNotes
-    </div>
-  </div>
-
-  <!-- Arrow -->
-  <div class="flow-arrow">
-    <svg width="24" height="48" viewBox="0 0 24 48"><path d="M12 0 L12 40 M6 34 L12 42 L18 34" stroke="#5b9cf5" stroke-width="2" fill="none"/></svg>
-  </div>
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- OUTPUT: Diagnostics + Response -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">&#x2713;</div>
-      <div class="section-title">Output &amp; Diagnostics</div>
-    </div>
-
-    <div class="card-row">
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-green);">API Response</div>
-        <div class="card-body">
-          <code>grants[]</code> &mdash; scored &amp; filtered GrantOpportunity objects<br>
-          <code>orgSummary</code> &mdash; GPT's description of the organisation<br>
-          <code>diagnostics{}</code> &mdash; per-step provenance breakdown<br>
-          <code>inputs</code> &mdash; original search parameters
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-amber);">Cost Breakdown (console)</div>
-        <div class="card-body">
-          GPT-4o: tokens in/out &rarr; $X.XX<br>
-          GPT-4o-mini: tokens in/out &rarr; $X.XX<br>
-          Tavily: URL count &rarr; $X.XX<br>
-          Serper: query count &rarr; $X.XX
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-label" style="color: var(--accent-cyan);">Pipeline Diagnostics (console)</div>
-        <div class="card-body">
-          Per discovery step:<br>
-          &bull; Raw URLs found<br>
-          &bull; Unique URLs (after dedup)<br>
-          &bull; URLs extracted<br>
-          &bull; Grants found<br>
-          &bull; Grants kept (alignment &ge; 5)<br>
-          &bull; Average score
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <hr class="divider" style="margin-top: 48px;">
-
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- DATA FLOW SUMMARY -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section" style="margin-top: 32px;">
-    <div class="section-header">
-      <div class="step-badge" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">&#x2261;</div>
-      <div class="section-title">Data Flow Summary (typical Auckland-only search)</div>
-    </div>
-
-    <div class="card-row">
-      <div class="card card-wide" style="max-width: 100%; flex: none; width: 100%;">
-        <div class="card-body" style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-green);">Search pipeline stages</div>
+        <div class="card-body" style="padding: 0;">
+          <table>
             <thead>
               <tr style="border-bottom: 1px solid var(--border);">
-                <th style="text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">Stage</th>
-                <th style="text-align: right; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">Volume</th>
-                <th style="text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">What happens</th>
-                <th style="text-align: right; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">Primary cost</th>
+                <th>Stage</th>
+                <th style="text-align: right;">Output</th>
+                <th>Description</th>
+                <th style="text-align: right;">Cost</th>
               </tr>
             </thead>
             <tbody>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;">Funder enumeration</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~170 funders</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">GPT-4o recalls all known NZ grant funders from training data (no fixed limit)</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--accent-purple);">GPT-4o</td>
+              <tr>
+                <td>DB query</td>
+                <td style="text-align: right; font-family: monospace;">~500&ndash;4,500</td>
+                <td style="color: var(--text-muted);">SQL query filters by region overlap &amp; orders by sector overlap count. Returns all active matching grants.</td>
+                <td style="text-align: right; color: var(--text-muted);">free</td>
               </tr>
-              <tr style="border-bottom: 1px solid var(--border); background: rgba(248, 113, 113, 0.05);">
-                <td style="padding: 8px 12px;">Region filter</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~80 funders</td>
-                <td style="padding: 8px 12px; color: var(--accent-red);">Out-of-region funders removed (keeps national + matching regions)</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--text-muted);">free</td>
+              <tr style="background: rgba(167, 139, 250, 0.05);">
+                <td><strong>Pass 1: Triage</strong></td>
+                <td style="text-align: right; font-family: monospace;">~200&ndash;400</td>
+                <td style="color: var(--text-muted);">GPT-4o-mini classifies each grant as RELEVANT or SKIP in batches of 100. Binary decision &mdash; cheap &amp; fast. Skips only when &ge;90% confident grant is irrelevant.</td>
+                <td style="text-align: right; color: var(--accent-blue);">GPT-4o-mini</td>
               </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;">Serper searches</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~3,500 raw URLs</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">9 search strategies &times; multiple queries each &rarr; pooled hits</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--accent-amber);">Serper</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border); background: rgba(248, 113, 113, 0.05);">
-                <td style="padding: 8px 12px;">Dedup + merge + filter</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~800 URLs</td>
-                <td style="padding: 8px 12px; color: var(--accent-red);">Dedup, merge with curated/discovered, grant filter, per-domain cap (3)</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--text-muted);">free</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;">Tavily extraction</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~800 pages</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Full page content extraction + fallbacks (search, snippet, DB)</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--accent-green);">Tavily (~91%)</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;">Grant extraction</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~120 grants</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">GPT-4o-mini reads pages in batches of 4, extracts structured grants</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--accent-blue);">GPT-4o-mini</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;">Scoring</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace;">~120 scored</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">GPT-4o scores in batches of 25 (alignment, attainability, ease)</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--accent-purple);">GPT-4o</td>
+              <tr style="background: rgba(167, 139, 250, 0.05);">
+                <td><strong>Pass 2: Scoring</strong></td>
+                <td style="text-align: right; font-family: monospace;">~200&ndash;400</td>
+                <td style="color: var(--text-muted);">GPT-4o-mini scores each relevant grant on 3 dimensions (alignment, ease, attainability) in batches of 25. Generates orgSummary on first batch.</td>
+                <td style="text-align: right; color: var(--accent-blue);">GPT-4o-mini</td>
               </tr>
               <tr style="background: rgba(248, 113, 113, 0.05);">
-                <td style="padding: 8px 12px;">Alignment filter</td>
-                <td style="padding: 8px 12px; text-align: right; font-family: monospace; font-weight: 700; color: var(--accent-green);">~60 grants</td>
-                <td style="padding: 8px 12px; color: var(--accent-red);">Grants with alignment &lt; 5 removed from final results</td>
-                <td style="padding: 8px 12px; text-align: right; color: var(--text-muted);">free</td>
+                <td>Alignment filter</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700; color: var(--accent-green);">~40&ndash;80</td>
+                <td style="color: var(--accent-red);">Grants with alignment &lt; 5.0 removed from final results</td>
+                <td style="text-align: right; color: var(--text-muted);">free</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">&darr;</div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: SCORING -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section">
+    <div class="section-header">
+      <div class="step-badge" style="background: rgba(167, 139, 250, 0.15); color: var(--accent-purple);">2</div>
+      <div class="section-title">Scoring System</div>
+    </div>
+    <p class="section-desc">
+      Every grant is scored on three dimensions by GPT-4o-mini. The model evaluates mission fit,
+      application complexity, and win probability based on the org context and grant description.
+    </p>
+
+    <div class="card-row">
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-green);">Alignment (50%)</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          How well the grant purpose and form of support match the org's mission and funding request.
+          <br><strong>0&ndash;3</strong> poor | <strong>4&ndash;6</strong> partial | <strong>7&ndash;8</strong> good | <strong>9&ndash;10</strong> designed for this
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-amber);">Attainability (30%)</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Likelihood this org wins given competition, eligibility fit, and regional relevance.
+          <br><strong>1&ndash;2</strong> very competitive | <strong>5&ndash;6</strong> moderate | <strong>9&ndash;10</strong> few applicants
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-cyan);">Ease (20%)</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Application complexity &mdash; higher is simpler.
+          <br><strong>1&ndash;2</strong> multi-stage | <strong>5&ndash;6</strong> full proposal | <strong>9&ndash;10</strong> simple online form
+        </div>
+      </div>
+    </div>
+
+    <div class="section-desc" style="margin-top: 12px;">
+      <strong>Overall</strong> = (alignment &times; 0.5) + (attainability &times; 0.3) + (ease &times; 0.2), rounded to 1dp
+    </div>
+  </div>
+
+  <div class="flow-arrow">&darr;</div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: DEEP SEARCH -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section">
+    <div class="section-header">
+      <div class="step-badge" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">3</div>
+      <div class="section-title">Deep Search (Per-Grant Research)</div>
+    </div>
+    <p class="section-desc">
+      Triggered manually per grant. Uses Serper + Tavily + GPT-4o to find precise details
+      that the initial database may not have: exact amounts, deadlines, application forms,
+      eligibility criteria, and required documents. Recalibrates scores based on findings.
+      <strong>Discovered data is written back to the grants DB</strong> so future searches benefit.
+    </p>
+
+    <div class="card-row">
+      <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-amber);">Deep search phases</div>
+        <div class="card-body" style="padding: 0;">
+          <table>
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border);">
+                <th>Phase</th>
+                <th>Description</th>
+                <th style="text-align: right;">Service</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1. Web search</td>
+                <td style="color: var(--text-muted);">6&ndash;8 parallel Serper queries targeting application forms, guidelines, deadlines, past recipients for this specific grant</td>
+                <td style="text-align: right; color: var(--accent-amber);">Serper</td>
+              </tr>
+              <tr>
+                <td>2. Content extraction</td>
+                <td style="color: var(--text-muted);">Tavily extracts full page content from up to 10 discovered URLs, prioritising the funder's own domain</td>
+                <td style="text-align: right; color: var(--accent-green);">Tavily</td>
+              </tr>
+              <tr>
+                <td>3. AI analysis</td>
+                <td style="color: var(--text-muted);">GPT-4o synthesises all content into structured output: amounts, dates, eligibility, checklist, contacts, score recalibration with reasoning</td>
+                <td style="text-align: right; color: var(--accent-purple);">GPT-4o</td>
+              </tr>
+              <tr>
+                <td>4. DB write-back</td>
+                <td style="color: var(--text-muted);">Discovered fields (application_form_url, amount_min, amount_max, deadline) written back to grants table &mdash; only fills NULLs, never overwrites</td>
+                <td style="text-align: right; color: var(--text-muted);">free</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-arrow">&darr;</div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: USER WORKFLOW -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section">
+    <div class="section-header">
+      <div class="step-badge" style="background: rgba(244, 114, 182, 0.15); color: var(--accent-pink);">4</div>
+      <div class="section-title">User Workflow</div>
+    </div>
+    <p class="section-desc">
+      After search results appear, users can shortlist promising grants, run deep searches for more detail,
+      and track applications through to outcome.
+    </p>
+
+    <div class="card-row">
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-blue);">
+          <span class="tag" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">/results</span> Search Results
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Filter by score, sort, group by funder. Shortlist grants or trigger deep search.
+          Auto-saved for future reference.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-pink);">
+          <span class="tag" style="background: rgba(244, 114, 182, 0.15); color: var(--accent-pink);">/shortlisted</span> Shortlist
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Grouped by search. View deep-search insights, eligibility, checklists.
+          Start application from here.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-green);">
+          <span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">/applications</span> Applications
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Track status: Preparing &rarr; Submitted &rarr; Under Review &rarr; Approved/Declined.
+          Notes, financial tracking, timeline.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- DATA PIPELINE -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section">
+    <div class="section-header">
+      <div class="step-badge" style="background: rgba(251, 146, 60, 0.15); color: var(--accent-orange);">&#x2699;</div>
+      <div class="section-title">Data Pipeline (Offline Scripts)</div>
+    </div>
+    <p class="section-desc">
+      One-time and periodic scripts that populate and enrich the grants database.
+      Run locally via <code>DATABASE_URL="..." npx tsx scripts/&lt;script&gt;.ts</code>.
+    </p>
+
+    <div class="card-row">
+      <div class="card card-wide">
+        <div class="card-body" style="padding: 0;">
+          <table>
+            <thead>
+              <tr style="border-bottom: 1px solid var(--border);">
+                <th style="width: 36px;">#</th>
+                <th>Script</th>
+                <th>Description</th>
+                <th style="text-align: right;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="color: var(--accent-green);">1</td>
+                <td><code>import-charities.ts</code></td>
+                <td style="color: var(--text-muted);">Import ~6,310 charities from NZ Charities Register API. Batched inserts, safe to re-run.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-green);">2</td>
+                <td><code>import-curated-funders.ts</code></td>
+                <td style="color: var(--text-muted);">Import 272 hand-curated funders from nz.ts with grant URLs and regions. Cross-source dedup with register.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-green);">3</td>
+                <td><code>enrich-charities.ts</code></td>
+                <td style="color: var(--text-muted);">Scrape funder websites, extract grant programs via GPT-4o-mini, insert into grants table.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-green);">4</td>
+                <td><code>classify-grant-makers.ts</code></td>
+                <td style="color: var(--text-muted);">GPT-4o classifies which charities are actual grant-makers. 1,762 non-grant-maker grants deactivated.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-green);">5</td>
+                <td><code>fill-missing-fields.ts</code></td>
+                <td style="color: var(--text-muted);">Targeted re-enrichment for amounts, deadlines, and form URLs on grants with missing data.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-green);">6</td>
+                <td><code>retag-new-sectors.ts</code></td>
+                <td style="color: var(--text-muted);">Re-tag all grants with new sector IDs (economic-development, animal-welfare) via GPT-4o-mini.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-green);">7</td>
+                <td><code>db-quality-fixes.ts</code></td>
+                <td style="color: var(--text-muted);">Merge errors, dedup funders, fix homepage URLs, deactivate contamination grants.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-amber);">8</td>
+                <td><code>fill-apply-urls.ts</code></td>
+                <td style="color: var(--text-muted);">Find application form URLs via Tavily extract + search. Groups by source_url. Dry-run by default.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">available</span></td>
+              </tr>
+              <tr>
+                <td style="color: var(--accent-amber);">9</td>
+                <td><code>fill-missing-fields-tavily.ts</code></td>
+                <td style="color: var(--text-muted);">Re-enrichment using Tavily (bypasses 403s / JS-rendered pages) for eligibility, amounts, deadlines.</td>
+                <td style="text-align: right;"><span class="tag" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">available</span></td>
               </tr>
             </tbody>
           </table>
@@ -956,111 +515,50 @@
 
   <hr class="divider">
 
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <!-- ORIGIN LEGEND -->
-  <!-- ════════════════════════════════════════════════════════════════════════ -->
-  <div class="pipeline-section" style="margin-top: 32px;">
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- TECH STACK -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="pipeline-section">
     <div class="section-header">
-      <div class="step-badge" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">&#x1F50D;</div>
-      <div class="section-title">Discovery Step Origins (diagnostics tracking)</div>
+      <div class="step-badge" style="background: rgba(34, 211, 238, 0.15); color: var(--accent-cyan);">&#x1F527;</div>
+      <div class="section-title">Tech Stack &amp; Services</div>
     </div>
-    <p class="section-desc">Every URL is tagged with its discovery origin. The diagnostics table traces how many from each source survive through to final results.</p>
 
     <div class="card-row">
-      <div class="card card-wide" style="max-width: 100%; flex: none; width: 100%;">
-        <div class="card-body" style="overflow-x: auto;">
-          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-            <thead>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <th style="text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600; width: 40px;"></th>
-                <th style="text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">Origin Tag</th>
-                <th style="text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">Source</th>
-                <th style="text-align: left; padding: 8px 12px; color: var(--text-muted); font-weight: 600;">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: #2dd4bf;"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: #2dd4bf;">curated</td>
-                <td style="padding: 8px 12px;">Market config</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Hand-verified funder URLs from <code>nz.ts curatedFunderUrls</code> (~200 entries), region-filtered</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-green);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-green);">directory</td>
-                <td style="padding: 8px 12px;">Step 0</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">URLs discovered by Tavily-extracting grant directory pages + DB unenriched funder URLs</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-purple);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-purple);">enum</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Serper search for each GPT-enumerated funder's grant page</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-blue);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-blue);">seed</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Static market-wide seed queries from <code>buildSeedQueries()</code></td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-cyan);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-cyan);">regional</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">GPT-generated queries targeting local/obscure funders in user's regions</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-green);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-green);">directory-deepdive</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);"><code>site:domain</code> searches within known grant directories for user's sector</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-amber);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-amber);">purpose</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">GPT-4o-mini generated purpose-specific search queries</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-pink);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-pink);">associative</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">GPT-4o gap analysis &mdash; funders that should exist but weren't enumerated</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-orange);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-orange);">broad</td>
-                <td style="padding: 8px 12px;">Step 2</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Automated funder terminology &times; sector &times; region query combinations</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-red);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-red);">gap-fill</td>
-                <td style="padding: 8px 12px;">Step 2b</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Second-pass GPT analysis of missing funder categories &rarr; targeted queries</td>
-              </tr>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px 12px;"><span class="dot" style="background: #818cf8;"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: #818cf8;">site-crawl</td>
-                <td style="padding: 8px 12px;">Step 2c</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">4 &times; <code>site:domain</code> queries per discovered domain to find buried grant pages</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 12px;"><span class="dot" style="background: var(--accent-pink);"></span></td>
-                <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-pink);">db-enrichment</td>
-                <td style="padding: 8px 12px;">Step 3d</td>
-                <td style="padding: 8px 12px; color: var(--text-muted);">Charities Register entries with grant summaries, injected as synthetic pages</td>
-              </tr>
-            </tbody>
-          </table>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-cyan);">Application</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Next.js 14 (App Router) + TypeScript<br>
+          Tailwind CSS + shadcn/ui<br>
+          SWR for client data fetching<br>
+          Vercel hosting
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-purple);">AI Services</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          <strong>Search:</strong> GPT-4o-mini (triage + scoring)<br>
+          <strong>Deep search:</strong> GPT-4o (analysis)<br>
+          <strong>Scripts:</strong> GPT-4o-mini (enrichment, classification)
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-green);">External APIs</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          <strong>Serper:</strong> Web search (deep search only)<br>
+          <strong>Tavily:</strong> Page extraction (deep search + scripts)<br>
+          <strong>Neon:</strong> Serverless Postgres
         </div>
       </div>
     </div>
   </div>
 
-  <p style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 40px; padding-bottom: 20px;">
-    Generated from <code>app/api/search/route.ts</code> &mdash; Grant Search Pipeline v1
-  </p>
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- FOOTER -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 48px; padding-bottom: 24px;">
+    GrantSearch NZ &mdash; Last updated March 2026
+  </div>
 
 </div>
 </body>

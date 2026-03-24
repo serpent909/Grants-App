@@ -8,6 +8,7 @@ import {
   SlidersHorizontal, X, Star,
   Microscope, Loader2, CheckCircle2, RotateCw,
 } from 'lucide-react';
+import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDeadline } from '@/lib/formatting';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -45,22 +46,6 @@ const TYPE_CONFIG: Record<
   International: { badge: 'bg-indigo-50 text-indigo-700 ring-indigo-200',  border: 'border-l-indigo-500', icon: 'bg-indigo-100 text-indigo-600' },
   Other:         { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200',    border: 'border-l-zinc-400',   icon: 'bg-zinc-100 text-zinc-500' },
 };
-
-function scoreColor(score?: number): string {
-  const s = score ?? 0;
-  if (s >= 8) return '#10b981';  // emerald
-  if (s >= 6.5) return '#f59e0b'; // amber
-  if (s >= 5) return '#f97316';   // orange
-  return '#ef4444';               // red
-}
-
-function scoreTextClass(score?: number): string {
-  const s = score ?? 0;
-  if (s >= 8) return 'text-emerald-700 bg-emerald-50';
-  if (s >= 6.5) return 'text-amber-700 bg-amber-50';
-  if (s >= 5) return 'text-orange-600 bg-orange-50';
-  return 'text-red-600 bg-red-50';
-}
 
 // ─── Score ring ───────────────────────────────────────────────────────────────
 
@@ -118,27 +103,6 @@ function ScorePill({ score, label }: { score: number; label: string }) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatCurrency(n?: number) {
-  if (!n) return '';
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`;
-  return `$${n}`;
-}
-
-function formatAmountRange(min?: number, max?: number) {
-  if (!min && !max) return null;
-  if (min && max) return `${formatCurrency(min)}–${formatCurrency(max)}`;
-  if (max) return `Up to ${formatCurrency(max)}`;
-  return `From ${formatCurrency(min)}`;
-}
-
-function formatDeadline(d?: string, locale = 'en-NZ') {
-  if (!d) return null;
-  try {
-    return new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch { return d; }
-}
 
 // ─── Grant detail panel ───────────────────────────────────────────────────────
 

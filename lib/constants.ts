@@ -14,6 +14,8 @@ export const SECTORS = [
   { id: 'social-services', label: 'Social Services' },
   { id: 'indigenous', label: 'Indigenous Development' },
   { id: 'rural', label: 'Rural Communities' },
+  { id: 'economic-development', label: 'Economic Development' },
+  { id: 'animal-welfare', label: 'Animal Welfare' },
 ];
 
 export const ORG_TYPES = [

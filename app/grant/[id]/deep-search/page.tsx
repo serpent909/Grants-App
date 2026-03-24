@@ -9,43 +9,7 @@ import {
 } from 'lucide-react';
 import { DeepSearchScoreChange } from '@/lib/types';
 import { useDeepSearch } from '@/lib/deep-search-storage';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function scoreColor(score: number): string {
-  if (score >= 8) return '#10b981';
-  if (score >= 6.5) return '#f59e0b';
-  if (score >= 5) return '#f97316';
-  return '#ef4444';
-}
-
-function scoreTextClass(score: number): string {
-  if (score >= 8) return 'text-emerald-700 bg-emerald-50';
-  if (score >= 6.5) return 'text-amber-700 bg-amber-50';
-  if (score >= 5) return 'text-orange-600 bg-orange-50';
-  return 'text-red-600 bg-red-50';
-}
-
-function formatCurrency(n?: number) {
-  if (!n) return '';
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`;
-  return `$${n}`;
-}
-
-function formatAmountRange(min?: number, max?: number) {
-  if (!min && !max) return null;
-  if (min && max) return `${formatCurrency(min)}–${formatCurrency(max)}`;
-  if (max) return `Up to ${formatCurrency(max)}`;
-  return `From ${formatCurrency(min)}`;
-}
-
-function formatDate(d?: string) {
-  if (!d) return null;
-  try {
-    return new Date(d).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch { return d; }
-}
+import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDate } from '@/lib/formatting';
 
 // ─── Score Ring ──────────────────────────────────────────────────────────────
 
