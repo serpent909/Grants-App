@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
+import { getOrgId } from '@/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const db = getPool();
   const { searchParams } = new URL(req.url);
@@ -14,9 +16,9 @@ export async function GET(req: NextRequest) {
             ci.item_name AS "itemName", ci.description, ci.required,
             ci.checked, ci.checked_at AS "checkedAt"
      FROM application_checklist_items ci
-     WHERE ci.grant_id = $1
+     WHERE ci.org_id = $1 AND ci.grant_id = $2
      ORDER BY ci.item_index`,
-    [grantId],
+    [orgId, grantId],
   );
 
   if (items.length === 0) return NextResponse.json([]);
@@ -50,6 +52,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const { grantId } = await req.json();
   if (!grantId) return NextResponse.json({ error: 'grantId required' }, { status: 400 });
@@ -58,8 +61,8 @@ export async function POST(req: NextRequest) {
 
   // Check if already initialized
   const { rows: existing } = await db.query(
-    'SELECT id FROM application_checklist_items WHERE grant_id = $1 LIMIT 1',
-    [grantId],
+    'SELECT id FROM application_checklist_items WHERE org_id = $1 AND grant_id = $2 LIMIT 1',
+    [orgId, grantId],
   );
   if (existing.length > 0) {
     return NextResponse.json({ ok: true, message: 'already initialized' });
@@ -67,8 +70,8 @@ export async function POST(req: NextRequest) {
 
   // Get deep search checklist
   const { rows: deepRows } = await db.query(
-    'SELECT result_json FROM deep_searches WHERE grant_id = $1',
-    [grantId],
+    'SELECT result_json FROM deep_searches WHERE org_id = $1 AND grant_id = $2',
+    [orgId, grantId],
   );
   if (deepRows.length === 0) {
     return NextResponse.json({ error: 'no deep search data' }, { status: 404 });
@@ -87,14 +90,14 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < checklist.length; i++) {
     const item = checklist[i];
     const id = `cli-${Date.now()}-${i}`;
-    values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`);
-    params.push(id, grantId, i, item.item, item.description || '', item.required || false);
+    values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`);
+    params.push(id, orgId, grantId, i, item.item, item.description || '', item.required || false);
   }
 
   await db.query(
-    `INSERT INTO application_checklist_items (id, grant_id, item_index, item_name, description, required)
+    `INSERT INTO application_checklist_items (id, org_id, grant_id, item_index, item_name, description, required)
      VALUES ${values.join(', ')}
-     ON CONFLICT (grant_id, item_index) DO NOTHING`,
+     ON CONFLICT (org_id, grant_id, item_index) DO NOTHING`,
     params,
   );
 
@@ -102,19 +105,21 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const { id, checked } = await req.json();
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
   const db = getPool();
   await db.query(
-    `UPDATE application_checklist_items SET checked = $1, checked_at = $2 WHERE id = $3`,
-    [checked, checked ? new Date().toISOString() : null, id],
+    `UPDATE application_checklist_items SET checked = $1, checked_at = $2 WHERE id = $3 AND org_id = $4`,
+    [checked, checked ? new Date().toISOString() : null, id, orgId],
   );
   return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const { searchParams } = new URL(req.url);
   const grantId = searchParams.get('grantId');
@@ -124,9 +129,9 @@ export async function DELETE(req: NextRequest) {
   // Delete links first
   await db.query(
     `DELETE FROM checklist_documents WHERE checklist_item_id IN
-     (SELECT id FROM application_checklist_items WHERE grant_id = $1)`,
-    [grantId],
+     (SELECT id FROM application_checklist_items WHERE org_id = $1 AND grant_id = $2)`,
+    [orgId, grantId],
   );
-  await db.query('DELETE FROM application_checklist_items WHERE grant_id = $1', [grantId]);
+  await db.query('DELETE FROM application_checklist_items WHERE org_id = $1 AND grant_id = $2', [orgId, grantId]);
   return NextResponse.json({ ok: true });
 }

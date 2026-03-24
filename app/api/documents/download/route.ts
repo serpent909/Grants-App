@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
+import { getOrgId } from '@/lib/auth-helpers';
 
 export async function GET(req: NextRequest) {
+  const orgId = await getOrgId();
   await ensureStorageTables();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
   const db = getPool();
-  const { rows } = await db.query('SELECT blob_url, filename, content_type FROM documents WHERE id = $1', [id]);
+  const { rows } = await db.query(
+    'SELECT blob_url, filename, content_type FROM documents WHERE id = $1 AND org_id = $2',
+    [id, orgId]
+  );
   if (rows.length === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
   const { blob_url, filename, content_type } = rows[0];

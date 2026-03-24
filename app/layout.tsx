@@ -4,6 +4,8 @@ import "./globals.css";
 import Link from "next/link";
 import { Heart, History, Star, ClipboardList, FileText } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import Providers from "./providers";
+import UserMenu from "@/components/user-menu";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${dmSans.variable} antialiased bg-white text-zinc-900`}>
+        <Providers>
         <TooltipProvider>
           <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-stone-200">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -74,6 +77,8 @@ export default function RootLayout({
                   <FileText className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                   <span className="hidden sm:inline">Documents</span>
                 </Link>
+                <div className="w-px h-6 bg-stone-200 mx-1 hidden sm:block" />
+                <UserMenu />
               </div>
             </div>
           </nav>
@@ -94,6 +99,7 @@ export default function RootLayout({
             </div>
           </footer>
         </TooltipProvider>
+        </Providers>
       </body>
     </html>
   );

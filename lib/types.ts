@@ -1,3 +1,33 @@
+// ─── Auth & Organisation ────────────────────────────────────────────────────
+
+export interface Organisation {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+}
+
+export interface OrgMember {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface Invitation {
+  id: string;
+  orgId: string;
+  email: string;
+  invitedBy: string;
+  invitedByName?: string;
+  token: string;
+  expiresAt: string;
+  acceptedAt?: string;
+  createdAt: string;
+}
+
+// ─── Search ─────────────────────────────────────────────────────────────────
+
 export interface OrgInfo {
   searchTitle?: string; // user-given name for this search, e.g. "Operational funding"
   website: string;

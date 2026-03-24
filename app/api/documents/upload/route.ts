@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import { getOrgId } from '@/lib/auth-helpers';
 
 const ALLOWED_TYPES = new Set([
   'application/pdf',
@@ -14,6 +15,7 @@ const ALLOWED_TYPES = new Set([
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(req: NextRequest) {
+  await getOrgId(); // auth check
   const formData = await req.formData();
   const file = formData.get('file') as File | null;
 
