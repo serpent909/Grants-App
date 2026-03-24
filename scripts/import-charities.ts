@@ -5,9 +5,12 @@
  *   DATABASE_URL="postgres://..." npx tsx scripts/import-charities.ts
  *
  * What it does:
- *   1. Fetches all registered charities with MainActivityId=3 ("makes grants to organisations")
- *   2. Filters out noise (school PTAs, churches, sports clubs, etc.)
- *   3. Upserts into the `charities` table
+ *   1. Fetches all charities whose primary activity is making grants (MainActivityId=3)
+ *   2. Also fetches charities with "Trust", "Foundation", "Fund", or "Endowment" in
+ *      their name — these are high-probability grant-givers regardless of primary activity
+ *   3. Deduplicates by charity number
+ *   4. Filters out noise (school PTAs, churches, sports clubs, etc.)
+ *   5. Upserts into the `charities` table (source='register')
  *
  * Safe to re-run — uses ON CONFLICT to update existing records.
  */
@@ -42,11 +45,9 @@ function normaliseWebsite(url: string | null): string | null {
   if (!url || !url.trim()) return null;
   let u = url.trim();
 
-  // Skip excluded generic trustee websites
   const hostCheck = u.replace(/^https?:\/\//, '').replace(/\/.*$/, '').toLowerCase();
   if (EXCLUDED_WEBSITES.has(hostCheck)) return null;
 
-  // Ensure protocol
   if (!u.startsWith('http://') && !u.startsWith('https://')) {
     u = `https://${u}`;
   }
@@ -60,50 +61,45 @@ function normaliseWebsite(url: string | null): string | null {
 }
 
 function shouldInclude(org: ODataOrg): boolean {
-  // Must be registered
   if (org.RegistrationStatus !== 'Registered') return false;
-
-  // Must have a usable website
   if (!normaliseWebsite(org.WebSiteURL)) return false;
-
-  // Exclude by name pattern
   if (EXCLUDE_NAME_PATTERNS.test(org.Name)) return false;
-
   return true;
 }
 
-async function fetchAllOrgs(): Promise<ODataOrg[]> {
+async function fetchPage(filter: string, skip: number): Promise<ODataOrg[]> {
+  const url =
+    `${ODATA_BASE}/Organisations?` +
+    `$filter=${encodeURIComponent(filter)}` +
+    `&$select=OrganisationId,Name,CharityRegistrationNumber,WebSiteURL,CharitablePurpose,MainSectorId,RegistrationStatus` +
+    `&$top=${PAGE_SIZE}&$skip=${skip}` +
+    `&$format=json`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`OData API returned ${res.status}: ${await res.text()}`);
+
+  const data = await res.json();
+  return data.d?.results || (Array.isArray(data.d) ? data.d : null) || data.value || [];
+}
+
+async function fetchAllByFilter(label: string, filter: string): Promise<ODataOrg[]> {
   const allOrgs: ODataOrg[] = [];
   let skip = 0;
-  let hasMore = true;
 
-  console.log('Fetching charities from NZ Charities Register...');
+  console.log(`\nFetching: ${label}`);
 
-  while (hasMore) {
-    const url = `${ODATA_BASE}/Organisations?` +
-      `$filter=MainActivityId eq 3 and RegistrationStatus eq 'Registered'` +
-      `&$select=OrganisationId,Name,CharityRegistrationNumber,WebSiteURL,CharitablePurpose,MainSectorId,RegistrationStatus` +
-      `&$top=${PAGE_SIZE}&$skip=${skip}` +
-      `&$format=json`;
+  while (true) {
+    const results = await fetchPage(filter, skip);
+    if (results.length === 0) break;
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`OData API returned ${res.status}: ${await res.text()}`);
+    allOrgs.push(...results);
+    skip += PAGE_SIZE;
+    process.stdout.write(`  ${allOrgs.length} fetched...\r`);
 
-    const data = await res.json();
-    const results: ODataOrg[] = data.d?.results || (Array.isArray(data.d) ? data.d : null) || data.value || [];
-
-    if (results.length === 0) {
-      hasMore = false;
-    } else {
-      allOrgs.push(...results);
-      skip += PAGE_SIZE;
-      console.log(`  Fetched ${allOrgs.length} so far (page ${Math.ceil(skip / PAGE_SIZE)})...`);
-
-      // Safety: if less than a full page, we're done
-      if (results.length < PAGE_SIZE) hasMore = false;
-    }
+    if (results.length < PAGE_SIZE) break;
   }
 
+  console.log(`  ${allOrgs.length} total`);
   return allOrgs;
 }
 
@@ -114,17 +110,54 @@ async function main() {
     process.exit(1);
   }
 
-  // 1. Fetch from OData API
-  const allOrgs = await fetchAllOrgs();
-  console.log(`\nTotal fetched: ${allOrgs.length}`);
+  // ── Fetch from multiple filters and merge ──────────────────────────────────
 
-  // 2. Filter
+  const queries: { label: string; filter: string }[] = [
+    {
+      label: 'Primary grant-makers (MainActivityId=3)',
+      filter: `MainActivityId eq 3 and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Trust"',
+      filter: `substringof('Trust', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Foundation"',
+      filter: `substringof('Foundation', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Fund"',
+      filter: `substringof('Fund', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Endowment"',
+      filter: `substringof('Endowment', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+  ];
+
+  const seen = new Map<string, ODataOrg>();
+
+  for (const { label, filter } of queries) {
+    const orgs = await fetchAllByFilter(label, filter);
+    for (const org of orgs) {
+      if (!seen.has(org.CharityRegistrationNumber)) {
+        seen.set(org.CharityRegistrationNumber, org);
+      }
+    }
+  }
+
+  const allOrgs = Array.from(seen.values());
+  console.log(`\nTotal unique charities fetched: ${allOrgs.length}`);
+
+  // ── Filter ─────────────────────────────────────────────────────────────────
+
   const filtered = allOrgs.filter(shouldInclude);
   const excluded = allOrgs.length - filtered.length;
   console.log(`After filtering: ${filtered.length} kept, ${excluded} excluded`);
 
-  // Breakdown of exclusion reasons (for logging)
-  let noWebsite = 0, nameExcluded = 0, genericWebsite = 0;
+  let noWebsite = 0;
+  let nameExcluded = 0;
+  let genericWebsite = 0;
   for (const org of allOrgs) {
     if (!org.WebSiteURL?.trim()) { noWebsite++; continue; }
     const normUrl = normaliseWebsite(org.WebSiteURL);
@@ -135,10 +168,10 @@ async function main() {
   console.log(`  - Generic trustee website: ${genericWebsite}`);
   console.log(`  - Name pattern excluded: ${nameExcluded}`);
 
-  // 3. Upsert into DB
+  // ── Upsert into DB ─────────────────────────────────────────────────────────
+
   const pool = new Pool({ connectionString: dbUrl });
 
-  // Ensure table exists
   await pool.query(`
     CREATE TABLE IF NOT EXISTS charities (
       id SERIAL PRIMARY KEY,
@@ -151,45 +184,63 @@ async function main() {
     )
   `);
 
-  // Create indexes if not exist
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_charities_name_purpose_fts ON charities USING gin(to_tsvector('english', name || ' ' || COALESCE(purpose, '')))`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_charities_sector ON charities(sector_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_charities_website ON charities(website_url) WHERE website_url IS NOT NULL`);
 
+  // Ensure extended columns exist (from migration 003)
+  await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'register'`);
+  await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS curated_grant_url TEXT`);
+  await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS regions TEXT[]`);
+
   let inserted = 0;
   let updated = 0;
 
-  for (const org of filtered) {
-    const website = normaliseWebsite(org.WebSiteURL);
+  const BATCH_SIZE = 500;
+  for (let i = 0; i < filtered.length; i += BATCH_SIZE) {
+    const batch = filtered.slice(i, i + BATCH_SIZE);
+
+    // Build multi-row VALUES clause
+    const values: unknown[] = [];
+    const placeholders = batch.map((org, j) => {
+      const base = j * 5;
+      values.push(
+        org.CharityRegistrationNumber,
+        org.Name,
+        normaliseWebsite(org.WebSiteURL),
+        org.CharitablePurpose?.slice(0, 5000) || null,
+        org.MainSectorId,
+      );
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, 'register')`;
+    });
+
     const result = await pool.query(
-      `INSERT INTO charities (charity_number, name, website_url, purpose, sector_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO charities (charity_number, name, website_url, purpose, sector_id, source)
+       VALUES ${placeholders.join(', ')}
        ON CONFLICT (charity_number) DO UPDATE SET
          name = EXCLUDED.name,
          website_url = EXCLUDED.website_url,
          purpose = EXCLUDED.purpose,
          sector_id = EXCLUDED.sector_id
        RETURNING (xmax = 0) AS is_insert`,
-      [
-        org.CharityRegistrationNumber,
-        org.Name,
-        website,
-        org.CharitablePurpose?.slice(0, 5000) || null,
-        org.MainSectorId,
-      ]
+      values
     );
-    if (result.rows[0]?.is_insert) inserted++;
-    else updated++;
+
+    for (const row of result.rows) {
+      if (row.is_insert) inserted++;
+      else updated++;
+    }
+
+    process.stdout.write(`  ${Math.min(i + BATCH_SIZE, filtered.length)}/${filtered.length} upserted...\r`);
   }
 
   console.log(`\nDone! Inserted: ${inserted}, Updated: ${updated}`);
 
-  // Final count
   const { rows } = await pool.query('SELECT COUNT(*) AS total FROM charities');
   console.log(`Total records in charities table: ${rows[0].total}`);
 
-  const { rows: withUrl } = await pool.query('SELECT COUNT(*) AS total FROM charities WHERE website_url IS NOT NULL');
-  console.log(`Records with website: ${withUrl[0].total}`);
+  const { rows: withUrl } = await pool.query("SELECT COUNT(*) AS total FROM charities WHERE website_url IS NOT NULL AND source = 'register'");
+  console.log(`Register records with website: ${withUrl[0].total}`);
 
   await pool.end();
 }

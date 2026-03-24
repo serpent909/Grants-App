@@ -57,20 +57,6 @@ export async function saveSearch(name: string, result: SearchResult): Promise<Sa
   return entry;
 }
 
-export async function updateSaved(id: string, result: SearchResult): Promise<void> {
-  await fetch('/api/saved-searches', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id,
-      result,
-      grantCount: result.grants.length,
-      orgSummary: result.orgSummary || '',
-    }),
-  });
-  await globalMutate(SWR_KEY);
-}
-
 export async function deleteSaved(id: string): Promise<void> {
   await fetch(`/api/saved-searches?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
   await globalMutate(SWR_KEY);

@@ -36,18 +36,6 @@ export async function isShortlisted(grantId: string): Promise<boolean> {
   return ids.includes(grantId);
 }
 
-export async function listShortlisted(): Promise<ShortlistedGrant[]> {
-  const res = await fetch('/api/shortlist');
-  if (!res.ok) return [];
-  return res.json();
-}
-
-export async function listShortlistedBySearch(): Promise<Record<string, ShortlistedGrant[]>> {
-  const res = await fetch('/api/shortlist?grouped=true');
-  if (!res.ok) return {};
-  return res.json();
-}
-
 export async function batchCheckShortlisted(grantIds: string[]): Promise<Set<string>> {
   if (grantIds.length === 0) return new Set();
   const res = await fetch(`/api/shortlist?grantIds=${grantIds.join(',')}`);

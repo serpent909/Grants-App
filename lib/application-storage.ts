@@ -60,19 +60,6 @@ export async function getApplication(grantId: string): Promise<GrantApplication 
   return res.json();
 }
 
-export async function listApplications(): Promise<GrantApplication[]> {
-  const res = await fetch('/api/applications');
-  if (!res.ok) return [];
-  return res.json();
-}
-
-export async function listApplicationsByStatus(): Promise<Record<ApplicationStatus, GrantApplication[]>> {
-  const all = await listApplications();
-  const grouped = emptyGrouped();
-  for (const app of all) grouped[app.status].push(app);
-  return grouped;
-}
-
 // ─── Mutations (invalidate SWR cache after write) ──────────────────────────
 
 export async function startApplication(shortlisted: ShortlistedGrant): Promise<GrantApplication> {
