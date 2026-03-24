@@ -130,3 +130,36 @@ export interface GrantApplication {
   amountRequested?: number;
   amountAwarded?: number;
 }
+
+// ─── Documents & Checklist ──────────────────────────────────────────────────
+
+export interface AppDocument {
+  id: string;
+  filename: string;
+  blobUrl: string;
+  contentType: string;
+  sizeBytes: number;
+  category: string;
+  notes: string;
+  uploadedAt: string;
+  usageCount?: number;
+}
+
+export interface ChecklistItem {
+  id: string;
+  grantId: string;
+  itemIndex: number;
+  itemName: string;
+  description: string;
+  required: boolean;
+  checked: boolean;
+  checkedAt?: string;
+  documents: AppDocument[];
+}
+
+export interface ChecklistProgress {
+  total: number;
+  checked: number;
+  requiredTotal: number;
+  requiredChecked: number;
+}
