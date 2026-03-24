@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { Heart, History, Star, ClipboardList } from "lucide-react";
+import { Heart, History, Star, ClipboardList, FileText } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const inter = Inter({
@@ -65,6 +65,14 @@ export default function RootLayout({
                 >
                   <ClipboardList className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                   <span className="hidden sm:inline">Applications</span>
+                </Link>
+                <Link
+                  href="/documents"
+                  className="flex items-center gap-1.5 text-sm font-medium p-2 sm:px-4 sm:py-2 rounded-lg text-stone-500 hover:bg-stone-100 transition-colors"
+                  title="Documents"
+                >
+                  <FileText className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:inline">Documents</span>
                 </Link>
               </div>
             </div>
