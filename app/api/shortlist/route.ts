@@ -61,9 +61,18 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   await ensureStorageTables();
   const { searchParams } = new URL(req.url);
-  const grantId = searchParams.get('grantId');
-  if (!grantId) return NextResponse.json({ error: 'grantId required' }, { status: 400 });
   const db = getPool();
+
+  // Delete all shortlisted grants for a search title
+  const searchTitle = searchParams.get('searchTitle');
+  if (searchTitle) {
+    await db.query('DELETE FROM shortlisted_grants WHERE search_title = $1', [searchTitle]);
+    return NextResponse.json({ ok: true });
+  }
+
+  // Delete a single shortlisted grant
+  const grantId = searchParams.get('grantId');
+  if (!grantId) return NextResponse.json({ error: 'grantId or searchTitle required' }, { status: 400 });
   await db.query('DELETE FROM shortlisted_grants WHERE grant_id = $1', [grantId]);
   return NextResponse.json({ ok: true });
 }
