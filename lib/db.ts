@@ -48,7 +48,7 @@ export async function searchGrants(
     const { rows } = await db.query<GrantRow>(
       `SELECT
          g.id, g.name,
-         c.name AS funder_name,
+         COALESCE(g.funder_name, c.name) AS funder_name,
          c.funder_type,
          g.type, g.description,
          COALESCE(g.application_form_url, g.url) AS url,
@@ -81,7 +81,7 @@ export async function searchGrants(
          cardinality(ARRAY(
            SELECT unnest(COALESCE(g.sectors, '{}')) INTERSECT SELECT unnest($2::text[])
          )) DESC,
-         c.name ASC
+         COALESCE(g.funder_name, c.name) ASC
        LIMIT $3`,
       [orgRegions, orgSectors.length ? orgSectors : ([] as string[]), limit],
     );
