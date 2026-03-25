@@ -1,12 +1,10 @@
 import { MarketConfig } from './types';
 import { NZ_MARKET } from './nz';
-import { AU_MARKET } from './au';
 
 export type { MarketConfig } from './types';
 
 const MARKETS: Record<string, MarketConfig> = {
   nz: NZ_MARKET,
-  au: AU_MARKET,
 };
 
 export function getMarket(id: string): MarketConfig {
@@ -22,4 +20,4 @@ export function listMarkets(): MarketConfig[] {
   return Object.values(MARKETS);
 }
 
-export { NZ_MARKET, AU_MARKET };
+export { NZ_MARKET };

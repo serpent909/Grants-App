@@ -137,6 +137,14 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://bluesky.org.nz/grants/grants.html' },
     { url: 'https://www.dragon.org.nz/grants' },
     { url: 'https://www.firstlightfoundation.co.nz/grants.html', regions: ['hawkes-bay', 'bay-of-plenty'] },
+    { url: 'https://www.youthtown.org.nz/funding/', regions: ['auckland'] },
+    { url: 'https://www.thetrusts.co.nz/community/grants/', regions: ['auckland'] },
+    { url: 'https://infinityfoundation.co.nz/apply-for-a-grant/' },
+    { url: 'https://www.ilt.co.nz/ilt-foundation/', regions: ['southland'] },
+    { url: 'https://trustaoraki.co.nz/grants/', regions: ['canterbury'] },
+    { url: 'https://www.constellationtrust.co.nz/', regions: ['auckland'] },
+    { url: 'https://www.redwoodtrust.org.nz/apply/', regions: ['waikato'] },
+    { url: 'https://www.northandsouthtrust.org.nz/grants' },
     // ── Community trusts — additional regional ─────────────────────────────
     { url: 'https://www.communitytrustsouth.nz/what-we-fund/', regions: ['southland', 'otago'] },
     { url: 'https://www.clt.net.nz/funding', regions: ['otago'] },                                      // Central Lakes Trust (Queenstown Lakes / Central Otago)
@@ -183,6 +191,7 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://tindall.org.nz/community/' },
     { url: 'https://www.jrmckenzie.org.nz/what' },
     { url: 'https://www.perpetualguardian.co.nz/philanthropy/grant-seekers/' },
+    { url: 'https://www.perpetualguardian.co.nz/philanthropy/grant-seekers/grants-open-upcoming/' },
     { url: 'https://www.kct.co.nz/' },
     { url: 'https://sutherlandselfhelptrust.org.nz/grant-application/' },
     { url: 'https://milfordfoundation.co.nz/grants/' },
@@ -196,9 +205,34 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://www.wfct.org.nz/', regions: ['canterbury'] },
     { url: 'https://www.publictrust.co.nz/grants/t-g-macarthy-trust/', regions: ['wellington'] },
     { url: 'https://www.publictrust.co.nz/grants/frozen-funds-charitable-trust/' },
+    { url: 'https://www.publictrust.co.nz/grants/thomas-george-macarthy-trust/' },
+    { url: 'https://www.publictrust.co.nz/grants/sir-john-logan-campbell-residuary-estate/' },
+    { url: 'https://www.publictrust.co.nz/grants/charles-fleming-fund/' },
+    { url: 'https://www.publictrust.co.nz/grants/john-ilott-charitable-trust/' },
+    { url: 'https://www.publictrust.co.nz/grants/cossio-fyfe-trust/' },
+    { url: 'https://www.publictrust.co.nz/grants/wellington-paraplegic-trust/' },
+    { url: 'https://www.publictrust.co.nz/grants/sargood-bequest/' },
+    { url: 'https://www.publictrust.co.nz/grants/norman-kirk-memorial-trust/' },
+    { url: 'https://www.publictrust.co.nz/grants/john-feeney-memorial-trust/' },
     { url: 'https://www.healthcareotago.co.nz/charitable-trust', regions: ['otago'] },
     { url: 'https://www.ruralcommunitiestrust.org.nz/grants' },
     { url: 'https://wff.acumenonline.co.nz/Funding' },  // Wright Family Foundation
+    // ── Discovered via directory scraping ──────────────────────────────────
+    { url: 'http://www.nextfoundation.org.nz/applications' },           // NEXT Foundation (environmental/education)
+    { url: 'http://www.tsbtrust.org.nz', regions: ['taranaki'] },       // TSB Community Trust
+    { url: 'http://www.wccomtrust.org.nz', regions: ['west-coast'] },   // West Coast Community Trust
+    { url: 'http://www.ctos.org.nz', regions: ['otago', 'southland'] }, // Community Trust of Southland
+    { url: 'http://www.lenreynoldstrust.co.nz' },                       // Len Reynolds Trust
+    { url: 'https://maorieducation.org.nz' },                           // NZ Maori Education Trust (via PG)
+    { url: 'https://www.nzcat.org.nz' },                                // NZ Charities Aid Trust (via PG)
+    { url: 'https://www.mbie.govt.nz/science-and-technology/science-and-innovation/funding-information-and-opportunities/investment-funds' },
+    { url: 'https://www.mpi.govt.nz/funding-and-programmes/sustainable-food-and-fibre-futures/about-sustainable-food-and-fibre-futures' },
+    { url: 'https://www.savethekiwi.nz/about-us/what-we-do/funding' },  // Save the Kiwi Trust
+    { url: 'https://predatorfreenz.org/toolkits/groups-toolkit/funding-and-grants' },
+    { url: 'https://qeiinationaltrust.org.nz/managing-your-covenant/the-stephenson-fund' },
+    { url: 'https://www.aucklandzoo.co.nz/get-involved/conservation-fund', regions: ['auckland'] },
+    { url: 'https://trail-fund.myshopify.com/pages/apply-for-a-grant' }, // NZ Trail Fund
+    { url: 'http://www.herengaanuku.govt.nz/enhanced-access-fund' },     // Heritage Trails NZ
     // ── Health / research trusts — national ─────────────────────────────────
     { url: 'https://www.paykeltrust.co.nz/project-equipment-grants/' },
     { url: 'https://www.cancerresearchtrustnz.org.nz/apply-for-a-grant' },
@@ -228,6 +262,17 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://www.beeflambnz.co.nz/community-fund' },
     { url: 'https://agmardt.org.nz/our-funding-programmes/' },
     { url: 'https://foundation.asb.co.nz/apply' },  // ASB Foundation (corporate foundation, distinct from Foundation North)
+    { url: 'https://www.kiwibank.co.nz/about-us/community/local-hero/' },
+    { url: 'https://www.westpac.co.nz/about-us/sustainability-community/community/community-grants/' },
+    { url: 'https://www.2degrees.nz/community' },
+    { url: 'https://www.genesisenergy.co.nz/community/community-fund' },
+    { url: 'https://contact.co.nz/about-contact/community-fund' },
+    { url: 'https://www.vector.co.nz/about-us/community' },
+    { url: 'https://www.thewarehouse.co.nz/red-shirts-in-the-community' },
+    { url: 'https://www.fletcherbuilding.com/sustainability/community' },
+    { url: 'https://www.portoftauranga.com/sustainability/community/', regions: ['bay-of-plenty'] },
+    { url: 'https://www.centreport.co.nz/about-us/community/', regions: ['wellington'] },
+    { url: 'https://www.dairynz.co.nz/about-us/community/' },
     // ── Corporate — regional ────────────────────────────────────────────────
     { url: 'https://www.meridianenergy.co.nz/community-support/fund', regions: ['otago', 'southland', 'canterbury', 'wellington', 'manawatu-whanganui'] },
     { url: 'https://www.mercury.co.nz/about-us/partnerships/community-funds', regions: ['waikato', 'bay-of-plenty', 'canterbury'] },
@@ -323,6 +368,8 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://www.ecan.govt.nz/get-involved/community-funding', regions: ['canterbury'] },
     { url: 'https://www.orc.govt.nz/environment/enhancing-and-protecting/grants-and-funding/', regions: ['otago'] },
     { url: 'https://www.trc.govt.nz/environment/working-together/landowner-funding-assistance', regions: ['taranaki'] },
+    { url: 'https://www.wcrc.govt.nz/community/funding', regions: ['west-coast'] },
+    { url: 'https://www.es.govt.nz/community/funding-and-grants', regions: ['southland'] },
     // ── Sports — regional ───────────────────────────────────────────────────
     { url: 'https://www.oxfordsportstrust.org.nz/grants.htm', regions: ['northland'] },
   ],

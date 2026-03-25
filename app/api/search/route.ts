@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@/lib/openai';
-import { OrgInfo, GrantOpportunity, SearchResult } from '@/lib/types';
+import { OrgInfo, GrantOpportunity } from '@/lib/types';
 import { getMarket, MarketConfig } from '@/lib/markets';
-import { generateGrantId, searchGrants, GrantRow } from '@/lib/db';
+import { searchGrants, GrantRow } from '@/lib/db';
 
 const TODAY = new Date().toISOString().split('T')[0];
 
@@ -24,8 +24,8 @@ function trackOpenAI(costs: CostTracker, _model: string, usage?: { prompt_tokens
 }
 
 const PRICING = {
-  gpt4oMiniIn: 0.15 / 1_000_000,
-  gpt4oMiniOut: 0.60 / 1_000_000,
+  gpt4oMiniIn: 0.40 / 1_000_000,   // gpt-4.1-mini input
+  gpt4oMiniOut: 1.60 / 1_000_000,   // gpt-4.1-mini output
 };
 
 function computeCost(costs: CostTracker) {
@@ -58,18 +58,43 @@ The organisation operates in: ${regionText}.` : ''}
 - If a grant is explicitly restricted to a region NOT in [${regionText}], reduce attainability by 3-4 points and note in attainabilityNotes that the org does not operate in that region.` : ''}
 - When in doubt about a funder's geographic scope, assume it is available to the org.
 
+APPLICANT TYPE CHECK (apply before scoring):
+The searcher is an ORGANISATION (charity, trust, society, etc.), not an individual person. Many grants and scholarships are designed for individual applicants (e.g. personal scholarships, bursaries for students, individual development grants, awards for individual artists or researchers). If a grant's eligibility, description, or name indicates it is for individual people rather than organisations — e.g. "must be a young mum", "applicants must be enrolled in study", "individual artists", "personal development grant", "scholarship for students" — then the organisation CANNOT apply for it.
+- If the grant is clearly for individuals: set alignment=0, attainability=0, ease=5, overall=0. Set alignmentReason to explain (e.g. "This grant is for individual applicants, not organisations.").
+- If UNCLEAR whether it's for individuals or organisations: score normally but note the uncertainty in attainabilityNotes.
+
 FORM-OF-SUPPORT CHECK (apply during alignment scoring):
 The organisation is seeking a specific type of support (usually cash funding of a stated amount). Compare what the organisation needs against what the grant/programme actually provides:
 - Cash grants/funding: direct monetary support the org can spend as needed
 - In-kind donations: donated goods, equipment, or materials (not cash)
 - Services/programmes: training, mentoring, capacity building, volunteer placement
 - Fee waivers/discounts: reduced-cost access to products or services
-If the grant provides in-kind support (e.g. donated equipment, pro-bono services, discounted software) but the organisation is seeking cash funding, these are MISALIGNED even if the topic area overlaps. Reduce alignment to 3-4 maximum (partial overlap at best). The org cannot use donated goods to pay for contractors, wages, or other cash expenses.
+If the grant provides in-kind support (e.g. donated equipment, pro-bono services, discounted software, food programmes, donated products) but the organisation is seeking cash funding, these are MISALIGNED even if the topic area overlaps. Reduce alignment to 3-4 maximum (partial overlap at best). The org cannot use donated goods to pay for contractors, wages, or other cash expenses.
+Similarly, if the grant is for research, scholarships, fellowships, or academic study but the org seeks operational/project funding, this is a PURPOSE MISMATCH — cap alignment at 4.
 Conversely, if the org specifically seeks in-kind support and the grant provides it, score normally.
 
+PURPOSE-ALIGNMENT STRICTNESS (critical — apply rigorously):
+Alignment measures how specifically the grant's PURPOSE matches the org's SPECIFIC MISSION AND FUNDING REQUEST — not merely whether the org is eligible to apply.
+- A grant that is "open to all charities" or funds "general community purposes" does NOT automatically score high. Being eligible ≠ being aligned.
+- Do NOT inflate alignment because the grant provides cash funding. Nearly all grants provide cash — this is not a distinguishing factor.
+- Generic/broad grants (e.g. "community development", "charitable purposes", gaming trust general grants) with no stated focus matching the org's specific work should score alignment 4-6 at most.
+- A score of 7+ requires the grant's STATED PURPOSE to directly relate to the org's specific area of work — not just sector overlap.
+- A score of 9-10 means the grant was essentially designed for organisations doing exactly this work.
+
+LOW-INFORMATION SCORING:
+If a grant has no description, no stated sectors, and no eligibility criteria, do NOT assume strong alignment. Score conservatively:
+- With no information about grant purpose: alignment 4-5 maximum (possible but unverified match)
+- Only increase above 5 if funder name or other context provides clear evidence of relevance.
+
+REASONING-SCORE CONSISTENCY (mandatory):
+Your alignmentReason MUST be consistent with your alignment score. If your reasoning identifies a mismatch or limitation (e.g. "though funding is research-focused rather than direct funding", "but primarily targets schools", "however the grant is for sports"), the alignment score MUST reflect that mismatch:
+- If you write "though", "but", "however", or "although" to qualify alignment, the score should be 5 or below — not 7.
+- If the grant's primary purpose differs from the org's specific need, even with topic overlap, score 4-5.
+- Only score 6+ if alignment is genuine and unqualified.
+
 Scoring dimensions (0–10):
-alignment — how well the grant purpose AND form of support match the org mission AND specific funding request
-  0-3 poor match or wrong form of support | 4-6 partial overlap | 7-8 good match | 9-10 designed for exactly this
+alignment — how specifically the grant's stated purpose matches the org's specific mission and funding request
+  0-2 wrong form of support, wrong sector, or ineligible | 3-4 tangential overlap or purpose mismatch | 5-6 partial/indirect overlap — org could apply but grant wasn't designed for this | 7-8 grant purpose directly supports org's specific work | 9-10 designed for exactly this type of organisation and activity
 
 ease — how easy it is to apply (higher = simpler process)
   1-2 multi-stage/site visits | 3-4 complex/extensive | 5-6 full proposal | 7-8 moderate effort | 9-10 simple online form
@@ -83,6 +108,8 @@ DEADLINE RULE — today is ${TODAY}:
 - Extract a deadline ONLY if the pageContent contains a specific future date explicitly stated as a closing or application date.
 - The date must be after ${TODAY}. If the date is in the past, or if no date is stated, omit the deadline field entirely — do not guess.
 - Most grants run on rolling or annual cycles. Absence of a deadline means rolling/open, not closed.
+
+Each grant includes structured fields: name, funder, funderType (one of: government, council, gaming-trust, community-trust, iwi, corporate, family-foundation, sector-specific, other), type, description, eligibility (array), sectors (array), regions (array), amountMin, amountMax, deadline, url. Use ALL of these fields when scoring — they are authoritative data from the funder's own grant page.
 
 CRITICAL: You MUST score every single grant provided. Do not skip, omit, or summarise any.
 
@@ -171,240 +198,232 @@ async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): P
   return results;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DiscoveredGrant {
-  name: string;
-  funder: string;
-  type: GrantOpportunity['type'];
-  description: string;
-  amountMin?: number;
-  amountMax?: number;
-  url: string;
-  pageContent?: string;
-}
-
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Parse and validate before starting the stream
+  let body: OrgInfo;
   try {
-    const body = await req.json() as OrgInfo;
-    const { website, fundingPurpose, fundingAmount, market: marketId } = body;
-    if (!website || !fundingPurpose || !fundingAmount) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    body = await req.json() as OrgInfo;
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
-    const market = getMarket(marketId || 'nz');
+  const { website, fundingPurpose, fundingAmount, market: marketId } = body;
+  if (!website || !fundingPurpose || !fundingAmount) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  }
 
-    // Resolve region names from IDs
-    const regionNames = (body.regions || [])
-      .map(id => market.regions.find(r => r.id === id)?.name)
-      .filter(Boolean) as string[];
-    const regionText = regionNames.length ? regionNames.join(', ') : 'Nationwide';
+  const market = getMarket(marketId || 'nz');
 
-    // Resolve sector labels
-    const sectorLabels = (body.sectors || []).map(id => {
-      const map: Record<string, string> = {
-        'health': 'Health & Wellbeing', 'mental-health': 'Mental Health',
-        'education': 'Education & Training', 'youth': 'Youth',
-        'children-families': 'Children & Families', 'elderly': 'Elderly & Aged Care',
-        'disability': 'Disability', 'arts-culture': 'Arts & Culture',
-        'sport': 'Sport & Recreation', 'environment': 'Environment & Conservation',
-        'housing': 'Housing & Homelessness', 'community': 'Community Development',
-        'social-services': 'Social Services', 'indigenous': 'Indigenous Development',
-        'rural': 'Rural Communities', 'economic-development': 'Economic Development',
-        'animal-welfare': 'Animal Welfare',
-      };
-      return map[id] || id;
-    });
+  // Return a streaming SSE response — keeps the connection alive on Vercel
+  // (streaming responses get up to 300s vs 60s for buffered responses)
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      // Send initial comment to flush proxy/browser buffers
+      controller.enqueue(encoder.encode(': connected\n\n'));
 
-    const orgTypeLabel = {
-      'registered-charity': 'Registered Charity',
-      'charitable-trust': 'Charitable Trust',
-      'incorporated-society': 'Incorporated Society',
-      'social-enterprise': 'Social Enterprise',
-      'community-group': 'Community Group',
-      'other': 'Other',
-    }[body.orgType || ''] || body.orgType || 'Unknown';
+      function send(event: Record<string, unknown>) {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          // Client disconnected
+        }
+      }
 
-    const { SCORING_SYSTEM_PROMPT, RELEVANCE_TRIAGE_PROMPT } = buildPrompts(market, regionNames);
+      try {
+        // Resolve region names from IDs
+        const regionNames = (body.regions || [])
+          .map(id => market.regions.find(r => r.id === id)?.name)
+          .filter(Boolean) as string[];
+        const regionText = regionNames.length ? regionNames.join(', ') : 'Nationwide';
 
-    const orgContext = `Organisation website: ${website}${body.linkedin ? `\nLinkedIn: ${body.linkedin}` : ''}
+        // Resolve sector labels
+        const sectorLabels = (body.sectors || []).map(id => {
+          const map: Record<string, string> = {
+            'health': 'Health & Wellbeing', 'mental-health': 'Mental Health',
+            'education': 'Education & Training', 'youth': 'Youth',
+            'children-families': 'Children & Families', 'elderly': 'Elderly & Aged Care',
+            'disability': 'Disability', 'arts-culture': 'Arts & Culture',
+            'sport': 'Sport & Recreation', 'environment': 'Environment & Conservation',
+            'housing': 'Housing & Homelessness', 'community': 'Community Development',
+            'social-services': 'Social Services', 'indigenous': 'Indigenous Development',
+            'rural': 'Rural Communities', 'economic-development': 'Economic Development',
+            'animal-welfare': 'Animal Welfare',
+          };
+          return map[id] || id;
+        });
+
+        const orgTypeLabel = {
+          'registered-charity': 'Registered Charity',
+          'charitable-trust': 'Charitable Trust',
+          'incorporated-society': 'Incorporated Society',
+          'social-enterprise': 'Social Enterprise',
+          'community-group': 'Community Group',
+          'other': 'Other',
+        }[body.orgType || ''] || body.orgType || 'Unknown';
+
+        const { SCORING_SYSTEM_PROMPT } = buildPrompts(market, regionNames);
+
+        const orgContext = `Organisation website: ${website}${body.linkedin ? `\nLinkedIn: ${body.linkedin}` : ''}
 Organisation type: ${orgTypeLabel}
 Operating regions: ${regionText}
 Sectors: ${sectorLabels.join(', ') || 'Not specified'}
 Funding purpose: ${fundingPurpose}
 Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLocaleString(market.locale)}${body.previousFunders ? `\nPrevious/current funders: ${body.previousFunders}` : ''}`;
 
-    // ─── Two-pass triage + score from grants DB ──────────────────────────────
-    const costs = createCostTracker();
+        // ─── Two-pass triage + score from grants DB ──────────────────────────
+        const costs = createCostTracker();
 
-    // ── Pass 1: Triage — cheap binary relevance filter over all DB grants ──
-    const allGrants = await searchGrants(body.sectors || [], body.regions || []);
-    console.log(`[GrantSearch] Pass 1: triaging ${allGrants.length} grants`);
+        // ── Fetch sector-filtered grants from DB ──────────────────────────────
+        const allGrants = await searchGrants(body.sectors || [], body.regions || []);
+        console.log(`[GrantSearch] ${allGrants.length} grants from DB (sector-filtered)`);
 
-    const TRIAGE_BATCH = 100;
-    const triageBatches: Array<{ batchGrants: GrantRow[]; offset: number }> = [];
-    for (let i = 0; i < allGrants.length; i += TRIAGE_BATCH) {
-      triageBatches.push({ batchGrants: allGrants.slice(i, i + TRIAGE_BATCH), offset: i });
-    }
-
-    const triageDecisions = await withConcurrency(
-      triageBatches.map(({ batchGrants, offset }) => async () => {
-        const payload = batchGrants.map((g, i) => ({
-          index: i,
-          name: g.name,
-          funder: g.funder_name,
-          type: g.type,
-          description: (g.description || '').slice(0, 150),
-          sectors: g.sectors,
-          regions: g.regions,
-          amountMin: g.amount_min,
-          amountMax: g.amount_max,
-        }));
-        try {
-          const res = await withRetry(() => openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: RELEVANCE_TRIAGE_PROMPT },
-              { role: 'user', content: `${orgContext}\n\nToday: ${TODAY}\n\nClassify these ${batchGrants.length} grants:\n\n${JSON.stringify(payload)}` },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0,
-            max_tokens: 2000,
-          }));
-          trackOpenAI(costs, 'gpt-4o-mini', res.usage);
-          const parsed = JSON.parse(res.choices[0]?.message?.content || '{}');
-          const decisions = (parsed.decisions || []) as Array<{ index: number; decision: string }>;
-          return decisions.map(d => ({ globalIndex: d.index + offset, decision: d.decision }));
-        } catch {
-          // On error default all to RELEVANT — never drop grants due to a failed call
-          return batchGrants.map((_, i) => ({ globalIndex: i + offset, decision: 'RELEVANT' }));
+        if (!allGrants.length) {
+          send({ type: 'complete', grants: [], orgSummary: '', searchedAt: new Date().toISOString(), market: market.id });
+          controller.close();
+          return;
         }
-      }),
-      15,
-    );
 
-    const skippedIndices = new Set<number>();
-    for (const decisions of triageDecisions) {
-      for (const d of decisions) {
-        if (d.decision === 'SKIP') skippedIndices.add(d.globalIndex);
-      }
-    }
-    const relevantGrants = allGrants.filter((_, i) => !skippedIndices.has(i));
-    console.log(`[GrantSearch] Triage: ${allGrants.length} → ${relevantGrants.length} relevant (${skippedIndices.size} skipped)`);
+        // ── Scoring — score all grants directly (SQL sector filter replaces triage) ──
+        send({ type: 'progress', phase: 'scoring', completed: 0, total: 1 });
 
-    if (!relevantGrants.length) {
-      return NextResponse.json({ grants: [], orgSummary: '', searchedAt: new Date().toISOString(), market: market.id });
-    }
+        const SCORE_BATCH = 12;
+        const batches: GrantRow[][] = [];
+        for (let i = 0; i < allGrants.length; i += SCORE_BATCH) {
+          batches.push(allGrants.slice(i, i + SCORE_BATCH));
+        }
 
-    // ── Pass 2: Full scoring of relevant grants only ──────────────────────
-    const toPageContent = (g: GrantRow): string => {
-      const parts: string[] = [];
-      if (g.description) parts.push(g.description);
-      if (g.eligibility?.length) parts.push('Eligibility: ' + g.eligibility.join('; '));
-      if (g.sectors?.length) parts.push('Sectors: ' + g.sectors.join(', '));
-      if (g.regions?.length) parts.push('Regions: ' + g.regions.join(', '));
-      if (g.amount_min != null || g.amount_max != null) {
-        const lo = g.amount_min != null ? `${market.currencySymbol}${g.amount_min.toLocaleString()}` : '';
-        const hi = g.amount_max != null ? `${market.currencySymbol}${g.amount_max.toLocaleString()}` : '';
-        parts.push('Grant amount: ' + (lo && hi ? `${lo}–${hi}` : lo || hi));
-      }
-      if (g.deadline) parts.push('Deadline: ' + g.deadline);
-      if (g.application_form_url) parts.push('Application form: ' + g.application_form_url);
-      return parts.join('\n');
-    };
+        console.log(`[GrantSearch] Scoring ${allGrants.length} grants in ${batches.length} batches of ${SCORE_BATCH} (concurrency: 35)`);
 
-    const discoveredFromDb: DiscoveredGrant[] = relevantGrants.map(g => ({
-      name: g.name,
-      funder: g.funder_name,
-      type: (g.type as DiscoveredGrant['type']) || 'grant',
-      description: g.description || '',
-      amountMin: g.amount_min ?? undefined,
-      amountMax: g.amount_max ?? undefined,
-      url: g.url,
-      pageContent: toPageContent(g),
-    }));
+        let scoreCompleted = 0;
+        let orgSummary = '';
+        const allScoredGrants: GrantOpportunity[] = [];
 
-    const SCORE_BATCH = 25;
-    const scoreBatches: DiscoveredGrant[][] = [];
-    for (let i = 0; i < discoveredFromDb.length; i += SCORE_BATCH) {
-      scoreBatches.push(discoveredFromDb.slice(i, i + SCORE_BATCH));
-    }
+        // Build structured payload for each grant (no free-text blob)
+        const toPayload = (g: GrantRow) => {
+          const p: Record<string, unknown> = {
+            name: g.name,
+            funder: g.funder_name,
+            funderType: g.funder_type || 'other',
+            type: g.type || 'Other',
+          };
+          if (g.description) p.description = g.description.slice(0, 1500);
+          if (g.eligibility?.length) p.eligibility = g.eligibility;
+          if (g.sectors?.length) p.sectors = g.sectors;
+          if (g.regions?.length) p.regions = g.regions;
+          if (g.amount_min != null) p.amountMin = g.amount_min;
+          if (g.amount_max != null) p.amountMax = g.amount_max;
+          if (g.deadline) p.deadline = g.deadline;
+          if (g.application_form_url) p.applicationFormUrl = g.application_form_url;
+          p.url = g.url;
+          return p;
+        };
 
-    console.log(`[GrantSearch] Pass 2: scoring ${discoveredFromDb.length} grants in ${scoreBatches.length} batches`);
+        await withConcurrency(
+          batches.map((dbBatch, idx) => async () => {
+            const isFirst = idx === 0;
+            const grantsPayload = dbBatch.map(toPayload);
+            try {
+              const res = await withRetry(() => openai.chat.completions.create({
+                model: 'gpt-4.1-mini',
+                messages: [
+                  { role: 'system', content: SCORING_SYSTEM_PROMPT },
+                  {
+                    role: 'user',
+                    content: `${orgContext}\n\nToday: ${TODAY}\n${isFirst ? '' : 'Set orgSummary to empty string.\n'}\nScore ALL ${dbBatch.length} grants. Return exactly ${dbBatch.length} entries in the grants array in the SAME ORDER as provided.\n\n${JSON.stringify(grantsPayload, null, 2)}`,
+                  },
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0.1,
+                max_tokens: 16000,
+              }));
+              trackOpenAI(costs, res.model || 'gpt-4.1-mini', res.usage);
+              const raw = res.choices[0]?.message?.content || '{}';
+              const parsed = JSON.parse(raw);
+              const grantsArr: GrantOpportunity[] = parsed.grants || [];
 
-    const scoreResults = await withConcurrency(
-      scoreBatches.map((batch, idx) => async () => {
-        const isFirst = idx === 0;
-        const grantsPayload = batch.map(g => ({
-          name: g.name,
-          funder: g.funder,
-          type: g.type,
-          description: g.description,
-          amountMin: g.amountMin,
-          amountMax: g.amountMax,
-          url: g.url,
-          pageContent: (g.pageContent || '').slice(0, 2000),
-        }));
-        try {
-          const res = await withRetry(() => openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: SCORING_SYSTEM_PROMPT },
-              {
-                role: 'user',
-                content: `${orgContext}\n\nToday: ${TODAY}\n${isFirst ? '' : 'Set orgSummary to empty string.\n'}\nScore ALL ${batch.length} grants. Return exactly ${batch.length} entries in the grants array.\n\n${JSON.stringify(grantsPayload, null, 2)}`,
-              },
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.1,
-            max_tokens: 16000,
-          }));
-          trackOpenAI(costs, res.model || 'gpt-4o-mini', res.usage);
-          const raw = res.choices[0]?.message?.content || '{}';
-          const parsed = JSON.parse(raw);
-          const grantsArr: GrantOpportunity[] = parsed.grants || [];
-          const valid = grantsArr
-            .filter((g: GrantOpportunity) => g?.scores !== undefined)
-            .map((g: GrantOpportunity) => {
-              if (!g.scores.overall) {
-                const { alignment = 0, ease = 5, attainability = 0 } = g.scores;
-                g.scores.overall = Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
+              // Capture orgSummary from first batch
+              if (isFirst && parsed.orgSummary) {
+                orgSummary = parsed.orgSummary;
               }
-              return g;
-            });
-          return { orgSummary: isFirst ? (parsed.orgSummary || '') : '', grants: valid };
-        } catch (err) {
-          console.error(`[GrantSearch] Score batch ${idx + 1} failed:`, err);
-          return null;
-        }
-      }),
-      15,
-    );
 
-    const orgSummary = (scoreResults[0] as { orgSummary?: string } | null)?.orgSummary || '';
-    const grants = scoreResults
-      .flatMap(r => r?.grants || [])
-      .filter(g => (g.scores?.alignment ?? 0) >= 5)
-      .map(g => ({ ...g, id: generateGrantId(g.funder, g.name, g.url) }));
+              // Map model scores back onto original DB data by index
+              // Never use model's name/funder/url — only scores and reasons
+              const qualified: GrantOpportunity[] = [];
+              for (let i = 0; i < Math.min(grantsArr.length, dbBatch.length); i++) {
+                const scored = grantsArr[i];
+                if (!scored?.scores) continue;
 
-    const costBreakdown = computeCost(costs);
-    console.log(`[GrantSearch] Done — ${grants.length} grants returned (cost: $${costBreakdown.total.toFixed(4)})`);
+                const { alignment = 0, ease = 5, attainability = 0 } = scored.scores;
+                const overall = scored.scores.overall || Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
 
-    return NextResponse.json({
-      grants,
-      orgSummary,
-      searchedAt: new Date().toISOString(),
-      market: market.id,
-      inputs: body,
-    } satisfies SearchResult);
+                if (alignment <= 5) continue;
 
-  } catch (err) {
-    console.error('[GrantSearch] API error:', err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'An unexpected error occurred' },
-      { status: 500 }
-    );
-  }
+                const db = dbBatch[i];
+                qualified.push({
+                  id: db.id,
+                  name: db.name,
+                  funder: db.funder_name,
+                  type: (db.type as GrantOpportunity['type']) || 'Other',
+                  description: scored.description || db.description || '',
+                  amountMin: db.amount_min ?? scored.amountMin,
+                  amountMax: db.amount_max ?? scored.amountMax,
+                  deadline: scored.deadline,
+                  url: db.url,
+                  scores: { alignment, ease, attainability, overall },
+                  alignmentReason: scored.alignmentReason || '',
+                  applicationNotes: scored.applicationNotes || '',
+                  attainabilityNotes: scored.attainabilityNotes || '',
+                });
+              }
+
+              allScoredGrants.push(...qualified);
+              scoreCompleted++;
+
+              send({
+                type: 'grants',
+                grants: qualified,
+                orgSummary: isFirst ? orgSummary : '',
+                completed: scoreCompleted,
+                total: batches.length,
+              });
+
+              return null;
+            } catch (err) {
+              console.error(`[GrantSearch] Score batch ${idx + 1} failed:`, err);
+              scoreCompleted++;
+              send({ type: 'progress', phase: 'scoring', completed: scoreCompleted, total: batches.length });
+              return null;
+            }
+          }),
+          35,
+        );
+
+        const costBreakdown = computeCost(costs);
+        console.log(`[GrantSearch] Done — ${allScoredGrants.length} grants returned (cost: $${costBreakdown.total.toFixed(4)})`);
+
+        send({
+          type: 'complete',
+          searchedAt: new Date().toISOString(),
+          market: market.id,
+        });
+      } catch (err) {
+        console.error('[GrantSearch] API error:', err);
+        send({ type: 'error', message: err instanceof Error ? err.message : 'An unexpected error occurred' });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }

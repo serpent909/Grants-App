@@ -23,8 +23,9 @@ const PAGE_SIZE = 1000;
 // Names matching these patterns are unlikely to be external grant funders
 const EXCLUDE_NAME_PATTERNS = /\b(school|PTA|parent.?teacher|church|parish|mosque|temple|synagogue|scouts?|guides?|sports?\s*club|rugby\s*(league|union|club|football)?|cricket|football\s*club|netball|hockey\s*club|bowling|golf\s*club|swimming|surf\s*(club|life)|kindergarten|playcentre|preschool|kohanga|creche|playgroup|plunket|womens?\s*institute|rotary|lions?\s*club|kiwanis|jaycees|freemasons?|masonic|RSA\b|returned\s*services|mens?\s*shed|garden\s*club|bridge\s*club|tramping|mountaineering|rowing|sailing\s*club|yacht\s*club|tennis\s*club|squash|badminton|croquet|pony\s*club|riding\s*club)\b/i;
 
-// Generic trustee websites that many perpetual trusts list as their "website"
-const EXCLUDED_WEBSITES = new Set([
+// Generic trustee websites — still import the charities but flag for enrichment
+// via their specific trust grant page (discovered in import-curated-funders)
+const TRUSTEE_WEBSITES = new Set([
   'www.publictrust.co.nz',
   'publictrust.co.nz',
   'www.perpetualguardian.co.nz',
@@ -45,8 +46,8 @@ function normaliseWebsite(url: string | null): string | null {
   if (!url || !url.trim()) return null;
   let u = url.trim();
 
-  const hostCheck = u.replace(/^https?:\/\//, '').replace(/\/.*$/, '').toLowerCase();
-  if (EXCLUDED_WEBSITES.has(hostCheck)) return null;
+  // Note: trustee websites (Public Trust, Perpetual Guardian) are now imported
+  // rather than excluded — the curated funders pipeline links them to specific trust pages
 
   if (!u.startsWith('http://') && !u.startsWith('https://')) {
     u = `https://${u}`;
@@ -132,6 +133,18 @@ async function main() {
     {
       label: 'Name contains "Endowment"',
       filter: `substringof('Endowment', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Charitable"',
+      filter: `substringof('Charitable', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Grant"',
+      filter: `substringof('Grant', Name) eq true and RegistrationStatus eq 'Registered'`,
+    },
+    {
+      label: 'Name contains "Gaming"',
+      filter: `substringof('Gaming', Name) eq true and RegistrationStatus eq 'Registered'`,
     },
   ];
 

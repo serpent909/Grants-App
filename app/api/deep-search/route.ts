@@ -339,12 +339,18 @@ Analyse ALL the provided page content carefully and return a JSON object with th
 }
 
 SCORING RECALIBRATION RULES:
-- You now have MORE information than the initial scorer had. Use it to refine scores.
+- You now have MORE information than the initial scorer had. Use it to AGGRESSIVELY refine scores based on what you actually found.
 - If the page content confirms the initial assessment, keep the same score and note "Confirmed by deep search".
 - If you found new information that changes the assessment, adjust the score and explain what changed.
 - Ease: lower the score if the application process is more complex than initially estimated (e.g. multi-stage, site visits, extensive attachments). Raise it if the process is simpler.
 - Attainability: adjust based on past recipient information, competition level, and eligibility fit.
 - Alignment: adjust based on detailed eligibility criteria and whether the organisation actually qualifies.
+
+CRITICAL DISQUALIFICATION CHECKS (apply these before confirming any score — drop to 0 if triggered):
+1. INDIVIDUAL vs ORGANISATION: The searcher is an ORGANISATION. If the grant's eligibility criteria indicate it is for individual people (e.g. "must be a young mum", "applicants must be students", "individual artists", scholarships, bursaries, personal development grants), the organisation CANNOT apply. Set alignment=0, attainability=0, overall=0. Explain in scoreChanges.
+2. FORM OF SUPPORT MISMATCH: If the grant provides in-kind support (donated goods, equipment, food programmes, pro-bono services, software discounts) but the org seeks cash funding, set alignment to 3-4 maximum.
+3. PURPOSE MISMATCH: If the grant is for research, scholarships, fellowships, or academic study but the org seeks operational/project funding, set alignment to 3-4 maximum.
+4. REASONING-SCORE CONSISTENCY: If your reason for a score includes qualifiers like "though", "but", "however" indicating a mismatch, the score MUST reflect that — do not write a caveat and still give 7+.
 
 CHECKLIST RULES:
 - Extract EVERY requirement mentioned anywhere in the source material.
