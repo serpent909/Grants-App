@@ -18,6 +18,7 @@ export interface GrantRow {
   id: string;
   name: string;
   funder_name: string;
+  funder_type: string | null;
   type: string;
   description: string | null;
   url: string;
@@ -48,6 +49,7 @@ export async function searchGrants(
       `SELECT
          g.id, g.name,
          c.name AS funder_name,
+         c.funder_type,
          g.type, g.description,
          COALESCE(g.application_form_url, g.url) AS url,
          g.source_url,
@@ -58,10 +60,22 @@ export async function searchGrants(
        JOIN charities c ON c.id = g.funder_id
        WHERE g.is_active
          AND (
+           g.deadline IS NULL
+           OR g.deadline = ''
+           OR g.deadline !~ '^\d{4}-\d{2}-\d{2}'   -- non-date deadlines (e.g. "rolling")
+           OR g.deadline::date >= CURRENT_DATE       -- future or today
+         )
+         AND (
            $1::text[] = '{}'        -- empty = nationwide org: no region filter
            OR g.regions IS NULL
            OR g.regions = '{}'
            OR g.regions && $1::text[]
+         )
+         AND (
+           $2::text[] = '{}'        -- empty = no sector filter
+           OR g.sectors IS NULL
+           OR g.sectors = '{}'
+           OR g.sectors && $2::text[]
          )
        ORDER BY
          cardinality(ARRAY(

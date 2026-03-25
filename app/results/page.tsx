@@ -1,11 +1,11 @@
 'use client';
 
-import { Suspense, useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft, ArrowUp, ArrowDown, Search, ExternalLink,
   ChevronDown, ChevronUp, CalendarDays, Building2,
-  SlidersHorizontal, X, Star,
+  SlidersHorizontal, X, Star, Check,
   Microscope, Loader2, CheckCircle2, RotateCw,
 } from 'lucide-react';
 import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDeadline } from '@/lib/formatting';
@@ -13,9 +13,9 @@ import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { SearchResult, GrantOpportunity, DeepSearchResult } from '@/lib/types';
+import { SearchResult, GrantOpportunity, DeepSearchResult, OrgInfo } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
-import { getSaved } from '@/lib/saved-searches';
+import { getSaved, saveSearch } from '@/lib/saved-searches';
 import { saveDeepSearch } from '@/lib/deep-search-storage';
 import { batchCheckDeepSearch } from '@/lib/deep-search-storage';
 import { toggleShortlist, batchCheckShortlisted } from '@/lib/shortlist-storage';
@@ -516,8 +516,147 @@ function ResultsContent() {
   // Shortlist state
   const [shortlistedIds, setShortlistedIds] = useState<Set<string>>(new Set());
 
+  // Streaming search state
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamPhase, setStreamPhase] = useState<'triage' | 'scoring' | ''>('');
+  const [streamProgress, setStreamProgress] = useState(0);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const searchStarted = useRef(false);
+
+  // Animated progress for the initial wait before first batch completes
+  const [animatedProgress, setAnimatedProgress] = useState(0);
+  useEffect(() => {
+    if (!isStreaming || streamProgress > 0) {
+      setAnimatedProgress(0);
+      return;
+    }
+    let p = 0;
+    const interval = setInterval(() => {
+      // Ease toward 20%, slowing as it approaches
+      p += (20 - p) * 0.04 + Math.random() * 0.3;
+      p = Math.min(p, 20);
+      setAnimatedProgress(p);
+    }, 800);
+    return () => clearInterval(interval);
+  }, [isStreaming, streamProgress]);
+
   useEffect(() => {
     async function load() {
+      const mode = searchParams.get('mode');
+
+      if (mode === 'search') {
+        // Guard against React strict mode double-invocation
+        if (searchStarted.current) return;
+        searchStarted.current = true;
+
+        // Streaming mode: initiate search from stored form
+        const formData = sessionStorage.getItem('grantSearchForm');
+        if (!formData) { router.replace('/'); return; }
+        sessionStorage.removeItem('grantSearchForm');
+
+        let form: OrgInfo;
+        try { form = JSON.parse(formData); } catch { router.replace('/'); return; }
+
+        setIsStreaming(true);
+        setStreamPhase('triage');
+        setStreamProgress(0);
+        setResult({ grants: [], orgSummary: '', searchedAt: '', market: form.market || 'nz', inputs: form });
+
+        try {
+          const response = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(form),
+          });
+
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({ error: 'Server error' }));
+            throw new Error(data.error || 'Search failed');
+          }
+
+          const reader = response.body!.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          const allGrants: GrantOpportunity[] = [];
+          let orgSummary = '';
+          let searchedAt = '';
+          let marketId = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const parts = buffer.split('\n\n');
+            buffer = parts.pop() || '';
+
+            for (const part of parts) {
+              const dataLine = part.split('\n').find(l => l.startsWith('data: '));
+              if (!dataLine) continue;
+              let event: Record<string, unknown>;
+              try { event = JSON.parse(dataLine.slice(6)); } catch { continue; }
+
+              switch (event.type) {
+                case 'progress': {
+                  const completed = event.completed as number;
+                  const total = event.total as number;
+                  setStreamPhase(event.phase as 'triage' | 'scoring');
+                  setStreamProgress(total > 0 ? completed / total : 0);
+                  break;
+                }
+                case 'grants': {
+                  const grants = event.grants as GrantOpportunity[];
+                  allGrants.push(...grants);
+                  if (event.orgSummary) orgSummary = event.orgSummary as string;
+                  const completed = event.completed as number;
+                  const total = event.total as number;
+                  setStreamPhase('scoring');
+                  setStreamProgress(total > 0 ? completed / total : 0);
+                  // Update result incrementally so grants appear on screen
+                  setResult(prev => prev ? {
+                    ...prev,
+                    grants: [...allGrants],
+                    orgSummary: orgSummary || prev.orgSummary,
+                  } : prev);
+                  break;
+                }
+                case 'complete':
+                  searchedAt = (event.searchedAt as string) || '';
+                  marketId = (event.market as string) || '';
+                  break;
+                case 'error':
+                  throw new Error(event.message as string);
+              }
+            }
+          }
+
+          const finalResult: SearchResult = {
+            grants: allGrants,
+            orgSummary,
+            searchedAt: searchedAt || new Date().toISOString(),
+            market: marketId || form.market || 'nz',
+            inputs: form,
+          };
+
+          setResult(finalResult);
+          setIsStreaming(false);
+          setStreamPhase('');
+
+          // Save and update URL
+          sessionStorage.setItem('grantSearchResult', JSON.stringify(finalResult));
+          const saved = await saveSearch(form.searchTitle?.trim() || '', finalResult);
+          setSavedId(saved.id);
+          setSavedName(form.searchTitle?.trim() || '');
+          window.history.replaceState({}, '', `/results?saved=${saved.id}`);
+        } catch (err) {
+          console.error('Streaming search error:', err);
+          setIsStreaming(false);
+          setStreamError(err instanceof Error ? err.message : 'Search failed');
+        }
+        return;
+      }
+
+      // Normal mode: load from saved search or sessionStorage
       const id = searchParams.get('saved');
       if (id) {
         const saved = await getSaved(id);
@@ -534,12 +673,14 @@ function ResultsContent() {
       catch { router.replace('/'); }
     }
     load();
-  }, [router, searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Scan DB for existing deep searches and shortlists on mount
+  // Scan DB for existing deep searches and shortlists (skip during streaming)
   useEffect(() => {
-    if (!result) return;
+    if (!result || isStreaming) return;
     const ids = result.grants.map(g => g.id);
+    if (ids.length === 0) return;
     Promise.all([
       batchCheckDeepSearch(ids),
       batchCheckShortlisted(ids),
@@ -547,7 +688,8 @@ function ResultsContent() {
       setDeepSearchComplete(deepMap);
       setShortlistedIds(shortIds);
     });
-  }, [result]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStreaming]);
 
   async function handleToggleShortlist(grant: GrantOpportunity) {
     const searchTitle = result?.inputs?.searchTitle
@@ -707,14 +849,20 @@ function ResultsContent() {
               </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1 rounded-full">
-                  {totalShown} grants · {funderGroups.length} funders
+                  {isStreaming ? (
+                    <>{result.grants.length} grants so far...</>
+                  ) : (
+                    <>{totalShown} grants · {funderGroups.length} funders</>
+                  )}
                 </span>
-                <span className="text-xs text-zinc-400">
-                  Searched {new Date(result.searchedAt).toLocaleString(market?.locale ?? 'en-NZ', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  })}
-                </span>
+                {!isStreaming && result.searchedAt && (
+                  <span className="text-xs text-zinc-400">
+                    Searched {new Date(result.searchedAt).toLocaleString(market?.locale ?? 'en-NZ', {
+                      day: 'numeric', month: 'short', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                )}
               </div>
             </div>
 
@@ -730,6 +878,57 @@ function ResultsContent() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+        {/* ── Streaming progress ── */}
+        {isStreaming && (() => {
+          const displayProgress = streamProgress > 0
+            ? streamProgress * 100
+            : animatedProgress;
+          return (
+            <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-teal-500">
+              <div className="flex items-center gap-3 mb-3">
+                <Loader2 className="w-4 h-4 animate-spin text-teal-600 flex-shrink-0" />
+                <span className="text-sm font-semibold text-zinc-800">
+                  {streamProgress > 0
+                    ? 'Scoring and ranking grants...'
+                    : 'Analysing grants...'}
+                </span>
+                <span className="text-xs text-zinc-400 ml-auto tabular-nums">
+                  {Math.round(displayProgress)}%
+                </span>
+              </div>
+              <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${displayProgress}%` }}
+                />
+              </div>
+              {result && result.grants.length > 0 ? (
+                <span className="text-xs text-teal-600 font-medium">
+                  {result.grants.length} grant{result.grants.length !== 1 ? 's' : ''} found so far
+                </span>
+              ) : (
+                <span className="text-xs text-zinc-400">
+                  Results will appear as grants are scored
+                </span>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ── Stream error ── */}
+        {streamError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 shadow-sm">
+            <p className="text-sm font-medium text-red-700 mb-2">Search failed</p>
+            <p className="text-sm text-red-600">{streamError}</p>
+            <button
+              onClick={() => router.push('/')}
+              className="mt-3 text-sm font-medium text-red-700 hover:text-red-800 underline"
+            >
+              Back to search
+            </button>
+          </div>
+        )}
+
         {/* ── Org summary ── */}
         {result.orgSummary && (
           <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-teal-500">
@@ -836,12 +1035,14 @@ function ResultsContent() {
         </div>
 
         {/* ── Results ── */}
-        {funderGroups.length === 0 ? (
+        {funderGroups.length === 0 && !isStreaming ? (
           <div className="bg-white rounded-xl ring-1 ring-zinc-200 py-20 text-center shadow-sm">
             <Search className="w-8 h-8 mx-auto mb-3 text-zinc-300" />
             <p className="font-semibold text-zinc-500 text-sm">No grants match your filters</p>
             <p className="text-xs text-zinc-400 mt-1">Try lowering the minimum score or clearing the search</p>
           </div>
+        ) : funderGroups.length === 0 && isStreaming ? (
+          null
         ) : (
           <div className="space-y-3">
             {funderGroups.map((group, i) => (

@@ -34,7 +34,7 @@ export interface OrgInfo {
   linkedin: string;
   fundingPurpose: string;
   fundingAmount: number;
-  market: string; // market ID: 'nz' | 'au' | ...
+  market: string; // market ID, e.g. 'nz'
   regions: string[]; // region IDs the org operates in
   sectors: string[]; // e.g. ['health', 'youth']
   orgType: string; // e.g. 'registered-charity'

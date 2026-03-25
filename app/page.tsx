@@ -4,20 +4,20 @@ import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Globe, Linkedin, DollarSign,
-  AlertCircle, Check, ArrowRight, Bookmark,
+  AlertCircle, ArrowRight, Bookmark, Search,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { OrgInfo, SearchResult } from '@/lib/types';
-import { listMarkets } from '@/lib/markets';
-import { saveSearch, useSavedSearches } from '@/lib/saved-searches';
+import { OrgInfo } from '@/lib/types';
+import { getMarket } from '@/lib/markets';
+import { useSavedSearches } from '@/lib/saved-searches';
 import { SECTORS, ORG_TYPES } from '@/lib/constants';
 import { TogglePill } from '@/components/toggle-pill';
 import { Field } from '@/components/field';
 
-const MARKETS = listMarkets();
+const activeMarket = getMarket('nz');
 
 function isValidUrl(value: string): boolean {
   try {
@@ -26,104 +26,6 @@ function isValidUrl(value: string): boolean {
   } catch {
     return false;
   }
-}
-
-// ─── Loading overlay ──────────────────────────────────────────────────────────
-
-function LoadingState({
-  messages,
-  messageIndex,
-  progress,
-}: {
-  messages: string[];
-  messageIndex: number;
-  progress: number;
-}) {
-  return (
-    <div className="px-5 sm:px-8 py-10">
-      <div className="flex flex-col items-center mb-10">
-        <div className="relative w-14 h-14 mb-5">
-          <div className="absolute inset-0 rounded-full bg-teal-50" />
-          <svg
-            className="animate-spin absolute inset-0 w-14 h-14 text-teal-600"
-            fill="none"
-            viewBox="0 0 56 56"
-          >
-            <circle
-              cx="28" cy="28" r="22"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeOpacity="0.15"
-            />
-            <path
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              d="M28 6 a22 22 0 0 1 22 22"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Check className="w-5 h-5 text-teal-600" />
-          </div>
-        </div>
-        <p className="text-sm font-semibold text-zinc-800 text-center leading-snug">
-          {messages[messageIndex]}
-        </p>
-        <p className="text-xs text-zinc-400 mt-1.5 text-center">
-          This typically takes 2–3 minutes
-        </p>
-      </div>
-
-      <div className="space-y-3 mb-10">
-        {messages.map((msg, i) => {
-          const done = i < messageIndex;
-          const active = i === messageIndex;
-          return (
-            <div
-              key={i}
-              className={`flex items-center gap-3 text-sm transition-all duration-300 ${
-                done ? 'opacity-50' : active ? 'opacity-100' : 'opacity-30'
-              }`}
-            >
-              <div
-                className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                  done
-                    ? 'bg-emerald-100'
-                    : active
-                    ? 'bg-teal-600'
-                    : 'bg-zinc-100'
-                }`}
-              >
-                {done ? (
-                  <Check className="w-3 h-3 text-emerald-600" />
-                ) : active ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                ) : (
-                  <span className="text-[9px] font-medium text-zinc-400">{i + 1}</span>
-                )}
-              </div>
-              <span className={active ? 'font-medium text-zinc-900' : 'text-zinc-500'}>
-                {msg}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      <div>
-        <div className="flex justify-between items-center text-xs text-zinc-400 mb-2">
-          <span>{messages[messageIndex]}</span>
-          <span className="font-medium tabular-nums">{Math.round(progress)}%</span>
-        </div>
-        <div className="h-1 bg-zinc-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // ─── Saved searches link ──────────────────────────────────────────────────────
@@ -166,8 +68,6 @@ export default function HomePage() {
   });
   const [errors, setErrors] = useState<Partial<Record<keyof OrgInfo, string>>>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
-  const [loadingProgress, setLoadingProgress] = useState(0);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -180,20 +80,6 @@ export default function HomePage() {
       } catch { /* ignore malformed data */ }
     }
   }, []);
-
-  const activeMarket = MARKETS.find(m => m.id === form.market) ?? MARKETS[0];
-
-  const loadingMessages = [
-    'Analysing your organisation...',
-    `Discovering ${activeMarket.displayName} funders...`,
-    'Searching grant databases...',
-    'Exploring funder websites...',
-    'Reading funding pages...',
-    'Extracting grant details...',
-    'Checking relevance...',
-    'Scoring and ranking matches...',
-    'Finalising results...',
-  ];
 
   const validate = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof OrgInfo, string>> = {};
@@ -235,58 +121,10 @@ export default function HomePage() {
     if (!validate()) return;
 
     setIsLoading(true);
-    setLoadingProgress(0);
-    setLoadingMessageIndex(0);
-
-    // Progress targets per stage — weighted to match actual pipeline timing.
-    // 9 stages across ~2-3 minutes. Each tick eases toward the current target,
-    // then advances to the next stage. Caps at 97% until API returns.
-    const stageTargets = [6, 15, 30, 43, 56, 68, 78, 90, 97];
-    let msgIdx = 0;
-    let progress = 0;
-    const interval = setInterval(() => {
-      const target = stageTargets[msgIdx] ?? 97;
-      const remaining = target - progress;
-      const step = Math.max(remaining * 0.18 + Math.random() * 1.5, 0.3);
-      progress = Math.min(progress + step, target);
-      setLoadingProgress(progress);
-
-      if (progress >= target - 0.5 && msgIdx < loadingMessages.length - 1) {
-        msgIdx++;
-        setLoadingMessageIndex(msgIdx);
-      }
-    }, 2200);
-
-    try {
-      const response = await fetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      clearInterval(interval);
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({ error: 'Server error' }));
-        throw new Error(data.error || `Request failed with status ${response.status}`);
-      }
-
-      const result: SearchResult = await response.json();
-      setLoadingProgress(100);
-      sessionStorage.setItem('grantSearchResult', JSON.stringify(result));
-
-      // Auto-save and navigate to results with saved ID
-      const saved = await saveSearch(form.searchTitle?.trim() || '', result);
-      setTimeout(() => {
-        router.push(`/results?saved=${saved.id}`);
-      }, 300);
-    } catch (err) {
-      clearInterval(interval);
-      setIsLoading(false);
-      setLoadingProgress(0);
-      setApiError(err instanceof Error ? err.message : 'An unexpected error occurred. Please try again.');
-    }
-  }, [form, validate, router, loadingMessages.length]);
+    // Store form for the results page to consume via streaming
+    sessionStorage.setItem('grantSearchForm', JSON.stringify(form));
+    router.push('/results?mode=search');
+  }, [form, validate, router]);
 
   const updateField = useCallback(<K extends keyof OrgInfo>(key: K, value: OrgInfo[K]) => {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -319,7 +157,7 @@ export default function HomePage() {
                 Grant funding search for
               </span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-400">
-                {activeMarket.displayName}
+                New Zealand
               </span>
               <span className="text-white"> organisations</span>
             </h1>
@@ -360,11 +198,12 @@ export default function HomePage() {
             )}
 
             {isLoading ? (
-              <LoadingState
-                messages={loadingMessages}
-                messageIndex={loadingMessageIndex}
-                progress={loadingProgress}
-              />
+              <div className="px-5 sm:px-8 py-16 flex flex-col items-center">
+                <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center mb-4">
+                  <Search className="w-5 h-5 text-teal-600 animate-pulse" />
+                </div>
+                <p className="text-sm font-medium text-zinc-700">Starting search...</p>
+              </div>
             ) : (
               <form onSubmit={handleSubmit} className="divide-y divide-zinc-100">
                 {apiError && (
@@ -378,28 +217,6 @@ export default function HomePage() {
 
                 {/* ── Section 1: Identity ── */}
                 <div className="px-5 sm:px-8 py-6 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                    <Field label="Country" required>
-                      <Select
-                        value={form.market}
-                        onValueChange={v => {
-                          if (v) {
-                            setForm(prev => ({ ...prev, market: v, regions: [] }));
-                            if (errors.market) setErrors(prev => ({ ...prev, market: undefined }));
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full h-10 border-zinc-300 focus:ring-teal-500 focus:border-teal-500">
-                          <SelectValue placeholder="Select country" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MARKETS.map(m => (
-                            <SelectItem key={m.id} value={m.id}>{m.displayName}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
                     <Field label="Organisation type" required error={errors.orgType}>
                       <Select
                         value={form.orgType}
@@ -415,7 +232,6 @@ export default function HomePage() {
                         </SelectContent>
                       </Select>
                     </Field>
-                  </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     <Field label="Organisation website" required error={errors.website}>
