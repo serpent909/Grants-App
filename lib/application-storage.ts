@@ -7,8 +7,6 @@ const SWR_OPTS = { revalidateOnFocus: false } as const;
 async function invalidateApplications() {
   await globalMutate(
     (key: unknown) => typeof key === 'string' && key.startsWith('applications'),
-    undefined,
-    { revalidate: true },
   );
 }
 
@@ -123,12 +121,39 @@ export async function updateApplicationAmounts(
   const updates: Record<string, unknown> = { grantId };
   if (amountRequested !== undefined) updates.amountRequested = amountRequested;
   if (amountAwarded !== undefined) updates.amountAwarded = amountAwarded;
+
+  // Optimistic update: patch amounts in the SWR cache immediately
+  globalMutate(
+    'applications:by-status',
+    (current: Record<ApplicationStatus, GrantApplication[]> | undefined) => {
+      if (!current) return current;
+      const updated: Record<string, GrantApplication[]> = {};
+      for (const [status, apps] of Object.entries(current)) {
+        updated[status] = apps.map(app =>
+          app.grantId === grantId
+            ? {
+                ...app,
+                ...(amountRequested !== undefined && { amountRequested }),
+                ...(amountAwarded !== undefined && { amountAwarded }),
+              }
+            : app,
+        );
+      }
+      return updated as Record<ApplicationStatus, GrantApplication[]>;
+    },
+    { revalidate: false },
+  );
+
   await fetch('/api/applications', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   });
-  await invalidateApplications();
+
+  // Background revalidate to sync with server
+  globalMutate(
+    (key: unknown) => typeof key === 'string' && key.startsWith('applications'),
+  );
 }
 
 export async function removeApplication(grantId: string): Promise<void> {

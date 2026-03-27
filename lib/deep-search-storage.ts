@@ -6,8 +6,6 @@ const SWR_OPTS = { revalidateOnFocus: false } as const;
 async function invalidateDeepSearch() {
   await globalMutate(
     (key: unknown) => typeof key === 'string' && key.startsWith('deep-search'),
-    undefined,
-    { revalidate: true },
   );
 }
 
@@ -37,6 +35,18 @@ export function useDeepSearchBatch(grantIds: string[]) {
 export async function batchCheckDeepSearch(grantIds: string[]): Promise<Map<string, string>> {
   if (grantIds.length === 0) return new Map();
   const res = await fetch(`/api/deep-search-results?grantIds=${grantIds.join(',')}`);
+  if (!res.ok) return new Map();
+  const rows: { id: string; searchedAt: string }[] = await res.json();
+  const map = new Map<string, string>();
+  for (const row of rows) {
+    map.set(row.id, row.searchedAt);
+  }
+  return map;
+}
+
+/** Fetch all deep-searched grant IDs (lightweight — no result JSON). */
+export async function getAllDeepSearchIds(): Promise<Map<string, string>> {
+  const res = await fetch('/api/deep-search-results?idsOnly=true');
   if (!res.ok) return new Map();
   const rows: { id: string; searchedAt: string }[] = await res.json();
   const map = new Map<string, string>();

@@ -8,6 +8,15 @@ export async function GET(req: NextRequest) {
   const db = getPool();
   const { searchParams } = new URL(req.url);
 
+  // Lightweight: return all deep-searched grant IDs (no result JSON)
+  if (searchParams.get('idsOnly') === 'true') {
+    const { rows } = await db.query(
+      `SELECT grant_id, searched_at FROM deep_searches WHERE org_id = $1`,
+      [orgId]
+    );
+    return NextResponse.json(rows.map(r => ({ id: r.grant_id, searchedAt: r.searched_at })));
+  }
+
   // Batch lookup: return matching IDs with timestamps
   const grantIds = searchParams.get('grantIds');
   if (grantIds) {

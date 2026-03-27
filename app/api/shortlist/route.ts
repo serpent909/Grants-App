@@ -8,6 +8,15 @@ export async function GET(req: NextRequest) {
   const db = getPool();
   const { searchParams } = new URL(req.url);
 
+  // Lightweight: return all shortlisted grant IDs (no JSON blobs)
+  if (searchParams.get('idsOnly') === 'true') {
+    const { rows } = await db.query(
+      `SELECT grant_id FROM shortlisted_grants WHERE org_id = $1`,
+      [orgId]
+    );
+    return NextResponse.json(rows.map(r => r.grant_id));
+  }
+
   // Batch lookup: return just matching IDs
   const grantIds = searchParams.get('grantIds');
   if (grantIds) {

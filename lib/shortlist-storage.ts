@@ -12,8 +12,6 @@ const SWR_OPTS = { revalidateOnFocus: false } as const;
 async function invalidateShortlist() {
   await globalMutate(
     (key: unknown) => typeof key === 'string' && key.startsWith('shortlist'),
-    undefined,
-    { revalidate: true },
   );
 }
 
@@ -39,6 +37,14 @@ export async function isShortlisted(grantId: string): Promise<boolean> {
 export async function batchCheckShortlisted(grantIds: string[]): Promise<Set<string>> {
   if (grantIds.length === 0) return new Set();
   const res = await fetch(`/api/shortlist?grantIds=${grantIds.join(',')}`);
+  if (!res.ok) return new Set();
+  const ids: string[] = await res.json();
+  return new Set(ids);
+}
+
+/** Fetch all shortlisted grant IDs (lightweight — no grant JSON). */
+export async function getAllShortlistedIds(): Promise<Set<string>> {
+  const res = await fetch('/api/shortlist?idsOnly=true');
   if (!res.ok) return new Set();
   const ids: string[] = await res.json();
   return new Set(ids);

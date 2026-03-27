@@ -19,8 +19,8 @@ import {
 import { SearchResult, GrantOpportunity, DeepSearchResult, DeepSearchScoreChange, OrgInfo } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { getSaved, saveSearch } from '@/lib/saved-searches';
-import { saveDeepSearch, batchCheckDeepSearch, batchGetDeepSearch } from '@/lib/deep-search-storage';
-import { toggleShortlist, batchCheckShortlisted } from '@/lib/shortlist-storage';
+import { saveDeepSearch, getAllDeepSearchIds, batchGetDeepSearch } from '@/lib/deep-search-storage';
+import { addToShortlist, removeFromShortlist, getAllShortlistedIds } from '@/lib/shortlist-storage';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -916,34 +916,48 @@ function ResultsContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Scan DB for existing deep searches and shortlists (skip during streaming)
+  // Eagerly fetch all deep-search and shortlist IDs on mount (parallel with results loading)
   useEffect(() => {
-    if (!result || isStreaming) return;
-    const ids = result.grants.map(g => g.id);
-    if (ids.length === 0) return;
     Promise.all([
-      batchCheckDeepSearch(ids),
-      batchCheckShortlisted(ids),
+      getAllDeepSearchIds(),
+      getAllShortlistedIds(),
     ]).then(([deepMap, shortIds]) => {
       setDeepSearchIds(deepMap);
       setShortlistedIds(shortIds);
-      if (deepMap.size > 0) {
-        batchGetDeepSearch([...deepMap.keys()]).then(setDeepSearchData);
-      }
     });
-  }, [result, isStreaming]);
+  }, []);
+
+  // Load full deep search data once we know which results have them
+  useEffect(() => {
+    if (!result || isStreaming) return;
+    if (deepSearchIds.size === 0) return;
+    const resultIds = new Set(result.grants.map(g => g.id));
+    const relevantIds = [...deepSearchIds.keys()].filter(id => resultIds.has(id));
+    if (relevantIds.length > 0) {
+      batchGetDeepSearch(relevantIds).then(setDeepSearchData);
+    }
+  }, [result, isStreaming, deepSearchIds]);
 
   async function handleToggleShortlist(grant: GrantOpportunity) {
     const searchTitle = result?.inputs?.searchTitle
       || savedName
       || 'Untitled search';
-    const nowShortlisted = await toggleShortlist(grant, searchTitle);
+    const wasShortlisted = shortlistedIds.has(grant.id);
+
+    // Optimistic update — toggle UI immediately
     setShortlistedIds(prev => {
       const next = new Set(prev);
-      if (nowShortlisted) next.add(grant.id);
-      else next.delete(grant.id);
+      if (wasShortlisted) next.delete(grant.id);
+      else next.add(grant.id);
       return next;
     });
+
+    // Server call — we already know the state, no need for toggleShortlist's extra fetch
+    if (wasShortlisted) {
+      await removeFromShortlist(grant.id);
+    } else {
+      await addToShortlist(grant, searchTitle);
+    }
   }
 
   async function handleDeepSearch(grant: GrantOpportunity) {

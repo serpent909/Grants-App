@@ -9,8 +9,6 @@ const SWR_OPTS = { revalidateOnFocus: false } as const;
 async function invalidateDocuments() {
   await globalMutate(
     (key: unknown) => typeof key === 'string' && key.startsWith('documents'),
-    undefined,
-    { revalidate: true },
   );
 }
 
@@ -82,8 +80,6 @@ export async function deleteDocument(id: string): Promise<void> {
   // Also invalidate checklist caches since links were removed
   await globalMutate(
     (key: unknown) => typeof key === 'string' && key.startsWith('checklist'),
-    undefined,
-    { revalidate: true },
   );
 }
 

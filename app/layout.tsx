@@ -28,7 +28,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${dmSans.variable} antialiased bg-white text-zinc-900`}>
+      <body className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white text-zinc-900`}>
         <Providers>
         <TooltipProvider>
           <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-stone-200">
