@@ -1094,7 +1094,7 @@ function ResultsContent() {
     <div className="min-h-screen bg-zinc-50">
       {/* ── Page header ── */}
       <div className="bg-white border-b border-zinc-200">
-        <div className="max-w-5xl mx-auto px-6 py-5">
+        <div className="max-w-6xl mx-auto px-6 py-5">
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-800 transition-colors mb-4 group"
@@ -1138,7 +1138,7 @@ function ResultsContent() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <div className="max-w-6xl mx-auto px-6 py-6 space-y-4">
         {/* ── Streaming progress ── */}
         {isStreaming && (() => {
           const displayProgress = streamProgress > 0

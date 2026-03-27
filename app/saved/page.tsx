@@ -81,7 +81,7 @@ export default function SavedPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f5f0]">
-      <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="max-w-6xl mx-auto px-6 py-12">
 
         <div className="flex items-center gap-3 mb-8">
           <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center">
