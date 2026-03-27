@@ -927,13 +927,11 @@ function ResultsContent() {
     ]).then(([deepMap, shortIds]) => {
       setDeepSearchIds(deepMap);
       setShortlistedIds(shortIds);
-      // Load full deep search data for grants that have been researched
       if (deepMap.size > 0) {
         batchGetDeepSearch([...deepMap.keys()]).then(setDeepSearchData);
       }
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isStreaming]);
+  }, [result, isStreaming]);
 
   async function handleToggleShortlist(grant: GrantOpportunity) {
     const searchTitle = result?.inputs?.searchTitle
