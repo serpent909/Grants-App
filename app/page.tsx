@@ -223,7 +223,9 @@ export default function HomePage() {
                         onValueChange={v => v && updateField('orgType', v)}
                       >
                         <SelectTrigger className="w-full h-10 border-zinc-300 focus:ring-teal-500 focus:border-teal-500">
-                          <SelectValue placeholder="Select type" />
+                          <SelectValue placeholder="Select type">
+                            {form.orgType ? ORG_TYPES.find(t => t.id === form.orgType)?.label : null}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {ORG_TYPES.map(t => (
@@ -330,7 +332,11 @@ export default function HomePage() {
                     label="What is this funding search for?"
                     required
                     error={errors.fundingPurpose}
-                    hint={`${form.fundingPurpose.length} characters — the more detail, the better`}
+                    hint={`${form.fundingPurpose.length} characters${
+                      form.fundingPurpose.length >= 300 ? ' — excellent detail' :
+                      form.fundingPurpose.length >= 150 ? ' — good detail' :
+                      ' — the more detail, the better'
+                    }`}
                   >
                     <textarea
                       id="fundingPurpose"

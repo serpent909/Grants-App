@@ -65,6 +65,7 @@ export default function DocumentCard({ doc, dynamicCategories = [], onDeleted }:
   }
 
   async function handleDelete() {
+    if (!confirm('Delete this document?')) return;
     setDeleting(true);
     await deleteDocument(doc.id);
     onDeleted?.();
