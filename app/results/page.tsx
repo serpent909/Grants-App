@@ -534,7 +534,8 @@ function FunderAccordion({
   defaultOpen = false,
   locale = 'en-NZ',
   deepSearchLoading,
-  deepSearchComplete,
+  deepSearchIds,
+  deepSearchData,
   onDeepSearch,
   shortlistedIds,
   onToggleShortlist,
@@ -543,7 +544,8 @@ function FunderAccordion({
   defaultOpen?: boolean;
   locale?: string;
   deepSearchLoading?: string | null;
-  deepSearchComplete?: Map<string, DeepSearchResult>;
+  deepSearchIds?: Map<string, string>;
+  deepSearchData?: Map<string, DeepSearchResult>;
   onDeepSearch?: (grant: GrantOpportunity) => void;
   shortlistedIds?: Set<string>;
   onToggleShortlist?: (grant: GrantOpportunity) => void;
@@ -576,7 +578,7 @@ function FunderAccordion({
               {group.grants.length} {group.grants.length === 1 ? 'program' : 'programs'}
             </span>
             {(() => {
-              const deepCount = deepSearchComplete ? group.grants.filter(g => deepSearchComplete.has(g.id)).length : 0;
+              const deepCount = deepSearchIds ? group.grants.filter(g => deepSearchIds.has(g.id)).length : 0;
               return deepCount > 0 ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200">
                   <Microscope className="w-3 h-3" />
@@ -626,7 +628,7 @@ function FunderAccordion({
                 >
                   {/* Left spacer / status indicators */}
                   <div className="w-9 flex-shrink-0 flex flex-col items-center justify-center gap-1">
-                    {deepSearchComplete?.has(grant.id) && (
+                    {deepSearchIds?.has(grant.id) && (
                       <Tooltip>
                         <TooltipTrigger className="flex items-center justify-center">
                           <Microscope className="w-3.5 h-3.5 text-emerald-600" />
@@ -679,7 +681,7 @@ function FunderAccordion({
                     >
                       {(grant.scores?.overall ?? 0).toFixed(1)}
                     </div>
-                    {deepSearchComplete?.has(grant.id) && (
+                    {deepSearchIds?.has(grant.id) && (
                       <Tooltip>
                         <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
                           <CheckCircle2 className="w-2.5 h-2.5 text-white" />
@@ -703,10 +705,10 @@ function FunderAccordion({
                     locale={locale}
                     deepSearchState={
                       deepSearchLoading === grant.id ? 'loading'
-                      : deepSearchComplete?.has(grant.id) ? 'complete'
+                      : deepSearchIds?.has(grant.id) ? 'complete'
                       : 'idle'
                     }
-                    deepSearchData={deepSearchComplete?.get(grant.id)}
+                    deepSearchData={deepSearchData?.get(grant.id)}
                     onDeepSearch={() => onDeepSearch?.(grant)}
                     isShortlisted={shortlistedIds?.has(grant.id) ?? false}
                     onToggleShortlist={() => onToggleShortlist?.(grant)}
@@ -747,7 +749,8 @@ function ResultsContent() {
 
   // Deep search state
   const [deepSearchLoading, setDeepSearchLoading] = useState<string | null>(null);
-  const [deepSearchComplete, setDeepSearchComplete] = useState<Map<string, DeepSearchResult>>(new Map());
+  const [deepSearchIds, setDeepSearchIds] = useState<Map<string, string>>(new Map());
+  const [deepSearchData, setDeepSearchData] = useState<Map<string, DeepSearchResult>>(new Map());
   const [deepSearchError, setDeepSearchError] = useState<string | null>(null);
 
   // Shortlist state
@@ -919,11 +922,15 @@ function ResultsContent() {
     const ids = result.grants.map(g => g.id);
     if (ids.length === 0) return;
     Promise.all([
-      batchGetDeepSearch(ids),
+      batchCheckDeepSearch(ids),
       batchCheckShortlisted(ids),
     ]).then(([deepMap, shortIds]) => {
-      setDeepSearchComplete(deepMap);
+      setDeepSearchIds(deepMap);
       setShortlistedIds(shortIds);
+      // Load full deep search data for grants that have been researched
+      if (deepMap.size > 0) {
+        batchGetDeepSearch([...deepMap.keys()]).then(setDeepSearchData);
+      }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStreaming]);
@@ -981,7 +988,12 @@ function ResultsContent() {
 
       const deepResult: DeepSearchResult = await response.json();
       await saveDeepSearch(deepResult);
-      setDeepSearchComplete(prev => {
+      setDeepSearchIds(prev => {
+        const next = new Map(prev);
+        next.set(grant.id, deepResult.searchedAt);
+        return next;
+      });
+      setDeepSearchData(prev => {
         const next = new Map(prev);
         next.set(grant.id, deepResult);
         return next;
@@ -1289,7 +1301,8 @@ function ResultsContent() {
                 defaultOpen={false}
                 locale={market?.locale}
                 deepSearchLoading={deepSearchLoading}
-                deepSearchComplete={deepSearchComplete}
+                deepSearchIds={deepSearchIds}
+                deepSearchData={deepSearchData}
                 onDeepSearch={handleDeepSearch}
                 shortlistedIds={shortlistedIds}
                 onToggleShortlist={handleToggleShortlist}
