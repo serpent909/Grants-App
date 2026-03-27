@@ -23,7 +23,7 @@ import { createHash } from 'crypto';
 
 const PAGE_CHAR_LIMIT = 80_000;
 const NAVIGATE_TIMEOUT = 30_000;
-const CONCURRENCY = 3; // browser tabs are heavier than HTTP calls
+const CONCURRENCY = 25;
 
 const VALID_SECTORS = new Set([
   'health', 'mental-health', 'education', 'youth', 'children-families', 'elderly',

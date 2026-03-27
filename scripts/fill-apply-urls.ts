@@ -17,12 +17,16 @@
  *   DATABASE_URL="..." OPENAI_API_KEY="..." TAVILY_API_KEY="..." npx tsx scripts/fill-apply-urls.ts --write
  */
 
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+
 import { Pool } from '@neondatabase/serverless';
 import OpenAI from 'openai';
-import { tavily } from '@tavily/core';
+import { chromium, Browser, Page } from 'playwright';
 
-const CONCURRENCY = 5;
+const CONCURRENCY = 9;
 const DRY_RUN = !process.argv.includes('--write');
+const NAVIGATE_TIMEOUT = 30_000;
 
 // Known application portal domains — accept unconditionally from both extract and search
 const PORTAL_DOMAINS = new Set([
@@ -88,18 +92,64 @@ function isValidUrl(url: string): boolean {
   } catch { return false; }
 }
 
-/** Part B: extract from funder page. Accept portal domains OR same-domain apply pages. */
+// ── Playwright page extraction ───────────────────────────────────────────────
+
+async function extractPageContent(page: Page, url: string): Promise<string | null> {
+  try {
+    try {
+      await page.goto(url, { waitUntil: 'networkidle', timeout: NAVIGATE_TIMEOUT });
+    } catch {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATE_TIMEOUT });
+      await page.waitForTimeout(3000);
+    }
+
+    await page.evaluate(() => {
+      const selectors = ['nav', 'header', 'footer', 'script', 'style', 'noscript', '.cookie-banner', '#cookie-consent'];
+      for (const sel of selectors) {
+        document.querySelectorAll(sel).forEach(el => el.remove());
+      }
+    });
+
+    const text = await page.evaluate(() => {
+      const body = document.querySelector('body');
+      if (!body) return '';
+      return body.innerText || body.textContent || '';
+    });
+
+    const links = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('a[href]'))
+        .map(a => `${(a as HTMLAnchorElement).textContent?.trim() || ''}: ${(a as HTMLAnchorElement).href}`)
+        .filter(l => l.length > 3)
+        .join('\n');
+    });
+
+    const combined = `${text}\n\n--- Links on page ---\n${links}`;
+    return combined.slice(0, 80_000) || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Part B: extract from funder page using Playwright. Accept portal domains OR same-domain apply pages. */
 async function extractFromPage(
   openai: OpenAI,
-  tc: ReturnType<typeof tavily>,
+  context: Awaited<ReturnType<Browser['newContext']>>,
   sourceUrl: string,
   grants: GrantRow[],
 ): Promise<Map<string, string>> {
   const results = new Map<string, string>();
 
-  const extracted = await tc.extract([sourceUrl]).catch(() => null);
-  const content = extracted?.results?.[0]?.rawContent || '';
-  if (content.length < 200) return results;
+  const page = await context.newPage();
+  let content: string | null = null;
+  try {
+    content = await extractPageContent(page, sourceUrl);
+  } finally {
+    await page.close();
+  }
+
+  if (!content || content.replace(/---\s*Links on page\s*---[\s\S]*$/, '').trim().length < 200) {
+    return results;
+  }
 
   const grantList = grants.map(g => ({ id: g.id, name: g.name }));
 
@@ -114,14 +164,14 @@ async function extractFromPage(
       role: 'user',
       content: `From this funder's page, find the direct URL where applicants submit an application for each grant listed below.
 
-Look for: "apply now", "apply online", "apply here", "submit application", application form links, portal links (SmartyGrants, Fluxx, Submittable, etc.), or a dedicated apply page on the funder's site.
+Look for: "apply now", "apply online", "apply here", "submit application", application form links, portal links (SmartyGrants, Fluxx, Submittable, etc.), or a dedicated apply page on the funder's site. Check the "Links on page" section carefully.
 
 Grants to find apply URLs for:
 ${JSON.stringify(grantList)}
 
 Page URL: ${sourceUrl}
-Page content (first 6000 chars):
-${content.slice(0, 6000)}
+Page content:
+${content.slice(0, 8000)}
 
 Return JSON: { "results": [ { "id": "...", "apply_url": "https://..." or null }, ... ] }
 Include every grant. Use null if no clear apply URL is found for that grant.`,
@@ -133,7 +183,6 @@ Include every grant. Use null if no clear apply URL is found for that grant.`,
 
   for (const r of parsed.results || []) {
     if (!r.apply_url || !isValidUrl(r.apply_url)) continue;
-    // Accept: portal domain OR same domain as source page
     if (isPortalUrl(r.apply_url) || isSameDomain(r.apply_url, sourceUrl)) {
       results.set(r.id, r.apply_url);
     }
@@ -174,7 +223,6 @@ async function searchForPortalUrl(
 async function main() {
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!dbUrl) { console.error('DATABASE_URL required'); process.exit(1); }
-  if (!process.env.TAVILY_API_KEY) { console.error('TAVILY_API_KEY required'); process.exit(1); }
   if (!process.env.OPENAI_API_KEY) { console.error('OPENAI_API_KEY required'); process.exit(1); }
   if (!process.env.SERPER_API_KEY) { console.error('SERPER_API_KEY required'); process.exit(1); }
 
@@ -182,7 +230,20 @@ async function main() {
 
   const pool = new Pool({ connectionString: dbUrl });
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const tc = tavily({ apiKey: process.env.TAVILY_API_KEY! });
+
+  // Launch browser with stealth settings
+  const browser: Browser = await chromium.launch({
+    headless: true,
+    args: ['--disable-blink-features=AutomationControlled', '--no-sandbox'],
+  });
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
+    locale: 'en-NZ',
+  });
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+  });
 
   const { rows: grants } = await pool.query<GrantRow>(`
     SELECT id, funder_name, name, source_url
@@ -219,7 +280,7 @@ async function main() {
     await Promise.all(chunk.map(async (sourceUrl) => {
       const grp = bySourceUrl.get(sourceUrl)!;
       try {
-        const found = await extractFromPage(openai, tc, sourceUrl, grp);
+        const found = await extractFromPage(openai, context, sourceUrl, grp);
         for (const [grantId, url] of found) {
           candidates.push({ grantId, url, method: 'extract' });
           coveredByExtract.add(grantId);
@@ -276,6 +337,8 @@ async function main() {
     console.log(`  [${c.method}] ${grant.funder_name} — ${grant.name}`);
     console.log(`         ${c.url}`);
   }
+
+  await browser.close();
 
   if (!DRY_RUN) {
     console.log('\nWriting to DB...');

@@ -107,10 +107,13 @@ export async function writeDeepSearchUpdates(
     amountMin?: number;
     amountMax?: number;
     deadline?: string;
+    eligibility?: string[];
+    keyContacts?: string;
   },
 ): Promise<void> {
-  const { applicationFormUrl, amountMin, amountMax, deadline } = updates;
-  if (!applicationFormUrl && amountMin == null && amountMax == null && !deadline) return;
+  const { applicationFormUrl, amountMin, amountMax, deadline, eligibility, keyContacts } = updates;
+  if (!applicationFormUrl && amountMin == null && amountMax == null && !deadline
+      && (!eligibility || eligibility.length === 0) && !keyContacts) return;
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return;
 
   try {
@@ -121,13 +124,17 @@ export async function writeDeepSearchUpdates(
          amount_min           = COALESCE(amount_min, $2),
          amount_max           = COALESCE(amount_max, $3),
          deadline             = COALESCE(deadline, $4),
+         eligibility          = COALESCE(eligibility, $5),
+         key_contacts         = COALESCE(key_contacts, $6),
          updated_at           = NOW()
-       WHERE id = $5`,
+       WHERE id = $7`,
       [
         applicationFormUrl ?? null,
         amountMin ?? null,
         amountMax ?? null,
         deadline ?? null,
+        eligibility && eligibility.length > 0 ? eligibility : null,
+        keyContacts ?? null,
         grantId,
       ],
     );

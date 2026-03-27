@@ -443,6 +443,8 @@ Be thorough but factual — only include information that is directly supported 
       amountMin: deepResult.amountMin,
       amountMax: deepResult.amountMax,
       deadline: deepResult.applicationCloseDate,
+      eligibility: deepResult.eligibilityCriteria,
+      keyContacts: deepResult.keyContacts,
     });
 
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
