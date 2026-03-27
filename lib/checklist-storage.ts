@@ -6,12 +6,10 @@ const SWR_OPTS = { revalidateOnFocus: false } as const;
 async function invalidateChecklist(grantId?: string) {
   await globalMutate(
     (key: unknown) => typeof key === 'string' && key.startsWith('checklist'),
-    undefined,
-    { revalidate: true },
   );
   // Also invalidate documents since usage counts may change
   if (grantId) {
-    await globalMutate('documents', undefined, { revalidate: true });
+    await globalMutate('documents');
   }
 }
 
@@ -51,13 +49,25 @@ export async function initializeChecklist(grantId: string): Promise<void> {
   await invalidateChecklist(grantId);
 }
 
-export async function toggleChecklistItem(id: string, checked: boolean): Promise<void> {
+export async function toggleChecklistItem(id: string, checked: boolean, grantId: string): Promise<void> {
+  const key = `checklist:${grantId}`;
+
+  // Optimistic update: immediately toggle in the SWR cache
+  globalMutate(
+    key,
+    (current: ChecklistItem[] | undefined) =>
+      current?.map(item => item.id === id ? { ...item, checked } : item),
+    { revalidate: false },
+  );
+
   await fetch('/api/checklist', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, checked }),
   });
-  await invalidateChecklist();
+
+  // Background revalidate to sync with server (does not clear data)
+  globalMutate(key);
 }
 
 export async function attachDocumentToChecklist(checklistItemId: string, documentId: string): Promise<void> {

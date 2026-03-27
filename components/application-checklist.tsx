@@ -31,8 +31,8 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
   }, [grantId]);
 
   const handleToggle = useCallback(async (item: ChecklistItem) => {
-    await toggleChecklistItem(item.id, !item.checked);
-  }, []);
+    await toggleChecklistItem(item.id, !item.checked, grantId);
+  }, [grantId]);
 
   const handleUploadForItem = useCallback(async (itemId: string, file: File, itemName: string) => {
     setUploadingItemId(itemId);
