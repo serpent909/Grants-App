@@ -121,7 +121,7 @@ export default function SettingsPage() {
   const pendingInvites = invitations.filter(i => !i.acceptedAt && new Date(i.expiresAt) > new Date());
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <h1 className="text-xl font-bold text-zinc-900">Settings</h1>
 
       {/* Organisation Name */}
