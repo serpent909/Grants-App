@@ -183,7 +183,7 @@ export default function SavedPage() {
                         <button
                           onClick={e => handleRerun(saved, e)}
                           className="p-1.5 rounded-lg text-zinc-300 hover:text-teal-600 hover:bg-teal-50 transition-colors"
-                          title="Re-run search"
+                          title="Edit & re-run search"
                         >
                           <RotateCcw className="w-4 h-4" />
                         </button>

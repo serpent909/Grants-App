@@ -15,7 +15,7 @@ import {
 } from '@/lib/application-storage';
 import { useDeepSearchBatch } from '@/lib/deep-search-storage';
 import { GrantApplication, ApplicationStatus, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
-import { scoreColor, scoreTextClass, formatAmountRange, formatDate } from '@/lib/formatting';
+import { scoreColor, scoreTextClass, formatAmountRange, formatDate, formatDeadline } from '@/lib/formatting';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import ApplicationChecklist from '@/components/application-checklist';
 import { useChecklistProgress } from '@/lib/checklist-storage';
@@ -166,7 +166,7 @@ function ApplicationCard({
   const transitions = STATUS_TRANSITIONS[app.status];
 
   const amount = formatAmountRange(deep?.amountMin ?? grant.amountMin, deep?.amountMax ?? grant.amountMax);
-  const deadline = formatDate(deep?.applicationCloseDate ?? grant.deadline);
+  const deadline = formatDeadline(deep?.applicationCloseDate ?? grant.deadline);
   const openDate = formatDate(deep?.applicationOpenDate);
   const score = deep?.scores?.overall ?? grant.scores?.overall ?? 0;
   const checklistProgress = useChecklistProgress(app.grantId);
@@ -196,6 +196,7 @@ function ApplicationCard({
   }
 
   async function handleRemove() {
+    if (!confirm('Remove this application? This cannot be undone.')) return;
     await removeApplication(app.grantId);
   }
 

@@ -7,17 +7,19 @@ import {
   ChevronDown, ChevronUp, CalendarDays, Building2,
   SlidersHorizontal, X, Star, Check,
   Microscope, Loader2, CheckCircle2, RotateCw,
+  DollarSign, FileText, Users, Info, MessageSquare, Link2,
+  ShieldCheck, ClipboardList, Circle,
+  TrendingUp, TrendingDown, Minus,
 } from 'lucide-react';
-import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDeadline } from '@/lib/formatting';
+import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDeadline, formatDate } from '@/lib/formatting';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { SearchResult, GrantOpportunity, DeepSearchResult, OrgInfo } from '@/lib/types';
+import { SearchResult, GrantOpportunity, DeepSearchResult, DeepSearchScoreChange, OrgInfo } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { getSaved, saveSearch } from '@/lib/saved-searches';
-import { saveDeepSearch } from '@/lib/deep-search-storage';
-import { batchCheckDeepSearch } from '@/lib/deep-search-storage';
+import { saveDeepSearch, batchCheckDeepSearch, batchGetDeepSearch } from '@/lib/deep-search-storage';
 import { toggleShortlist, batchCheckShortlisted } from '@/lib/shortlist-storage';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
@@ -104,13 +106,57 @@ function ScorePill({ score, label }: { score: number; label: string }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// ─── Deep search inline components ───────────────────────────────────────────
+
+function DeepSearchSection({ title, icon: Icon, children }: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/50">
+        <Icon className="w-3.5 h-3.5 text-teal-600" />
+        <h4 className="text-xs font-semibold text-zinc-700 uppercase tracking-wider">{title}</h4>
+      </div>
+      <div className="px-4 py-3">{children}</div>
+    </div>
+  );
+}
+
+function ScoreChangeRow({ label, change }: { label: string; change: DeepSearchScoreChange }) {
+  const delta = change.new - change.old;
+  const deltaColor = delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-red-500' : 'text-zinc-400';
+  const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
+
+  return (
+    <div className="py-2.5 border-b border-zinc-100 last:border-0">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-medium text-zinc-700">{label}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm tabular-nums text-zinc-400">{change.old.toFixed(1)}</span>
+          <span className="text-zinc-300">&rarr;</span>
+          <span className={`text-sm font-bold tabular-nums px-1.5 py-0.5 rounded-md ${scoreTextClass(change.new)}`}>
+            {change.new.toFixed(1)}
+          </span>
+          <span className={`text-xs font-semibold flex items-center gap-0.5 ${deltaColor}`}>
+            <DeltaIcon className="w-3 h-3" />
+            {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+          </span>
+        </div>
+      </div>
+      <p className="text-xs text-zinc-500 leading-relaxed">{change.reason}</p>
+    </div>
+  );
+}
+
 // ─── Grant detail panel ───────────────────────────────────────────────────────
 
 function GrantDetail({
   grant,
   locale,
   deepSearchState = 'idle',
-  deepSearchedAt,
+  deepSearchData,
   onDeepSearch,
   isShortlisted = false,
   onToggleShortlist,
@@ -118,13 +164,20 @@ function GrantDetail({
   grant: GrantOpportunity;
   locale: string;
   deepSearchState?: 'idle' | 'loading' | 'complete';
-  deepSearchedAt?: string;
+  deepSearchData?: DeepSearchResult | null;
   onDeepSearch?: () => void;
   isShortlisted?: boolean;
   onToggleShortlist?: () => void;
 }) {
+  const [showDeepSearch, setShowDeepSearch] = useState(false);
   const deadline = formatDeadline(grant.deadline, locale);
   const amount = formatAmountRange(grant.amountMin, grant.amountMax);
+
+  // Use deep search data for enhanced display when available
+  const ds = deepSearchData;
+  const dsAmount = ds ? formatAmountRange(ds.amountMin, ds.amountMax) : null;
+  const dsCloseDate = ds ? formatDate(ds.applicationCloseDate) : null;
+  const dsOpenDate = ds ? formatDate(ds.applicationOpenDate) : null;
 
   return (
     <div className="bg-zinc-50 border-t border-zinc-200 px-6 py-6">
@@ -181,14 +234,14 @@ function GrantDetail({
             )}
             {deepSearchState === 'complete' && (
               <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={`/grant/${encodeURIComponent(grant.id)}/deep-search`}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowDeepSearch(v => !v); }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors"
-                  onClick={(e) => e.stopPropagation()}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  View Deep Search
-                </a>
+                  {showDeepSearch ? 'Hide Details' : 'Show Details'}
+                  {showDeepSearch ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDeepSearch?.(); }}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 text-zinc-600 hover:bg-zinc-200 ring-1 ring-zinc-200 transition-colors"
@@ -196,9 +249,21 @@ function GrantDetail({
                   <RotateCw className="w-3 h-3" />
                   Re-run
                 </button>
-                {deepSearchedAt && (
+                {/* Shortlist button */}
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleShortlist?.(); }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                    isShortlisted
+                      ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                      : 'bg-white border-zinc-300 text-zinc-700 hover:border-amber-400 hover:text-amber-700'
+                  }`}
+                >
+                  <Star className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-amber-400' : ''}`} />
+                  {isShortlisted ? 'Shortlisted' : 'Shortlist'}
+                </button>
+                {ds?.searchedAt && (
                   <span className="text-[11px] text-zinc-400">
-                    Last run {new Date(deepSearchedAt).toLocaleString(locale, {
+                    Last run {new Date(ds.searchedAt).toLocaleString(locale, {
                       day: 'numeric', month: 'short', year: 'numeric',
                       hour: '2-digit', minute: '2-digit',
                     })}
@@ -208,26 +273,14 @@ function GrantDetail({
             )}
           </div>
 
-          {/* Shortlist button — requires deep search first */}
-          <div className="mt-2">
-            {deepSearchState === 'complete' ? (
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggleShortlist?.(); }}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                  isShortlisted
-                    ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
-                    : 'bg-white border-zinc-300 text-zinc-700 hover:border-amber-400 hover:text-amber-700'
-                }`}
-              >
-                <Star className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-amber-400' : ''}`} />
-                {isShortlisted ? 'Shortlisted' : 'Shortlist'}
-              </button>
-            ) : (
+          {/* Shortlist hint when no deep search */}
+          {deepSearchState !== 'complete' && (
+            <div className="mt-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 italic">
-                Run Deep Search to shortlist
+                Run Deep Search for more details
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Alignment + Application */}
@@ -286,6 +339,190 @@ function GrantDetail({
           </div>
         </div>
       </div>
+
+      {/* ── Inline Deep Search Results ── */}
+      {showDeepSearch && ds && (
+        <div className="mt-6 space-y-3 border-t border-zinc-200 pt-6">
+          {/* Key Details */}
+          <DeepSearchSection title="Key Details" icon={Info}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <DollarSign className="w-4 h-4 text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-400 font-medium">Grant Amount</p>
+                  <p className="text-sm font-semibold text-zinc-800">{dsAmount || 'Not specified'}</p>
+                  {ds.amountNotes && <p className="text-xs text-zinc-500 mt-0.5">{ds.amountNotes}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <CalendarDays className="w-4 h-4 text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-400 font-medium">Application Window</p>
+                  {dsOpenDate || dsCloseDate ? (
+                    <div className="text-sm font-semibold text-zinc-800">
+                      {dsOpenDate && <span>Opens {dsOpenDate}</span>}
+                      {dsOpenDate && dsCloseDate && <span className="text-zinc-300 mx-1">|</span>}
+                      {dsCloseDate && <span>Closes {dsCloseDate}</span>}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-semibold text-zinc-800">Not specified</p>
+                  )}
+                  {ds.dateNotes && <p className="text-xs text-zinc-500 mt-0.5">{ds.dateNotes}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-teal-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-400 font-medium">Application Form</p>
+                  {ds.applicationFormUrl ? (
+                    <a
+                      href={ds.applicationFormUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
+                    >
+                      {ds.applicationFormType === 'pdf' ? 'Download PDF' :
+                       ds.applicationFormType === 'word' ? 'Download Word doc' :
+                       ds.applicationFormType === 'online' ? 'Apply online' : 'Application form'}
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <p className="text-sm font-semibold text-zinc-800">Not found</p>
+                  )}
+                  {ds.applicationFormNotes && <p className="text-xs text-zinc-500 mt-0.5">{ds.applicationFormNotes}</p>}
+                </div>
+              </div>
+
+              {ds.keyContacts && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                    <MessageSquare className="w-4 h-4 text-teal-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-zinc-400 font-medium">Contact</p>
+                    <p className="text-sm text-zinc-800">{ds.keyContacts}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </DeepSearchSection>
+
+          {/* Score Recalibration */}
+          <DeepSearchSection title="Score Recalibration" icon={ShieldCheck}>
+            <div className="mb-2">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs text-zinc-400">Overall score:</span>
+                <span className="text-sm font-bold tabular-nums text-zinc-400">
+                  {ds.scoreChanges.alignment.old ? (
+                    (ds.scoreChanges.alignment.old * 0.5 + ds.scoreChanges.attainability.old * 0.3 + ds.scoreChanges.ease.old * 0.2).toFixed(1)
+                  ) : '?'}
+                </span>
+                <span className="text-zinc-300">&rarr;</span>
+                <span className={`text-sm font-bold tabular-nums px-1.5 py-0.5 rounded-md ${scoreTextClass(ds.scores.overall)}`}>
+                  {ds.scores.overall.toFixed(1)}
+                </span>
+              </div>
+            </div>
+            <ScoreChangeRow label="Alignment" change={ds.scoreChanges.alignment} />
+            <ScoreChangeRow label="Ease" change={ds.scoreChanges.ease} />
+            <ScoreChangeRow label="Attainability" change={ds.scoreChanges.attainability} />
+          </DeepSearchSection>
+
+          {/* Eligibility Criteria */}
+          {ds.eligibilityCriteria.length > 0 && (
+            <DeepSearchSection title="Eligibility Criteria" icon={ShieldCheck}>
+              <ul className="space-y-2">
+                {ds.eligibilityCriteria.map((criterion, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-zinc-700">{criterion}</span>
+                  </li>
+                ))}
+              </ul>
+            </DeepSearchSection>
+          )}
+
+          {/* Application Checklist */}
+          {ds.checklist.length > 0 && (
+            <DeepSearchSection title="Application Checklist" icon={ClipboardList}>
+              <ul className="space-y-3">
+                {ds.checklist.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    {item.required ? (
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-zinc-300 mt-0.5 flex-shrink-0" />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-800">{item.item}</span>
+                        {item.required ? (
+                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">Required</span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">Optional</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{item.description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </DeepSearchSection>
+          )}
+
+          {/* Past Recipients & Insights */}
+          {ds.pastRecipientNotes && (
+            <DeepSearchSection title="Past Recipients & Insights" icon={Users}>
+              <p className="text-sm text-zinc-700 leading-relaxed">{ds.pastRecipientNotes}</p>
+            </DeepSearchSection>
+          )}
+
+          {/* Additional Information */}
+          {ds.additionalInfo && (
+            <DeepSearchSection title="Additional Information" icon={Info}>
+              <p className="text-sm text-zinc-700 leading-relaxed">{ds.additionalInfo}</p>
+            </DeepSearchSection>
+          )}
+
+          {/* Sources */}
+          {ds.sourcesUsed.length > 0 && (
+            <DeepSearchSection title="Sources" icon={Link2}>
+              <ul className="space-y-2">
+                {ds.sourcesUsed.map((source, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400 mt-0.5 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium break-all"
+                      >
+                        {source.title || source.url}
+                      </a>
+                      {source.title && (
+                        <p className="text-xs text-zinc-400 truncate">{source.url}</p>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </DeepSearchSection>
+          )}
+
+          <p className="text-xs text-zinc-400 text-center pt-1">
+            Scores and information are AI-generated estimates. Always verify details directly with funders.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -306,7 +543,7 @@ function FunderAccordion({
   defaultOpen?: boolean;
   locale?: string;
   deepSearchLoading?: string | null;
-  deepSearchComplete?: Map<string, string>;
+  deepSearchComplete?: Map<string, DeepSearchResult>;
   onDeepSearch?: (grant: GrantOpportunity) => void;
   shortlistedIds?: Set<string>;
   onToggleShortlist?: (grant: GrantOpportunity) => void;
@@ -469,7 +706,7 @@ function FunderAccordion({
                       : deepSearchComplete?.has(grant.id) ? 'complete'
                       : 'idle'
                     }
-                    deepSearchedAt={deepSearchComplete?.get(grant.id)}
+                    deepSearchData={deepSearchComplete?.get(grant.id)}
                     onDeepSearch={() => onDeepSearch?.(grant)}
                     isShortlisted={shortlistedIds?.has(grant.id) ?? false}
                     onToggleShortlist={() => onToggleShortlist?.(grant)}
@@ -510,7 +747,7 @@ function ResultsContent() {
 
   // Deep search state
   const [deepSearchLoading, setDeepSearchLoading] = useState<string | null>(null);
-  const [deepSearchComplete, setDeepSearchComplete] = useState<Map<string, string>>(new Map());
+  const [deepSearchComplete, setDeepSearchComplete] = useState<Map<string, DeepSearchResult>>(new Map());
   const [deepSearchError, setDeepSearchError] = useState<string | null>(null);
 
   // Shortlist state
@@ -682,7 +919,7 @@ function ResultsContent() {
     const ids = result.grants.map(g => g.id);
     if (ids.length === 0) return;
     Promise.all([
-      batchCheckDeepSearch(ids),
+      batchGetDeepSearch(ids),
       batchCheckShortlisted(ids),
     ]).then(([deepMap, shortIds]) => {
       setDeepSearchComplete(deepMap);
@@ -746,7 +983,7 @@ function ResultsContent() {
       await saveDeepSearch(deepResult);
       setDeepSearchComplete(prev => {
         const next = new Map(prev);
-        next.set(grant.id, deepResult.searchedAt);
+        next.set(grant.id, deepResult);
         return next;
       });
     } catch (err) {
@@ -839,7 +1076,7 @@ function ResultsContent() {
             className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-800 transition-colors mb-4 group"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
-            New search
+            New Search
           </button>
 
           <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -940,7 +1177,7 @@ function ResultsContent() {
         )}
 
         {/* ── Filter toolbar ── */}
-        <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden sticky top-16 z-20">
           <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
             <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mr-1">
               <SlidersHorizontal className="w-3.5 h-3.5" />

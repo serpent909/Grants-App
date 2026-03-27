@@ -13,7 +13,7 @@ import { useShortlistedBySearch, removeFromShortlist, ShortlistedGrant } from '@
 import { useDeepSearchBatch } from '@/lib/deep-search-storage';
 import { startApplication, useApplicationCheck } from '@/lib/application-storage';
 import { GrantOpportunity, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
-import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDate } from '@/lib/formatting';
+import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDate, formatDeadline } from '@/lib/formatting';
 
 const TYPE_CONFIG: Record<
   GrantOpportunity['type'],
@@ -94,7 +94,7 @@ function GrantCard({
 
   // Use deep search data if available, fall back to grant data
   const amount = formatAmountRange(deep?.amountMin ?? grant.amountMin, deep?.amountMax ?? grant.amountMax);
-  const deadline = formatDate(deep?.applicationCloseDate ?? grant.deadline);
+  const deadline = formatDeadline(deep?.applicationCloseDate ?? grant.deadline);
   const openDate = formatDate(deep?.applicationOpenDate);
   const score = deep?.scores?.overall ?? grant.scores?.overall ?? 0;
 
@@ -405,6 +405,7 @@ export default function ShortlistedPage() {
   const searchCount = Object.keys(grouped).length;
 
   async function handleRemove(grantId: string) {
+    if (!confirm('Remove this grant from your shortlist?')) return;
     await removeFromShortlist(grantId);
   }
 

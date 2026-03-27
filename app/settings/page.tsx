@@ -30,6 +30,7 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,6 +67,7 @@ export default function SettingsPage() {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     setInviteError('');
+    setInviteSuccess('');
     setInviteLoading(true);
     try {
       const res = await fetch('/api/org/invitations', {
@@ -77,7 +79,10 @@ export default function SettingsPage() {
         const data = await res.json();
         setInviteError(data.error || 'Failed to send invitation');
       } else {
+        const sentTo = inviteEmail;
         setInviteEmail('');
+        setInviteSuccess(`Invitation sent to ${sentTo}`);
+        setTimeout(() => setInviteSuccess(''), 5000);
         loadData();
       }
     } finally {
@@ -185,6 +190,9 @@ export default function SettingsPage() {
         </form>
         {inviteError && (
           <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{inviteError}</p>
+        )}
+        {inviteSuccess && (
+          <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{inviteSuccess}</p>
         )}
 
         {pendingInvites.length > 0 && (
