@@ -47,13 +47,7 @@ export default function SavedPage() {
 
   function handleDeleteClick(saved: SavedSearch, e: React.MouseEvent) {
     e.stopPropagation();
-    const shortlisted = getShortlistCount(saved.name);
-    const apps = getAppCount(saved.name);
-    if (shortlisted > 0 || apps > 0) {
-      setDeleteConfirm(saved);
-    } else {
-      confirmDelete(saved);
-    }
+    setDeleteConfirm(saved);
   }
 
   async function confirmDelete(saved: SavedSearch) {
@@ -217,28 +211,39 @@ export default function SavedPage() {
               <h3 className="font-semibold text-zinc-900">Delete search?</h3>
             </div>
 
-            <p className="text-sm text-zinc-600 mb-3">
-              <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span> has linked data:
-            </p>
-
-            <div className="space-y-1.5 mb-5">
-              {getShortlistCount(deleteConfirm.name) > 0 && (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
-                  <Star className="w-3.5 h-3.5" />
-                  {getShortlistCount(deleteConfirm.name)} shortlisted grant{getShortlistCount(deleteConfirm.name) === 1 ? '' : 's'}
-                </div>
-              )}
-              {getAppCount(deleteConfirm.name) > 0 && (
-                <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg">
-                  <FileText className="w-3.5 h-3.5" />
-                  {getAppCount(deleteConfirm.name)} application{getAppCount(deleteConfirm.name) === 1 ? '' : 's'} in progress
-                </div>
-              )}
-            </div>
-
-            <p className="text-xs text-zinc-500 mb-5">
-              Deleting this search will only remove the search itself. Your shortlisted grants and applications will not be affected.
-            </p>
+            {(() => {
+              const shortlisted = getShortlistCount(deleteConfirm.name);
+              const apps = getAppCount(deleteConfirm.name);
+              const hasLinked = shortlisted > 0 || apps > 0;
+              return hasLinked ? (
+                <>
+                  <p className="text-sm text-zinc-600 mb-3">
+                    <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span> has linked data:
+                  </p>
+                  <div className="space-y-1.5 mb-5">
+                    {shortlisted > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                        <Star className="w-3.5 h-3.5" />
+                        {shortlisted} shortlisted grant{shortlisted === 1 ? '' : 's'}
+                      </div>
+                    )}
+                    {apps > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg">
+                        <FileText className="w-3.5 h-3.5" />
+                        {apps} application{apps === 1 ? '' : 's'} in progress
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-zinc-500 mb-5">
+                    Deleting this search will only remove the search itself. Your shortlisted grants and applications will not be affected.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-600 mb-5">
+                  Are you sure you want to delete <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span>?
+                </p>
+              );
+            })()}
 
             <div className="flex items-center justify-end gap-2">
               <button

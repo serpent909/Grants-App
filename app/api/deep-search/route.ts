@@ -405,7 +405,7 @@ Be thorough but factual — only include information that is directly supported 
     const completion = await withRetry(() =>
       openai.chat.completions.create({
         model: 'gpt-4o',
-        temperature: 0.1,
+        temperature: 0,
         max_tokens: 8000,
         response_format: { type: 'json_object' },
         messages: [

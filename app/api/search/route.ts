@@ -339,7 +339,7 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
                   },
                 ],
                 response_format: { type: 'json_object' },
-                temperature: 0.1,
+                temperature: 0,
                 max_tokens: 16000,
               }));
               trackOpenAI(costs, res.model || 'gpt-4.1-mini', res.usage);
