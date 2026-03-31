@@ -68,12 +68,12 @@ export default function DocumentPicker({ onSelect, onUploadNew, onClose, exclude
     >
       <div
         onClick={e => e.stopPropagation()}
-        className="bg-white rounded-2xl shadow-xl border border-zinc-200 w-full max-w-lg mx-4 max-h-[70vh] flex flex-col"
+        className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-lg mx-4 max-h-[70vh] flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h3 className="font-semibold text-zinc-900">Attach Document</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors">
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Attach Document</h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -82,7 +82,7 @@ export default function DocumentPicker({ onSelect, onUploadNew, onClose, exclude
         <div className="px-5 pb-3">
           <button
             onClick={onUploadNew}
-            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-zinc-300 text-sm font-medium text-teal-600 hover:border-teal-400 hover:bg-teal-50/50 transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-sm font-medium text-teal-600 dark:text-teal-400 hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-950/30 transition-colors"
           >
             <Upload className="w-4 h-4" />
             Upload new document
@@ -98,7 +98,7 @@ export default function DocumentPicker({ onSelect, onUploadNew, onClose, exclude
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Search documents..."
-              className="w-full text-sm border border-zinc-200 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               autoFocus
             />
           </div>
@@ -110,7 +110,7 @@ export default function DocumentPicker({ onSelect, onUploadNew, onClose, exclude
             <button
               onClick={() => setActiveGroup('all')}
               className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
-                activeGroup === 'all' ? 'bg-teal-600 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                activeGroup === 'all' ? 'bg-teal-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
               All
@@ -120,7 +120,7 @@ export default function DocumentPicker({ onSelect, onUploadNew, onClose, exclude
                 key={group}
                 onClick={() => setActiveGroup(group)}
                 className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
-                  activeGroup === group ? 'bg-teal-600 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'
+                  activeGroup === group ? 'bg-teal-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                 }`}
               >
                 {group}
@@ -145,11 +145,11 @@ export default function DocumentPicker({ onSelect, onUploadNew, onClose, exclude
                   <button
                     key={doc.id}
                     onClick={() => onSelect(doc)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-teal-50 transition-colors text-left group"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/50 transition-colors text-left group"
                   >
                     <Icon className="w-4 h-4 text-zinc-400 group-hover:text-teal-600 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-zinc-800 truncate">{doc.filename}</p>
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{doc.filename}</p>
                       <p className="text-xs text-zinc-400">
                         {catLabel} · {formatFileSize(doc.sizeBytes)}
                       </p>

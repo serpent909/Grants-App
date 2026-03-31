@@ -50,15 +50,15 @@ function StepIndicator({ current }: { current: number }) {
                 s.num < current
                   ? 'bg-teal-600 text-white'
                   : s.num === current
-                  ? 'bg-white border-2 border-teal-600 text-teal-600'
-                  : 'bg-white border-2 border-zinc-300 text-zinc-400'
+                  ? 'bg-white dark:bg-zinc-800 border-2 border-teal-600 text-teal-600'
+                  : 'bg-white dark:bg-zinc-800 border-2 border-zinc-300 dark:border-zinc-600 text-zinc-400'
               }`}
             >
               {s.num < current ? <Check className="w-4 h-4" /> : s.num}
             </div>
             <span
               className={`hidden sm:block text-xs mt-1.5 font-medium transition-colors duration-300 ${
-                s.num <= current ? 'text-teal-700' : 'text-zinc-400'
+                s.num <= current ? 'text-teal-700 dark:text-teal-400' : 'text-zinc-400'
               }`}
             >
               {s.label}
@@ -69,7 +69,7 @@ function StepIndicator({ current }: { current: number }) {
           {i < STEPS.length - 1 && (
             <div
               className={`flex-1 h-0.5 mx-2 sm:mx-3 transition-colors duration-300 ${
-                s.num < current ? 'bg-teal-500' : 'bg-zinc-200'
+                s.num < current ? 'bg-teal-500' : 'bg-zinc-200 dark:bg-zinc-700'
               }`}
             />
           )}
@@ -298,12 +298,12 @@ export default function HomePage() {
           </div>
 
           {/* ── Form card ── */}
-          <div ref={cardRef} className="bg-white rounded-2xl shadow-2xl shadow-black/20 ring-1 ring-zinc-200 overflow-hidden">
+          <div ref={cardRef} className="bg-white dark:bg-zinc-800 rounded-2xl shadow-2xl shadow-black/20 ring-1 ring-zinc-200 dark:ring-zinc-700 overflow-hidden">
             {!isLoading && (
-              <div className="px-5 sm:px-8 pt-7 pb-5 bg-zinc-50/70 border-b border-zinc-200/60">
+              <div className="px-5 sm:px-8 pt-7 pb-5 bg-zinc-50/70 dark:bg-zinc-800/50 border-b border-zinc-200/60 dark:border-zinc-700/60">
                 <StepIndicator current={step} />
                 <div className="text-center mt-5">
-                  <h2 className="text-xl font-bold text-zinc-900 font-display">
+                  <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 font-display">
                     {STEPS[step - 1].label}
                   </h2>
                   <p className="text-sm text-zinc-500 mt-1">
@@ -315,16 +315,16 @@ export default function HomePage() {
 
             {isLoading ? (
               <div className="px-5 sm:px-8 py-16 flex flex-col items-center">
-                <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center mb-4">
+                <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-950 flex items-center justify-center mb-4">
                   <Search className="w-5 h-5 text-teal-600 animate-pulse" />
                 </div>
-                <p className="text-sm font-medium text-zinc-700">Starting search...</p>
+                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Starting search...</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
                 {apiError && (
                   <div className="px-5 sm:px-8 pt-6">
-                    <div className="flex items-start gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl p-4">
+                    <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-xl p-4">
                       <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                       <p className="text-sm leading-relaxed">{apiError}</p>
                     </div>
@@ -463,10 +463,10 @@ export default function HomePage() {
                         id="fundingPurpose"
                         rows={3}
                         placeholder="Describe what you need funding for. Include your target population, specific activities, and any relevant context..."
-                        className={`w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none transition-shadow ${
+                        className={`w-full rounded-lg border bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none transition-shadow ${
                           errors.fundingPurpose
                             ? 'border-red-300 focus:ring-red-400'
-                            : 'border-zinc-300'
+                            : 'border-zinc-300 dark:border-zinc-600'
                         }`}
                         value={form.fundingPurpose}
                         onChange={e => updateField('fundingPurpose', e.target.value)}
@@ -516,13 +516,13 @@ export default function HomePage() {
                   <div className="px-5 sm:px-8 py-6 space-y-5 animate-in fade-in duration-200">
 
                     {/* Organisation */}
-                    <div className="rounded-xl border border-zinc-200 overflow-hidden">
+                    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70">
-                        <h3 className="text-sm font-semibold text-zinc-700">Organisation</h3>
+                        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Organisation</h3>
                         <button
                           type="button"
                           onClick={() => setStep(1)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
                         >
                           <Pencil className="w-3 h-3" />
                           Edit
@@ -530,21 +530,21 @@ export default function HomePage() {
                       </div>
                       <div className="px-4 py-3 space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-zinc-500">Type</span>
-                          <span className="text-zinc-900 font-medium">
+                          <span className="text-zinc-500 dark:text-zinc-400">Type</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-medium">
                             {ORG_TYPES.find(t => t.id === form.orgType)?.label || '—'}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-zinc-500">Website</span>
-                          <span className="text-zinc-900 font-medium truncate max-w-[60%] text-right">
+                          <span className="text-zinc-500 dark:text-zinc-400">Website</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-medium truncate max-w-[60%] text-right">
                             {form.website || '—'}
                           </span>
                         </div>
                         {form.linkedin && (
                           <div className="flex justify-between">
-                            <span className="text-zinc-500">LinkedIn</span>
-                            <span className="text-zinc-900 font-medium truncate max-w-[60%] text-right">
+                            <span className="text-zinc-500 dark:text-zinc-400">LinkedIn</span>
+                            <span className="text-zinc-900 dark:text-zinc-100 font-medium truncate max-w-[60%] text-right">
                               {form.linkedin}
                             </span>
                           </div>
@@ -553,13 +553,13 @@ export default function HomePage() {
                     </div>
 
                     {/* Location & Focus */}
-                    <div className="rounded-xl border border-zinc-200 overflow-hidden">
+                    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70">
-                        <h3 className="text-sm font-semibold text-zinc-700">Location & Focus</h3>
+                        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Location & Focus</h3>
                         <button
                           type="button"
                           onClick={() => setStep(2)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
                         >
                           <Pencil className="w-3 h-3" />
                           Edit
@@ -567,14 +567,14 @@ export default function HomePage() {
                       </div>
                       <div className="px-4 py-3 space-y-3 text-sm">
                         <div>
-                          <span className="text-zinc-500 block mb-1.5">Regions</span>
+                          <span className="text-zinc-500 dark:text-zinc-400 block mb-1.5">Regions</span>
                           <div className="flex flex-wrap gap-1.5">
                             {form.regions.map(id => {
                               const region = activeMarket.regions.find(r => r.id === id);
                               return (
                                 <span
                                   key={id}
-                                  className="inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full bg-teal-50 text-teal-700 border border-teal-200"
+                                  className="inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
                                 >
                                   {region?.name || id}
                                 </span>
@@ -584,14 +584,14 @@ export default function HomePage() {
                           </div>
                         </div>
                         <div>
-                          <span className="text-zinc-500 block mb-1.5">Sectors</span>
+                          <span className="text-zinc-500 dark:text-zinc-400 block mb-1.5">Sectors</span>
                           <div className="flex flex-wrap gap-1.5">
                             {form.sectors.map(id => {
                               const sector = SECTORS.find(s => s.id === id);
                               return (
                                 <span
                                   key={id}
-                                  className="inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full bg-teal-50 text-teal-700 border border-teal-200"
+                                  className="inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
                                 >
                                   {sector?.label || id}
                                 </span>
@@ -604,13 +604,13 @@ export default function HomePage() {
                     </div>
 
                     {/* Funding Details */}
-                    <div className="rounded-xl border border-zinc-200 overflow-hidden">
+                    <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70">
-                        <h3 className="text-sm font-semibold text-zinc-700">Funding Details</h3>
+                        <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Funding Details</h3>
                         <button
                           type="button"
                           onClick={() => setStep(3)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
                         >
                           <Pencil className="w-3 h-3" />
                           Edit
@@ -618,18 +618,18 @@ export default function HomePage() {
                       </div>
                       <div className="px-4 py-3 space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-zinc-500">Search title</span>
-                          <span className="text-zinc-900 font-medium">{form.searchTitle || '—'}</span>
+                          <span className="text-zinc-500 dark:text-zinc-400">Search title</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-medium">{form.searchTitle || '—'}</span>
                         </div>
                         <div>
-                          <span className="text-zinc-500 block mb-1">Purpose</span>
-                          <p className="text-zinc-900 text-sm leading-relaxed">
+                          <span className="text-zinc-500 dark:text-zinc-400 block mb-1">Purpose</span>
+                          <p className="text-zinc-900 dark:text-zinc-100 text-sm leading-relaxed">
                             {form.fundingPurpose || '—'}
                           </p>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-zinc-500">Amount sought</span>
-                          <span className="text-zinc-900 font-medium">
+                          <span className="text-zinc-500 dark:text-zinc-400">Amount sought</span>
+                          <span className="text-zinc-900 dark:text-zinc-100 font-medium">
                             {form.fundingAmount
                               ? `${activeMarket.currencySymbol}${form.fundingAmount.toLocaleString()}`
                               : '—'}
@@ -637,8 +637,8 @@ export default function HomePage() {
                         </div>
                         {form.previousFunders && (
                           <div className="flex justify-between">
-                            <span className="text-zinc-500">Previous funders</span>
-                            <span className="text-zinc-900 font-medium truncate max-w-[60%] text-right">
+                            <span className="text-zinc-500 dark:text-zinc-400">Previous funders</span>
+                            <span className="text-zinc-900 dark:text-zinc-100 font-medium truncate max-w-[60%] text-right">
                               {form.previousFunders}
                             </span>
                           </div>
@@ -649,12 +649,12 @@ export default function HomePage() {
                 )}
 
                 {/* ── Navigation footer ── */}
-                <div className="px-5 sm:px-8 py-6 bg-zinc-50/50 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
+                <div className="px-5 sm:px-8 py-6 bg-zinc-50/50 dark:bg-zinc-800/30 flex flex-col-reverse sm:flex-row sm:justify-between gap-3">
                   {step > 1 ? (
                     <button
                       type="button"
                       onClick={goBack}
-                      className="inline-flex items-center justify-center gap-2 h-11 px-6 text-sm font-medium text-zinc-600 hover:text-zinc-900 bg-white border border-zinc-300 hover:border-zinc-400 rounded-xl transition-colors"
+                      className="inline-flex items-center justify-center gap-2 h-11 px-6 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 hover:border-zinc-400 rounded-xl transition-colors"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       Back

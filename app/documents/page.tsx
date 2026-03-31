@@ -71,22 +71,22 @@ export default function DocumentsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0]">
+    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900">
       <div className="max-w-6xl mx-auto px-6 py-12">
 
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-teal-50 dark:bg-teal-950 rounded-xl flex items-center justify-center">
             <FileText className="w-4 h-4 text-teal-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">Documents</h1>
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Documents</h1>
             <p className="text-sm text-zinc-500">
               {documents.length === 0
                 ? 'No documents yet'
@@ -107,7 +107,7 @@ export default function DocumentsPage() {
               className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 activeGroup === 'all'
                   ? 'bg-teal-600 text-white'
-                  : 'bg-white ring-1 ring-zinc-200 text-zinc-600 hover:ring-zinc-300'
+                  : 'bg-white dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 text-zinc-600 dark:text-zinc-400 hover:ring-zinc-300 dark:hover:ring-zinc-600'
               }`}
             >
               All ({documents.length})
@@ -119,7 +119,7 @@ export default function DocumentsPage() {
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                   activeGroup === group
                     ? 'bg-teal-600 text-white'
-                    : 'bg-white ring-1 ring-zinc-200 text-zinc-600 hover:ring-zinc-300'
+                    : 'bg-white dark:bg-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-700 text-zinc-600 dark:text-zinc-400 hover:ring-zinc-300 dark:hover:ring-zinc-600'
                 }`}
               >
                 {group} ({groupCounts[group]})
@@ -130,7 +130,7 @@ export default function DocumentsPage() {
 
         {/* Document list */}
         {documents.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-200 py-20 text-center shadow-sm">
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 py-20 text-center shadow-sm">
             <FolderOpen className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
             <p className="font-semibold text-zinc-400 text-sm">No documents yet</p>
             <p className="text-xs text-zinc-400 mt-1">
@@ -138,7 +138,7 @@ export default function DocumentsPage() {
             </p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-200 py-12 text-center shadow-sm">
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 py-12 text-center shadow-sm">
             <p className="text-sm text-zinc-400">No documents in this group.</p>
           </div>
         ) : (
@@ -158,13 +158,13 @@ export default function DocumentsPage() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl border border-zinc-200 w-full max-w-md mx-4 p-6"
+            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-md mx-4 p-6"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-zinc-900">Upload Document{pendingFiles.length > 1 ? 's' : ''}</h3>
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Upload Document{pendingFiles.length > 1 ? 's' : ''}</h3>
               <button
                 onClick={() => setPendingFiles([])}
-                className="p-1 rounded-lg hover:bg-zinc-100 text-zinc-400 hover:text-zinc-600 transition-colors"
+                className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -173,7 +173,7 @@ export default function DocumentsPage() {
             {/* File list */}
             <div className="space-y-1.5 mb-4">
               {pendingFiles.map((file, i) => (
-                <div key={i} className="flex items-center gap-2 text-sm text-zinc-700 bg-zinc-50 px-3 py-2 rounded-lg">
+                <div key={i} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800 px-3 py-2 rounded-lg">
                   <FileText className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                   <span className="truncate">{file.name}</span>
                   <span className="text-xs text-zinc-400 ml-auto shrink-0">
@@ -185,11 +185,11 @@ export default function DocumentsPage() {
 
             {/* Category selector */}
             <div className="mb-5">
-              <label className="text-xs text-zinc-500 font-medium block mb-1.5">Category</label>
+              <label className="text-xs text-zinc-500 dark:text-zinc-400 font-medium block mb-1.5">Category</label>
               <select
                 value={uploadCategory}
                 onChange={e => setUploadCategory(e.target.value)}
-                className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 {CATEGORY_GROUPS.map(grp => (
                   <optgroup key={grp.group} label={grp.group}>

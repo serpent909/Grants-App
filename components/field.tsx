@@ -7,13 +7,13 @@ export function Field({ label, required, error, hint, children }: {
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[13px] font-semibold text-zinc-800 font-display">
+      <Label className="text-[13px] font-semibold text-zinc-800 dark:text-zinc-200 font-display">
         {label}
         {required && <span className="text-red-400 ml-1">*</span>}
       </Label>
       {children}
       {error && <p className="text-xs text-red-500 font-medium">{error}</p>}
-      {hint && !error && <p className="text-xs text-zinc-500">{hint}</p>}
+      {hint && !error && <p className="text-xs text-zinc-500 dark:text-zinc-400">{hint}</p>}
     </div>
   );
 }

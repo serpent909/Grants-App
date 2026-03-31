@@ -35,12 +35,12 @@ function ScoreChangeRow({ label, change }: { label: string; change: DeepSearchSc
   const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
 
   return (
-    <div className="py-2.5 border-b border-zinc-100 last:border-0">
+    <div className="py-2.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-zinc-700">{label}</span>
+        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
         <div className="flex items-center gap-2">
           <span className="text-xs tabular-nums text-zinc-400">{change.old.toFixed(1)}</span>
-          <span className="text-zinc-300">&rarr;</span>
+          <span className="text-zinc-300 dark:text-zinc-600">&rarr;</span>
           <span className={`text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-md ${scoreTextClass(change.new)}`}>
             {change.new.toFixed(1)}
           </span>
@@ -63,10 +63,10 @@ function Section({ title, icon: Icon, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-t border-zinc-100 pt-4 mt-4 first:border-0 first:pt-0 first:mt-0">
+    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-4 first:border-0 first:pt-0 first:mt-0">
       <div className="flex items-center gap-2 mb-3">
         <Icon className="w-3.5 h-3.5 text-teal-600" />
-        <h4 className="text-xs font-semibold text-zinc-600 uppercase tracking-wider">{title}</h4>
+        <h4 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{title}</h4>
       </div>
       {children}
     </div>
@@ -102,15 +102,15 @@ function GrantCard({
   const dlBadge = deadlineStatusLabel(rawDeadline, grant.isRecurring, grant.roundFrequency);
 
   return (
-    <div className={`bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden border-l-4 ${cfg.border}`}>
+    <div className={`bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm overflow-hidden border-l-4 ${cfg.border}`}>
       {/* Collapsed header — always visible */}
       <button
-        className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-zinc-50/50 transition-colors"
+        className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <h3 className="font-semibold text-zinc-900 text-sm leading-snug">{grant.name}</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm leading-snug">{grant.name}</h3>
             <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium ring-1 ${cfg.badge}`}>
               {grant.type}
             </span>
@@ -185,33 +185,33 @@ function GrantCard({
 
       {/* Expanded detail — deep research data */}
       {expanded && (
-        <div className="border-t border-zinc-100 px-5 py-5 bg-zinc-50/50">
+        <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-5 bg-zinc-50/50 dark:bg-zinc-800/30">
 
           {/* Key details grid */}
           {deep && (
             <Section title="Key Details" icon={Info}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                     <DollarSign className="w-3.5 h-3.5 text-teal-600" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-zinc-400 font-medium uppercase">Grant Amount</p>
-                    <p className="text-sm font-semibold text-zinc-800">{amount || 'Not specified'}</p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Grant Amount</p>
+                    <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{amount || 'Not specified'}</p>
                     {deep.amountNotes && <p className="text-xs text-zinc-500 mt-0.5">{deep.amountNotes}</p>}
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                     <CalendarDays className="w-3.5 h-3.5 text-teal-600" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-zinc-400 font-medium uppercase">Application Window</p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Application Window</p>
                     {openDate || deadline ? (
                       <div className="text-sm font-semibold text-zinc-800">
                         {openDate && <span>Opens {openDate}</span>}
-                        {openDate && deadline && <span className="text-zinc-300 mx-1">|</span>}
+                        {openDate && deadline && <span className="text-zinc-300 dark:text-zinc-600 mx-1">|</span>}
                         {deadline && <span>Closes {deadline}</span>}
                       </div>
                     ) : (
@@ -222,11 +222,11 @@ function GrantCard({
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                     <FileText className="w-3.5 h-3.5 text-teal-600" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-zinc-400 font-medium uppercase">Application Form</p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Application Form</p>
                     {deep.applicationFormUrl ? (
                       <a
                         href={deep.applicationFormUrl}
@@ -249,12 +249,12 @@ function GrantCard({
 
                 {deep.keyContacts && (
                   <div className="flex items-start gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                       <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-zinc-400 font-medium uppercase">Contact</p>
-                      <p className="text-sm text-zinc-800">{deep.keyContacts}</p>
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Contact</p>
+                      <p className="text-sm text-zinc-800 dark:text-zinc-200">{deep.keyContacts}</p>
                     </div>
                   </div>
                 )}
@@ -278,7 +278,7 @@ function GrantCard({
                 {deep.eligibilityCriteria.map((criterion, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-zinc-700">{criterion}</span>
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{criterion}</span>
                   </li>
                 ))}
               </ul>
@@ -298,7 +298,7 @@ function GrantCard({
                     )}
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-800">{checkItem.item}</span>
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{checkItem.item}</span>
                         {checkItem.required ? (
                           <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">Required</span>
                         ) : (
@@ -316,21 +316,21 @@ function GrantCard({
           {/* Past recipients */}
           {deep?.pastRecipientNotes && (
             <Section title="Past Recipients & Insights" icon={Users}>
-              <p className="text-sm text-zinc-700 leading-relaxed">{deep.pastRecipientNotes}</p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{deep.pastRecipientNotes}</p>
             </Section>
           )}
 
           {/* Additional info */}
           {deep?.additionalInfo && (
             <Section title="Additional Information" icon={Info}>
-              <p className="text-sm text-zinc-700 leading-relaxed">{deep.additionalInfo}</p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{deep.additionalInfo}</p>
             </Section>
           )}
 
           {/* Why it fits (from original search) */}
           {grant.alignmentReason && (
             <Section title="Why It Fits" icon={Star}>
-              <p className="text-sm text-zinc-700 leading-relaxed">{grant.alignmentReason}</p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.alignmentReason}</p>
             </Section>
           )}
 
@@ -357,7 +357,7 @@ function GrantCard({
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-zinc-200">
+          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-zinc-200 dark:border-zinc-700">
             {!applying ? (
               <button
                 onClick={() => onStartApplication(item)}
@@ -437,22 +437,22 @@ export default function ShortlistedPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0]">
+    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900">
       <div className="max-w-6xl mx-auto px-6 py-12">
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center">
+          <div className="w-9 h-9 bg-amber-50 dark:bg-amber-950 rounded-xl flex items-center justify-center">
             <Star className="w-4 h-4 text-amber-600 fill-amber-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">Shortlisted Grants</h1>
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Shortlisted Grants</h1>
             <p className="text-sm text-zinc-500">
               {totalGrants === 0
                 ? 'No grants shortlisted yet'
@@ -463,7 +463,7 @@ export default function ShortlistedPage() {
         </div>
 
         {totalGrants === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-200 py-20 text-center shadow-sm">
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 py-20 text-center shadow-sm">
             <Star className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
             <p className="font-semibold text-zinc-400 text-sm">No grants shortlisted yet</p>
             <p className="text-xs text-zinc-400 mt-1 mb-6">
@@ -482,8 +482,8 @@ export default function ShortlistedPage() {
             {Object.entries(grouped).map(([searchTitle, items]) => (
               <div key={searchTitle}>
                 <div className="flex items-center gap-2 mb-4">
-                  <h2 className="text-base font-bold text-zinc-800">{searchTitle}</h2>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500">
+                  <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">{searchTitle}</h2>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
                     {items.length} grant{items.length === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -513,13 +513,13 @@ export default function ShortlistedPage() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl border border-zinc-200 w-full max-w-md mx-4 p-6"
+            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-md mx-4 p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-red-50 dark:bg-red-950 rounded-xl flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-semibold text-zinc-900">Remove from shortlist?</h3>
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Remove from shortlist?</h3>
             </div>
 
             <p className="text-sm text-zinc-600 mb-5">

@@ -10,6 +10,7 @@ import { uploadDocument } from '@/lib/document-storage';
 import { formatFileSize } from '@/lib/document-storage';
 import { ChecklistItem, AppDocument } from '@/lib/types';
 import DocumentPicker from './document-picker';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface ApplicationChecklistProps {
   grantId: string;
@@ -79,7 +80,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
   if (!items || items.length === 0) {
     if (!hasDeepSearch) return null;
     return (
-      <div className="bg-white rounded-lg border border-zinc-200 p-4 text-center">
+      <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 text-center">
         <ClipboardList className="w-6 h-6 mx-auto mb-2 text-zinc-300" />
         <p className="text-sm text-zinc-500 mb-3">
           This grant has deep search data with an application checklist.
@@ -106,7 +107,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
       {/* Progress bar */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-semibold text-zinc-600">
+          <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
             {checked}/{items.length} complete
           </span>
           {requiredTotal > 0 && (
@@ -115,7 +116,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
             </span>
           )}
         </div>
-        <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-300"
             style={{ width: `${progressPct}%` }}
@@ -130,7 +131,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
           const existingDocIds = new Set(item.documents.map(d => d.id));
 
           return (
-            <div key={item.id} className={`rounded-lg border p-3 transition-colors ${item.checked ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-zinc-200'}`}>
+            <div key={item.id} className={`rounded-lg border p-3 transition-colors ${item.checked ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'}`}>
               <div className="flex items-start gap-3">
                 {/* Checkbox */}
                 <button
@@ -147,7 +148,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                 <div className="flex-1 min-w-0">
                   {/* Item header */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-sm font-medium ${item.checked ? 'text-zinc-500 line-through' : 'text-zinc-800'}`}>
+                    <span className={`text-sm font-medium ${item.checked ? 'text-zinc-500 dark:text-zinc-400 line-through' : 'text-zinc-800 dark:text-zinc-200'}`}>
                       {item.itemName}
                     </span>
                     {item.required ? (
@@ -167,24 +168,26 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                       {item.documents.map(doc => (
                         <div
                           key={doc.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 text-xs group"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs group"
                         >
                           <Paperclip className="w-3 h-3 text-zinc-400" />
                           <button
                             onClick={() => handleDownload(doc.id, doc.filename)}
-                            className="font-medium text-zinc-700 hover:text-teal-600 transition-colors truncate max-w-[150px]"
+                            className="font-medium text-zinc-700 dark:text-zinc-300 hover:text-teal-600 transition-colors truncate max-w-[150px]"
                             title={doc.filename}
                           >
                             {doc.filename}
                           </button>
                           <span className="text-zinc-400">{formatFileSize(doc.sizeBytes)}</span>
-                          <button
-                            onClick={() => handleDetach(item.id, doc.id)}
-                            className="p-0.5 rounded text-zinc-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                            title="Remove"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <Tooltip>
+                            <TooltipTrigger
+                              onClick={() => handleDetach(item.id, doc.id)}
+                              className="p-0.5 rounded text-zinc-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                            >
+                              <X className="w-3 h-3" />
+                            </TooltipTrigger>
+                            <TooltipContent>Remove</TooltipContent>
+                          </Tooltip>
                         </div>
                       ))}
                     </div>
@@ -206,20 +209,20 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                         </button>
 
                         {openMenuId === item.id && (
-                          <div className="absolute left-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-zinc-200 py-1 w-48">
+                          <div className="absolute left-0 top-full mt-1 z-20 bg-white dark:bg-zinc-800 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 py-1 w-48">
                             <button
                               onClick={() => {
                                 uploadRef.current?.setAttribute('data-item-id', item.id);
                                 uploadRef.current?.setAttribute('data-item-name', item.itemName);
                                 uploadRef.current?.click();
                               }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-teal-50 hover:text-teal-700 transition-colors"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-teal-50 dark:hover:bg-teal-950 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
                             >
                               <Upload className="w-3.5 h-3.5" /> Upload new
                             </button>
                             <button
                               onClick={() => { setPickerItemId(item.id); setOpenMenuId(null); }}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 hover:bg-teal-50 hover:text-teal-700 transition-colors"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-teal-50 dark:hover:bg-teal-950 hover:text-teal-700 dark:hover:text-teal-300 transition-colors"
                             >
                               <FolderOpen className="w-3.5 h-3.5" /> From library
                             </button>

@@ -10,6 +10,7 @@ import {
   getCategoryGroup,
   isPredefinedCategory,
 } from '@/lib/document-categories';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 const FILE_ICONS = {
   pdf: FileText,
@@ -84,13 +85,13 @@ export default function DocumentCard({ doc, dynamicCategories = [], onDeleted }:
   const customCats = dynamicCategories.filter(id => !isPredefinedCategory(id));
 
   return (
-    <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm p-4">
+    <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm p-4">
       <div className="flex items-start gap-3">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${iconColors}`}>
           <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-zinc-900 truncate" title={doc.filename}>
+          <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate" title={doc.filename}>
             {doc.filename}
           </h3>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -108,45 +109,51 @@ export default function DocumentCard({ doc, dynamicCategories = [], onDeleted }:
             )}
           </div>
           {doc.notes && !editing && (
-            <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">{doc.notes}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 leading-relaxed">{doc.notes}</p>
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-teal-600 hover:bg-teal-50 transition-colors"
-            title="Download"
-          >
-            {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={() => { setEditing(!editing); setEditFilename(doc.filename); setEditCategory(doc.category); setEditNotes(doc.notes); }}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
-            title="Edit"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-            title="Delete"
-          >
-            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              onClick={handleDownload}
+              disabled={downloading}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
+            >
+              {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            </TooltipTrigger>
+            <TooltipContent>Download</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              onClick={() => { setEditing(!editing); setEditFilename(doc.filename); setEditCategory(doc.category); setEditNotes(doc.notes); }}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <Pencil className="w-4 h-4" />
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              onClick={handleDelete}
+              disabled={deleting}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            </TooltipTrigger>
+            <TooltipContent>Delete</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
       {editing && (
-        <div className="mt-3 pt-3 border-t border-zinc-100 space-y-3">
+        <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-3">
           <div>
             <label className="text-[10px] text-zinc-400 font-medium uppercase block mb-1">Filename</label>
             <input
               type="text"
               value={editFilename}
               onChange={e => setEditFilename(e.target.value)}
-              className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -154,7 +161,7 @@ export default function DocumentCard({ doc, dynamicCategories = [], onDeleted }:
             <select
               value={editCategory}
               onChange={e => setEditCategory(e.target.value)}
-              className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             >
               {CATEGORY_GROUPS.map(grp => (
                 <optgroup key={grp.group} label={grp.group}>
@@ -179,7 +186,7 @@ export default function DocumentCard({ doc, dynamicCategories = [], onDeleted }:
               value={editNotes}
               onChange={e => setEditNotes(e.target.value)}
               placeholder="Optional description..."
-              className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
           </div>
           <div className="flex items-center gap-2">
