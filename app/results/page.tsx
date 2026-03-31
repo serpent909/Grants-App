@@ -64,7 +64,7 @@ function ScoreRing({ score, size = 52, validated = false }: { score: number; siz
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
         <circle
           cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke="#f4f4f5" strokeWidth={strokeW}
+          fill="none" className="stroke-zinc-100 dark:stroke-zinc-700" strokeWidth={strokeW}
         />
         <circle
           cx={size / 2} cy={size / 2} r={r}
@@ -74,13 +74,13 @@ function ScoreRing({ score, size = 52, validated = false }: { score: number; siz
         />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="font-bold text-zinc-800 tabular-nums" style={{ fontSize: size < 44 ? 10 : 12 }}>
+        <span className="font-bold text-zinc-800 dark:text-zinc-200 tabular-nums" style={{ fontSize: size < 44 ? 10 : 12 }}>
           {s.toFixed(1)}
         </span>
       </div>
       {validated && (
         <Tooltip>
-          <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+          <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
             <CheckCircle2 className="w-2.5 h-2.5 text-white" />
           </TooltipTrigger>
           <TooltipContent>Deep research completed</TooltipContent>
@@ -99,7 +99,7 @@ function ScorePill({ score, label }: { score: number; label: string }) {
       <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(s)}`}>
         {s.toFixed(1)}
       </span>
-      <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">{label}</span>
+      <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-medium uppercase tracking-wide">{label}</span>
     </div>
   );
 }
@@ -114,10 +114,10 @@ function DeepSearchSection({ title, icon: Icon, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-100 bg-zinc-50/50">
+    <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/30">
         <Icon className="w-3.5 h-3.5 text-teal-600" />
-        <h4 className="text-xs font-semibold text-zinc-700 uppercase tracking-wider">{title}</h4>
+        <h4 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">{title}</h4>
       </div>
       <div className="px-4 py-3">{children}</div>
     </div>
@@ -130,12 +130,12 @@ function ScoreChangeRow({ label, change }: { label: string; change: DeepSearchSc
   const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
 
   return (
-    <div className="py-2.5 border-b border-zinc-100 last:border-0">
+    <div className="py-2.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-medium text-zinc-700">{label}</span>
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
         <div className="flex items-center gap-2">
-          <span className="text-sm tabular-nums text-zinc-400">{change.old.toFixed(1)}</span>
-          <span className="text-zinc-300">&rarr;</span>
+          <span className="text-sm tabular-nums text-zinc-400 dark:text-zinc-500">{change.old.toFixed(1)}</span>
+          <span className="text-zinc-300 dark:text-zinc-600">&rarr;</span>
           <span className={`text-sm font-bold tabular-nums px-1.5 py-0.5 rounded-md ${scoreTextClass(change.new)}`}>
             {change.new.toFixed(1)}
           </span>
@@ -145,7 +145,7 @@ function ScoreChangeRow({ label, change }: { label: string; change: DeepSearchSc
           </span>
         </div>
       </div>
-      <p className="text-xs text-zinc-500 leading-relaxed">{change.reason}</p>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">{change.reason}</p>
     </div>
   );
 }
@@ -180,21 +180,21 @@ function GrantDetail({
   const dsOpenDate = ds ? formatDate(ds.applicationOpenDate) : null;
 
   return (
-    <div className="bg-zinc-50 border-t border-zinc-200 px-6 py-6">
+    <div className="bg-zinc-50 dark:bg-zinc-800 border-t border-zinc-200 dark:border-zinc-700 px-6 py-6">
       {/* Meta row */}
       {(amount || deadline) && (
         <div className="flex flex-wrap gap-4 mb-5">
           {amount && (
             <div className="text-xs">
-              <span className="text-zinc-400 mr-1.5">Amount</span>
-              <span className="font-semibold text-zinc-700">{amount}</span>
+              <span className="text-zinc-400 dark:text-zinc-500 mr-1.5">Amount</span>
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300">{amount}</span>
             </div>
           )}
           {deadline && (
             <div className="text-xs flex items-center gap-1">
-              <CalendarDays className="w-3 h-3 text-zinc-400" />
-              <span className="text-zinc-400 mr-1">Closes</span>
-              <span className="font-semibold text-zinc-700">{deadline}</span>
+              <CalendarDays className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
+              <span className="text-zinc-400 dark:text-zinc-500 mr-1">Closes</span>
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300">{deadline}</span>
             </div>
           )}
         </div>
@@ -203,8 +203,8 @@ function GrantDetail({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Description */}
         <div>
-          <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">About this grant</h4>
-          <p className="text-sm text-zinc-700 leading-relaxed">{grant.description}</p>
+          <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">About this grant</h4>
+          <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.description}</p>
           <a
             href={grant.url}
             target="_blank"
@@ -227,7 +227,7 @@ function GrantDetail({
               </button>
             )}
             {deepSearchState === 'loading' && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-50 text-teal-700 ring-1 ring-teal-200">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-50 dark:bg-teal-950 text-teal-700 ring-1 ring-teal-200">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Researching...
               </div>
@@ -244,7 +244,7 @@ function GrantDetail({
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onDeepSearch?.(); }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 text-zinc-600 hover:bg-zinc-200 ring-1 ring-zinc-200 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 ring-1 ring-zinc-200 dark:ring-zinc-700 transition-colors"
                 >
                   <RotateCw className="w-3 h-3" />
                   Re-run
@@ -255,14 +255,14 @@ function GrantDetail({
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
                     isShortlisted
                       ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
-                      : 'bg-white border-zinc-300 text-zinc-700 hover:border-amber-400 hover:text-amber-700'
+                      : 'bg-white dark:bg-zinc-800 border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-amber-400 hover:text-amber-700'
                   }`}
                 >
                   <Star className={`w-3.5 h-3.5 ${isShortlisted ? 'fill-amber-400' : ''}`} />
                   {isShortlisted ? 'Shortlisted' : 'Shortlist'}
                 </button>
                 {ds?.searchedAt && (
-                  <span className="text-[11px] text-zinc-400">
+                  <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
                     Last run {new Date(ds.searchedAt).toLocaleString(locale, {
                       day: 'numeric', month: 'short', year: 'numeric',
                       hour: '2-digit', minute: '2-digit',
@@ -276,7 +276,7 @@ function GrantDetail({
           {/* Shortlist hint when no deep search */}
           {deepSearchState !== 'complete' && (
             <div className="mt-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 italic">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-400 dark:text-zinc-500 italic">
                 Run Deep Search for more details
               </span>
             </div>
@@ -286,27 +286,27 @@ function GrantDetail({
         {/* Alignment + Application */}
         <div className="space-y-5">
           <div>
-            <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Why it fits</h4>
-            <p className="text-sm text-zinc-700 leading-relaxed">{grant.alignmentReason}</p>
+            <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Why it fits</h4>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.alignmentReason}</p>
           </div>
           <div>
-            <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">How to apply</h4>
-            <p className="text-sm text-zinc-700 leading-relaxed">{grant.applicationNotes}</p>
+            <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">How to apply</h4>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.applicationNotes}</p>
           </div>
         </div>
 
         {/* Attainability + Score breakdown */}
         <div className="space-y-5">
           <div>
-            <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Attainability</h4>
-            <p className="text-sm text-zinc-700 leading-relaxed">{grant.attainabilityNotes}</p>
+            <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">Attainability</h4>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.attainabilityNotes}</p>
           </div>
 
           {(() => {
             const scores = ds?.scores ?? grant.scores;
             return (
-              <div className="bg-white rounded-xl border border-zinc-200 p-4">
-                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Score breakdown</p>
+              <div className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4">
+                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Score breakdown</p>
                 <div className="space-y-2.5">
                   {[
                     { label: 'Alignment', score: scores?.alignment ?? 0 },
@@ -314,9 +314,9 @@ function GrantDetail({
                     { label: 'Attainability', score: scores?.attainability ?? 0 },
                   ].map(({ label, score }) => (
                     <div key={label} className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-500">{label}</span>
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
                       <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                        <div className="w-20 h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full transition-all"
                             style={{
@@ -325,17 +325,17 @@ function GrantDetail({
                             }}
                           />
                         </div>
-                        <span className="text-xs font-bold text-zinc-700 tabular-nums w-6 text-right">
+                        <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 tabular-nums w-6 text-right">
                           {score.toFixed(1)}
                         </span>
                       </div>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
-                    <span className="text-xs font-semibold text-zinc-700">Overall</span>
-                    <span className="text-sm font-bold text-zinc-900 tabular-nums">
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Overall</span>
+                    <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100 tabular-nums">
                       {(scores?.overall ?? 0).toFixed(1)}
-                      <span className="text-xs font-normal text-zinc-400">/10</span>
+                      <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500">/10</span>
                     </span>
                   </div>
                 </div>
@@ -347,46 +347,46 @@ function GrantDetail({
 
       {/* ── Inline Deep Search Results ── */}
       {showDeepSearch && ds && (
-        <div className="mt-6 space-y-3 border-t border-zinc-200 pt-6">
+        <div className="mt-6 space-y-3 border-t border-zinc-200 dark:border-zinc-700 pt-6">
           {/* Key Details */}
           <DeepSearchSection title="Key Details" icon={Info}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                   <DollarSign className="w-4 h-4 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-400 font-medium">Grant Amount</p>
-                  <p className="text-sm font-semibold text-zinc-800">{dsAmount || 'Not specified'}</p>
-                  {ds.amountNotes && <p className="text-xs text-zinc-500 mt-0.5">{ds.amountNotes}</p>}
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">Grant Amount</p>
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{dsAmount || 'Not specified'}</p>
+                  {ds.amountNotes && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{ds.amountNotes}</p>}
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                   <CalendarDays className="w-4 h-4 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-400 font-medium">Application Window</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">Application Window</p>
                   {dsOpenDate || dsCloseDate ? (
-                    <div className="text-sm font-semibold text-zinc-800">
+                    <div className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                       {dsOpenDate && <span>Opens {dsOpenDate}</span>}
-                      {dsOpenDate && dsCloseDate && <span className="text-zinc-300 mx-1">|</span>}
+                      {dsOpenDate && dsCloseDate && <span className="text-zinc-300 dark:text-zinc-600 mx-1">|</span>}
                       {dsCloseDate && <span>Closes {dsCloseDate}</span>}
                     </div>
                   ) : (
-                    <p className="text-sm font-semibold text-zinc-800">Not specified</p>
+                    <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Not specified</p>
                   )}
-                  {ds.dateNotes && <p className="text-xs text-zinc-500 mt-0.5">{ds.dateNotes}</p>}
+                  {ds.dateNotes && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{ds.dateNotes}</p>}
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                   <FileText className="w-4 h-4 text-teal-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-zinc-400 font-medium">Application Form</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">Application Form</p>
                   {ds.applicationFormUrl ? (
                     <a
                       href={ds.applicationFormUrl}
@@ -400,20 +400,20 @@ function GrantDetail({
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   ) : (
-                    <p className="text-sm font-semibold text-zinc-800">Not found</p>
+                    <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">Not found</p>
                   )}
-                  {ds.applicationFormNotes && <p className="text-xs text-zinc-500 mt-0.5">{ds.applicationFormNotes}</p>}
+                  {ds.applicationFormNotes && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{ds.applicationFormNotes}</p>}
                 </div>
               </div>
 
               {ds.keyContacts && (
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
                     <MessageSquare className="w-4 h-4 text-teal-600" />
                   </div>
                   <div>
-                    <p className="text-xs text-zinc-400 font-medium">Contact</p>
-                    <p className="text-sm text-zinc-800">{ds.keyContacts}</p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">Contact</p>
+                    <p className="text-sm text-zinc-800 dark:text-zinc-200">{ds.keyContacts}</p>
                   </div>
                 </div>
               )}
@@ -424,13 +424,13 @@ function GrantDetail({
           <DeepSearchSection title="Score Recalibration" icon={ShieldCheck}>
             <div className="mb-2">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs text-zinc-400">Overall score:</span>
-                <span className="text-sm font-bold tabular-nums text-zinc-400">
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">Overall score:</span>
+                <span className="text-sm font-bold tabular-nums text-zinc-400 dark:text-zinc-500">
                   {ds.scoreChanges.alignment.old ? (
                     (ds.scoreChanges.alignment.old * 0.5 + ds.scoreChanges.attainability.old * 0.3 + ds.scoreChanges.ease.old * 0.2).toFixed(1)
                   ) : '?'}
                 </span>
-                <span className="text-zinc-300">&rarr;</span>
+                <span className="text-zinc-300 dark:text-zinc-600">&rarr;</span>
                 <span className={`text-sm font-bold tabular-nums px-1.5 py-0.5 rounded-md ${scoreTextClass(ds.scores.overall)}`}>
                   {ds.scores.overall.toFixed(1)}
                 </span>
@@ -448,7 +448,7 @@ function GrantDetail({
                 {ds.eligibilityCriteria.map((criterion, i) => (
                   <li key={i} className="flex items-start gap-2.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-zinc-700">{criterion}</span>
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{criterion}</span>
                   </li>
                 ))}
               </ul>
@@ -464,18 +464,18 @@ function GrantDetail({
                     {item.required ? (
                       <CheckCircle2 className="w-4 h-4 text-teal-600 mt-0.5 flex-shrink-0" />
                     ) : (
-                      <Circle className="w-4 h-4 text-zinc-300 mt-0.5 flex-shrink-0" />
+                      <Circle className="w-4 h-4 text-zinc-300 dark:text-zinc-600 mt-0.5 flex-shrink-0" />
                     )}
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-800">{item.item}</span>
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.item}</span>
                         {item.required ? (
-                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">Required</span>
+                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 dark:bg-teal-950 px-1.5 py-0.5 rounded">Required</span>
                         ) : (
-                          <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">Optional</span>
+                          <span className="text-[10px] font-semibold text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">Optional</span>
                         )}
                       </div>
-                      <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{item.description}</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">{item.description}</p>
                     </div>
                   </li>
                 ))}
@@ -486,14 +486,14 @@ function GrantDetail({
           {/* Past Recipients & Insights */}
           {ds.pastRecipientNotes && (
             <DeepSearchSection title="Past Recipients & Insights" icon={Users}>
-              <p className="text-sm text-zinc-700 leading-relaxed">{ds.pastRecipientNotes}</p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{ds.pastRecipientNotes}</p>
             </DeepSearchSection>
           )}
 
           {/* Additional Information */}
           {ds.additionalInfo && (
             <DeepSearchSection title="Additional Information" icon={Info}>
-              <p className="text-sm text-zinc-700 leading-relaxed">{ds.additionalInfo}</p>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{ds.additionalInfo}</p>
             </DeepSearchSection>
           )}
 
@@ -503,7 +503,7 @@ function GrantDetail({
               <ul className="space-y-2">
                 {ds.sourcesUsed.map((source, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400 mt-0.5 flex-shrink-0" />
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mt-0.5 flex-shrink-0" />
                     <div className="min-w-0">
                       <a
                         href={source.url}
@@ -514,7 +514,7 @@ function GrantDetail({
                         {source.title || source.url}
                       </a>
                       {source.title && (
-                        <p className="text-xs text-zinc-400 truncate">{source.url}</p>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500 truncate">{source.url}</p>
                       )}
                     </div>
                   </li>
@@ -523,7 +523,7 @@ function GrantDetail({
             </DeepSearchSection>
           )}
 
-          <p className="text-xs text-zinc-400 text-center pt-1">
+          <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center pt-1">
             Scores and information are AI-generated estimates. Always verify details directly with funders.
           </p>
         </div>
@@ -563,10 +563,10 @@ function FunderAccordion({
     setExpandedGrantId(prev => (prev === id ? null : id));
 
   return (
-    <div className={`bg-white rounded-xl ring-1 ring-zinc-200 overflow-hidden shadow-sm border-l-4 ${cfg.border}`}>
+    <div className={`bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 overflow-hidden shadow-sm border-l-4 ${cfg.border}`}>
       {/* Funder header */}
       <button
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-zinc-50/70 transition-colors text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50 transition-colors text-left"
         onClick={() => setOpen(o => !o)}
       >
         <div className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center ${cfg.icon}`}>
@@ -575,11 +575,11 @@ function FunderAccordion({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="font-semibold text-zinc-900 text-sm">{group.funder}</span>
+            <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">{group.funder}</span>
             <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium ring-1 ${cfg.badge}`}>
               {group.type}
             </span>
-            <span className="text-zinc-400 text-xs">
+            <span className="text-zinc-400 dark:text-zinc-500 text-xs">
               {group.grants.length} {group.grants.length === 1 ? 'program' : 'programs'}
             </span>
             {(() => {
@@ -605,19 +605,19 @@ function FunderAccordion({
 
         <div className="flex items-center gap-4 flex-shrink-0">
           <div className="hidden sm:flex flex-col items-center">
-            <span className="text-[10px] text-zinc-400 mb-1">Best match</span>
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500 mb-1">Best match</span>
             <ScoreRing score={group.bestScore} size={44} />
           </div>
           {open
-            ? <ChevronUp className="w-4 h-4 text-zinc-400" />
-            : <ChevronDown className="w-4 h-4 text-zinc-400" />
+            ? <ChevronUp className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
+            : <ChevronDown className="w-4 h-4 text-zinc-400 dark:text-zinc-500" />
           }
         </div>
       </button>
 
       {/* Grant programs */}
       {open && (
-        <div className="border-t border-zinc-100 divide-y divide-zinc-100">
+        <div className="border-t border-zinc-100 dark:border-zinc-800 divide-y divide-zinc-100 dark:divide-zinc-800">
           {group.grants.map((grant, gi) => {
             const isExpanded = expandedGrantId === grant.id;
             const deadline = formatDeadline(grant.deadline, locale);
@@ -627,7 +627,7 @@ function FunderAccordion({
               <div key={`${grant.id}-${gi}`}>
                 <button
                   className={`w-full flex items-center gap-4 pl-5 pr-4 py-3.5 text-left transition-colors ${
-                    isExpanded ? 'bg-indigo-50/60' : 'bg-white hover:bg-zinc-50/70'
+                    isExpanded ? 'bg-indigo-50/60 dark:bg-indigo-950/40' : 'bg-white dark:bg-zinc-800 hover:bg-zinc-50/70 dark:hover:bg-zinc-800/50'
                   }`}
                   onClick={() => toggleGrant(grant.id)}
                 >
@@ -652,21 +652,21 @@ function FunderAccordion({
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium leading-snug ${isExpanded ? 'text-indigo-700' : 'text-zinc-800'}`}>
+                    <p className={`text-sm font-medium leading-snug ${isExpanded ? 'text-indigo-700 dark:text-indigo-400' : 'text-zinc-800 dark:text-zinc-200'}`}>
                       {grant.name}
                     </p>
                     <div className="flex items-center gap-3 mt-1">
                       {amount && (
-                        <span className="text-xs text-zinc-400 tabular-nums">{amount}</span>
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">{amount}</span>
                       )}
                       {deadline && (
-                        <span className="flex items-center gap-1 text-xs text-zinc-400">
+                        <span className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
                           <CalendarDays className="w-3 h-3" />
                           {deadline}
                         </span>
                       )}
                       {!deadline && !amount && (
-                        <span className="text-xs text-zinc-400">Open / Rolling</span>
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500">Open / Rolling</span>
                       )}
                     </div>
                   </div>
@@ -693,7 +693,7 @@ function FunderAccordion({
                           </div>
                           {deepSearchIds?.has(grant.id) && (
                             <Tooltip>
-                              <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+                              <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
                                 <CheckCircle2 className="w-2.5 h-2.5 text-white" />
                               </TooltipTrigger>
                               <TooltipContent>Deep research completed</TooltipContent>
@@ -704,7 +704,7 @@ function FunderAccordion({
                     );
                   })()}
 
-                  <div className="text-zinc-400 flex-shrink-0">
+                  <div className="text-zinc-400 dark:text-zinc-500 flex-shrink-0">
                     {isExpanded
                       ? <ChevronUp className="w-3.5 h-3.5" />
                       : <ChevronDown className="w-3.5 h-3.5" />
@@ -1093,25 +1093,25 @@ function ResultsContent() {
 
   if (!result) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center mx-auto mb-4">
+          <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-950 flex items-center justify-center mx-auto mb-4">
             <Search className="w-5 h-5 text-teal-600 animate-pulse" />
           </div>
-          <p className="text-sm text-zinc-500 font-medium">Loading results...</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 font-medium">Loading results...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
       {/* ── Page header ── */}
-      <div className="bg-white border-b border-zinc-200">
+      <div className="bg-white dark:bg-zinc-800 border-b border-zinc-200 dark:border-zinc-700">
         <div className="max-w-6xl mx-auto px-6 py-5">
           <button
             onClick={() => router.push('/')}
-            className="flex items-center gap-1.5 text-sm text-zinc-500 hover:text-zinc-800 transition-colors mb-4 group"
+            className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors mb-4 group"
           >
             <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
             New Search
@@ -1119,11 +1119,11 @@ function ResultsContent() {
 
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 className="text-xl font-bold text-zinc-900">
+              <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                 {result.inputs?.searchTitle || savedName || 'Grant Opportunities'}
               </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 bg-teal-50 text-teal-700 text-sm font-semibold px-3 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1.5 bg-teal-50 dark:bg-teal-950 text-teal-700 text-sm font-semibold px-3 py-1 rounded-full">
                   {isStreaming ? (
                     <>{result.grants.length} grants so far...</>
                   ) : (
@@ -1131,7 +1131,7 @@ function ResultsContent() {
                   )}
                 </span>
                 {!isStreaming && result.searchedAt && (
-                  <span className="text-xs text-zinc-400">
+                  <span className="text-xs text-zinc-400 dark:text-zinc-500">
                     Searched {new Date(result.searchedAt).toLocaleString(market?.locale ?? 'en-NZ', {
                       day: 'numeric', month: 'short', year: 'numeric',
                       hour: '2-digit', minute: '2-digit',
@@ -1143,7 +1143,7 @@ function ResultsContent() {
 
             <button
               onClick={() => router.push('/')}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-teal-200 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm shadow-teal-200 dark:shadow-none transition-all"
             >
               <Search className="w-3.5 h-3.5" />
               New Search
@@ -1159,19 +1159,19 @@ function ResultsContent() {
             ? streamProgress * 100
             : animatedProgress;
           return (
-            <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-teal-500">
+            <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 p-5 shadow-sm border-l-4 border-l-teal-500">
               <div className="flex items-center gap-3 mb-3">
                 <Loader2 className="w-4 h-4 animate-spin text-teal-600 flex-shrink-0" />
-                <span className="text-sm font-semibold text-zinc-800">
+                <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
                   {streamProgress > 0
                     ? 'Scoring and ranking grants...'
                     : 'Analysing grants...'}
                 </span>
-                <span className="text-xs text-zinc-400 ml-auto tabular-nums">
+                <span className="text-xs text-zinc-400 dark:text-zinc-500 ml-auto tabular-nums">
                   {Math.round(displayProgress)}%
                 </span>
               </div>
-              <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden mb-3">
+              <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden mb-3">
                 <div
                   className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${displayProgress}%` }}
@@ -1182,7 +1182,7 @@ function ResultsContent() {
                   {result.grants.length} grant{result.grants.length !== 1 ? 's' : ''} found so far
                 </span>
               ) : (
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">
                   Results will appear as grants are scored
                 </span>
               )}
@@ -1192,7 +1192,7 @@ function ResultsContent() {
 
         {/* ── Stream error ── */}
         {streamError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4 shadow-sm">
+          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl px-5 py-4 shadow-sm">
             <p className="text-sm font-medium text-red-700 mb-2">Search failed</p>
             <p className="text-sm text-red-600">{streamError}</p>
             <button
@@ -1206,34 +1206,34 @@ function ResultsContent() {
 
         {/* ── Org summary ── */}
         {result.orgSummary && (
-          <div className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 shadow-sm border-l-4 border-l-teal-500">
+          <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 p-5 shadow-sm border-l-4 border-l-teal-500">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">Organisation Summary</span>
             </div>
-            <p className="text-sm text-zinc-700 leading-relaxed">{result.orgSummary}</p>
+            <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{result.orgSummary}</p>
           </div>
         )}
 
         {/* ── Filter toolbar ── */}
-        <div className="bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden sticky top-16 z-20">
+        <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm overflow-hidden sticky top-16 z-20">
           <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
-            <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mr-1">
+            <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500 font-medium mr-1">
               <SlidersHorizontal className="w-3.5 h-3.5" />
               Filter &amp; sort
             </div>
 
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
               <Input
                 placeholder="Search grants or funders..."
-                className="pl-9 h-9 text-sm border-zinc-200 focus-visible:ring-teal-500 bg-zinc-50"
+                className="pl-9 h-9 text-sm border-zinc-200 dark:border-zinc-700 focus-visible:ring-teal-500 bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
 
             <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
-              <SelectTrigger className="w-[140px] h-9 text-sm border-zinc-200 bg-zinc-50">
+              <SelectTrigger className="w-[140px] h-9 text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -1248,7 +1248,7 @@ function ResultsContent() {
             </Select>
 
             <Select value={minScore} onValueChange={v => setMinScore(v ?? '5')}>
-              <SelectTrigger className="w-[130px] h-9 text-sm border-zinc-200 bg-zinc-50">
+              <SelectTrigger className="w-[130px] h-9 text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1261,7 +1261,7 @@ function ResultsContent() {
             </Select>
 
             <Select value={sortField} onValueChange={v => setSortField((v ?? 'overall') as SortField)}>
-              <SelectTrigger className="w-[170px] h-9 text-sm border-zinc-200 bg-zinc-50">
+              <SelectTrigger className="w-[170px] h-9 text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 dark:text-zinc-100">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1275,7 +1275,7 @@ function ResultsContent() {
 
             <button
               onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
-              className="h-9 w-9 flex items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 hover:bg-zinc-100 transition-colors text-zinc-500"
+              className="h-9 w-9 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors text-zinc-500 dark:text-zinc-400"
               title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
             >
               {sortDir === 'asc'
@@ -1284,14 +1284,14 @@ function ResultsContent() {
               }
             </button>
 
-            <span className="text-xs text-zinc-400 ml-auto whitespace-nowrap">
+            <span className="text-xs text-zinc-400 dark:text-zinc-500 ml-auto whitespace-nowrap">
               {totalShown} of {result.grants.length}
             </span>
           </div>
 
           {/* Score legend */}
-          <div className="px-4 py-2.5 border-t border-zinc-100 bg-zinc-50 flex items-center gap-5 flex-wrap">
-            <span className="text-[11px] text-zinc-400 font-medium">Score scale:</span>
+          <div className="px-4 py-2.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 flex items-center gap-5 flex-wrap">
+            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">Score scale:</span>
             {[
               ['8–10', '#10b981', 'Excellent match'],
               ['6.5–8', '#f59e0b', 'Good match'],
@@ -1300,9 +1300,9 @@ function ResultsContent() {
             ].map(([range, color, label]) => (
               <div key={range} className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                <span className="text-[11px] text-zinc-500">
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   <span className="font-medium">{range}</span>
-                  <span className="text-zinc-400 ml-1">{label}</span>
+                  <span className="text-zinc-400 dark:text-zinc-500 ml-1">{label}</span>
                 </span>
               </div>
             ))}
@@ -1311,10 +1311,10 @@ function ResultsContent() {
 
         {/* ── Results ── */}
         {funderGroups.length === 0 && !isStreaming ? (
-          <div className="bg-white rounded-xl ring-1 ring-zinc-200 py-20 text-center shadow-sm">
-            <Search className="w-8 h-8 mx-auto mb-3 text-zinc-300" />
-            <p className="font-semibold text-zinc-500 text-sm">No grants match your filters</p>
-            <p className="text-xs text-zinc-400 mt-1">Try lowering the minimum score or clearing the search</p>
+          <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 py-20 text-center shadow-sm">
+            <Search className="w-8 h-8 mx-auto mb-3 text-zinc-300 dark:text-zinc-600" />
+            <p className="font-semibold text-zinc-500 dark:text-zinc-400 text-sm">No grants match your filters</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Try lowering the minimum score or clearing the search</p>
           </div>
         ) : funderGroups.length === 0 && isStreaming ? (
           null
@@ -1339,7 +1339,7 @@ function ResultsContent() {
 
         {/* Deep search error toast */}
         {deepSearchError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 flex items-center justify-between">
             <p className="text-sm text-red-700">{deepSearchError}</p>
             <button onClick={() => setDeepSearchError(null)} className="text-red-400 hover:text-red-600 ml-3">
               <X className="w-4 h-4" />
@@ -1347,7 +1347,7 @@ function ResultsContent() {
           </div>
         )}
 
-        <p className="text-center text-xs text-zinc-400 pt-2 pb-4">
+        <p className="text-center text-xs text-zinc-400 dark:text-zinc-500 pt-2 pb-4">
           Scores are AI-generated estimates. Always verify grant details directly with funders before applying.
         </p>
       </div>

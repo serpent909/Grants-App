@@ -38,42 +38,42 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-zinc-900">GrantSearch</h1>
-          <p className="text-sm text-zinc-500 mt-1">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">GrantSearch</h1>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Sign in to your account</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-zinc-200 p-6">
+        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-zinc-600 block mb-1.5">Email</label>
+              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
                 autoFocus
-                className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="you@example.com"
               />
             </div>
 
             <div>
-              <label className="text-xs font-medium text-zinc-600 block mb-1.5">Password</label>
+              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Password</label>
               <input
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                className="w-full text-sm border border-zinc-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="Enter your password"
               />
             </div>
 
             {error && (
-              <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{error}</p>
             )}
 
             <button
@@ -87,9 +87,9 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="text-center text-sm text-zinc-500 mt-6">
+        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mt-6">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-medium text-teal-600 hover:text-teal-700">
+          <Link href="/signup" className="font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">
             Create one
           </Link>
         </p>

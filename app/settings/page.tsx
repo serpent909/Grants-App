@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Loader2, UserPlus, Trash2, Copy, Check } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface Member {
   id: string;
@@ -122,17 +123,17 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-      <h1 className="text-xl font-bold text-zinc-900">Settings</h1>
+      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Settings</h1>
 
       {/* Organisation Name */}
-      <section className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Organisation</h2>
+      <section className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Organisation</h2>
         <div className="flex gap-2">
           <input
             type="text"
             value={orgName}
             onChange={e => setOrgName(e.target.value)}
-            className="flex-1 text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            className="flex-1 text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
           <button
             onClick={handleSaveOrgName}
@@ -144,23 +145,25 @@ export default function SettingsPage() {
       </section>
 
       {/* Members */}
-      <section className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Members</h2>
-        <div className="divide-y divide-zinc-100">
+      <section className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Members</h2>
+        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {members.map(m => (
             <div key={m.id} className="flex items-center justify-between py-2.5">
               <div>
-                <p className="text-sm font-medium text-zinc-900">{m.name}</p>
-                <p className="text-xs text-zinc-500">{m.email}</p>
+                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{m.name}</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">{m.email}</p>
               </div>
               {m.id !== currentUserId && (
-                <button
-                  onClick={() => handleRemoveMember(m.id)}
-                  className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
-                  title="Remove member"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={() => handleRemoveMember(m.id)}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Remove member</TooltipContent>
+                </Tooltip>
               )}
             </div>
           ))}
@@ -168,8 +171,8 @@ export default function SettingsPage() {
       </section>
 
       {/* Invite */}
-      <section className="bg-white rounded-xl ring-1 ring-zinc-200 p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-zinc-900">Invite a team member</h2>
+      <section className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Invite a team member</h2>
         <form onSubmit={handleInvite} className="flex gap-2">
           <input
             type="email"
@@ -177,7 +180,7 @@ export default function SettingsPage() {
             onChange={e => setInviteEmail(e.target.value)}
             required
             placeholder="colleague@example.com"
-            className="flex-1 text-sm border border-zinc-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+            className="flex-1 text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
           />
           <button
             type="submit"
@@ -189,38 +192,42 @@ export default function SettingsPage() {
           </button>
         </form>
         {inviteError && (
-          <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{inviteError}</p>
+          <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{inviteError}</p>
         )}
         {inviteSuccess && (
-          <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2">{inviteSuccess}</p>
+          <p className="text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2">{inviteSuccess}</p>
         )}
 
         {pendingInvites.length > 0 && (
           <div className="mt-3 space-y-2">
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Pending invitations</p>
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Pending invitations</p>
             {pendingInvites.map(inv => (
-              <div key={inv.id} className="flex items-center justify-between py-2 px-3 bg-zinc-50 rounded-lg">
+              <div key={inv.id} className="flex items-center justify-between py-2 px-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
                 <div>
-                  <p className="text-sm text-zinc-700">{inv.email}</p>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">{inv.email}</p>
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500">
                     Expires {new Date(inv.expiresAt).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => copyInviteLink(inv.token)}
-                    className="p-1.5 text-zinc-400 hover:text-teal-600 transition-colors"
-                    title="Copy invite link"
-                  >
-                    {copiedToken === inv.token ? <Check className="w-4 h-4 text-teal-600" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => handleRevokeInvite(inv.id)}
-                    className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
-                    title="Revoke invitation"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger
+                      onClick={() => copyInviteLink(inv.token)}
+                      className="p-1.5 text-zinc-400 hover:text-teal-600 transition-colors"
+                    >
+                      {copiedToken === inv.token ? <Check className="w-4 h-4 text-teal-600" /> : <Copy className="w-4 h-4" />}
+                    </TooltipTrigger>
+                    <TooltipContent>Copy invite link</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger
+                      onClick={() => handleRevokeInvite(inv.id)}
+                      className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </TooltipTrigger>
+                    <TooltipContent>Revoke invitation</TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
             ))}

@@ -11,6 +11,7 @@ import { useShortlistedBySearch } from '@/lib/shortlist-storage';
 import { useApplicationsByStatus } from '@/lib/application-storage';
 import { getMarket } from '@/lib/markets';
 import { GrantApplication } from '@/lib/types';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 export default function SavedPage() {
   const router = useRouter();
@@ -67,33 +68,33 @@ export default function SavedPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#f7f5f0] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0]">
+    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900">
       <div className="max-w-6xl mx-auto px-6 py-12">
 
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 bg-teal-50 rounded-xl flex items-center justify-center">
-            <History className="w-4 h-4 text-teal-600" />
+          <div className="w-9 h-9 bg-teal-50 dark:bg-teal-950 rounded-xl flex items-center justify-center">
+            <History className="w-4 h-4 text-teal-600 dark:text-teal-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-zinc-900">Funding Searches</h1>
-            <p className="text-sm text-zinc-500">
+            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Funding Searches</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
               {searches.length === 0 ? 'No searches yet' : `${searches.length} active search${searches.length === 1 ? '' : 'es'}`}
             </p>
           </div>
         </div>
 
         {searches.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-200 py-20 text-center shadow-sm">
-            <Bookmark className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
+          <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 py-20 text-center shadow-sm">
+            <Bookmark className="w-8 h-8 mx-auto mb-3 text-zinc-200 dark:text-zinc-600" />
             <p className="font-semibold text-zinc-400 text-sm">No funding searches yet</p>
-            <p className="text-xs text-zinc-400 mt-1 mb-6">
+            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 mb-6">
               Run a search and it will appear here automatically.
             </p>
             <button
@@ -122,37 +123,37 @@ export default function SavedPage() {
                 <div
                   key={saved.id}
                   onClick={() => handleOpen(saved)}
-                  className="bg-white rounded-xl border border-zinc-200 p-5 shadow-sm hover:shadow-md hover:border-teal-200 transition-all cursor-pointer group"
+                  className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 shadow-sm hover:shadow-md hover:border-teal-200 dark:hover:border-teal-800 transition-all cursor-pointer group"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <h2 className="font-semibold text-zinc-900 group-hover:text-teal-700 transition-colors">
+                        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
                           {saved.name}
                         </h2>
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-100 dark:border-teal-800">
                           {market.displayName}
                         </span>
                       </div>
 
                       {saved.orgSummary && (
-                        <p className="text-sm text-zinc-500 leading-relaxed line-clamp-2 mb-3">
+                        <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2 mb-3">
                           {saved.orgSummary}
                         </p>
                       )}
 
-                      <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
-                        <span className="font-medium text-zinc-600">
+                      <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 flex-wrap">
+                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
                           {saved.grantCount} grants found
                         </span>
                         {shortlisted > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800 font-medium">
                             <Star className="w-3 h-3" />
                             {shortlisted} shortlisted
                           </span>
                         )}
                         {apps > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 font-medium">
                             <FileText className="w-3 h-3" />
                             {apps} application{apps === 1 ? '' : 's'}
                           </span>
@@ -166,24 +167,28 @@ export default function SavedPage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 mt-0.5">
-                      <button
-                        onClick={e => handleDeleteClick(saved, e)}
-                        className="p-1.5 rounded-lg text-zinc-300 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      {saved.result.inputs && (
-                        <button
-                          onClick={e => handleRerun(saved, e)}
-                          className="p-1.5 rounded-lg text-zinc-300 hover:text-teal-600 hover:bg-teal-50 transition-colors"
-                          title="Edit & re-run search"
+                      <Tooltip>
+                        <TooltipTrigger
+                          onClick={e => handleDeleteClick(saved, e)}
+                          className="p-1.5 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
                         >
-                          <RotateCcw className="w-4 h-4" />
-                        </button>
+                          <Trash2 className="w-4 h-4" />
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
+                      {saved.result.inputs && (
+                        <Tooltip>
+                          <TooltipTrigger
+                            onClick={e => handleRerun(saved, e)}
+                            className="p-1.5 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </TooltipTrigger>
+                          <TooltipContent>Edit & re-run search</TooltipContent>
+                        </Tooltip>
                       )}
-                      <div className="w-8 h-8 rounded-lg bg-teal-50 group-hover:bg-teal-100 flex items-center justify-center transition-colors">
-                        <ArrowRight className="w-3.5 h-3.5 text-teal-600 group-hover:translate-x-0.5 transition-transform" />
+                      <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 group-hover:bg-teal-100 dark:group-hover:bg-teal-900 flex items-center justify-center transition-colors">
+                        <ArrowRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:translate-x-0.5 transition-transform" />
                       </div>
                     </div>
                   </div>
@@ -202,13 +207,13 @@ export default function SavedPage() {
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-xl border border-zinc-200 w-full max-w-md mx-4 p-6"
+            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-md mx-4 p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-red-50 dark:bg-red-950 rounded-xl flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-semibold text-zinc-900">Delete search?</h3>
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Delete search?</h3>
             </div>
 
             {(() => {
@@ -217,29 +222,29 @@ export default function SavedPage() {
               const hasLinked = shortlisted > 0 || apps > 0;
               return hasLinked ? (
                 <>
-                  <p className="text-sm text-zinc-600 mb-3">
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
                     <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span> has linked data:
                   </p>
                   <div className="space-y-1.5 mb-5">
                     {shortlisted > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg">
                         <Star className="w-3.5 h-3.5" />
                         {shortlisted} shortlisted grant{shortlisted === 1 ? '' : 's'}
                       </div>
                     )}
                     {apps > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-blue-700 bg-blue-50 px-3 py-2 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 px-3 py-2 rounded-lg">
                         <FileText className="w-3.5 h-3.5" />
                         {apps} application{apps === 1 ? '' : 's'} in progress
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-zinc-500 mb-5">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
                     Deleting this search will only remove the search itself. Your shortlisted grants and applications will not be affected.
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-zinc-600 mb-5">
+                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
                   Are you sure you want to delete <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span>?
                 </p>
               );
@@ -248,7 +253,7 @@ export default function SavedPage() {
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
               >
                 Cancel
               </button>

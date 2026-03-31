@@ -73,7 +73,7 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={uploading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-zinc-300 text-zinc-700 hover:border-teal-400 hover:text-teal-700 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:border-teal-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors disabled:opacity-50"
         >
           {uploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
           Upload
@@ -104,22 +104,22 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
         onClick={() => inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl px-6 py-8 text-center cursor-pointer transition-colors ${
           dragging
-            ? 'border-teal-400 bg-teal-50/50'
-            : 'border-zinc-200 hover:border-zinc-300 bg-white'
+            ? 'border-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
+            : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 bg-white dark:bg-zinc-800'
         }`}
       >
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
-            <p className="text-sm font-medium text-zinc-600">Uploading...</p>
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Uploading...</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-2">
             <Upload className="w-6 h-6 text-zinc-400" />
-            <p className="text-sm font-medium text-zinc-600">
-              Drop files here or <span className="text-teal-600">browse</span>
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+              Drop files here or <span className="text-teal-600 dark:text-teal-400">browse</span>
             </p>
-            <p className="text-xs text-zinc-400">PDF, Word, Excel, JPEG, PNG — max 10MB</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">PDF, Word, Excel, JPEG, PNG — max 10MB</p>
           </div>
         )}
       </div>

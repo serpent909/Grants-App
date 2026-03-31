@@ -4,6 +4,7 @@ import { SessionProvider } from 'next-auth/react';
 import { SWRConfig } from 'swr';
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
+import { ThemeProvider } from '@/components/theme-provider';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,9 +31,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <SWRConfig value={{ fetcher, onError }}>
-        {children}
-      </SWRConfig>
+      <ThemeProvider>
+        <SWRConfig value={{ fetcher, onError }}>
+          {children}
+        </SWRConfig>
+      </ThemeProvider>
     </SessionProvider>
   );
 }
