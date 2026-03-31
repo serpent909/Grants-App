@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GrantSearch NZ — End-to-End Overview</title>
+<title>GrantSearch NZ &mdash; End-to-End Overview</title>
 <style>
   :root {
     --bg: #0f1117;
@@ -166,7 +166,7 @@
 <body>
 <div class="container">
   <h1>GrantSearch NZ &mdash; How It Works</h1>
-  <p class="subtitle">End-to-end overview of the grant search, deep search, and application tracking pipeline</p>
+  <p class="subtitle">End-to-end overview of the multi-tenant grant search, deep research, document management, and application tracking platform</p>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <!-- SECTION 1: DATABASE -->
@@ -174,43 +174,60 @@
   <div class="pipeline-section">
     <div class="section-header">
       <div class="step-badge" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">DB</div>
-      <div class="section-title">Grants Database (Neon Postgres)</div>
+      <div class="section-title">Database (Neon Postgres) &mdash; ~10 Tables</div>
     </div>
     <p class="section-desc">
-      The grants database is the foundation of the search pipeline. It contains <strong>~4,500 active grants</strong> from NZ funders,
-      populated via a multi-step data pipeline and continuously enriched. Grants are pre-tagged with regions and sectors
-      so searches can filter and rank without any external API calls.
+      The database is the foundation of the platform. It contains <strong>~4,500 active grants</strong> from NZ funders,
+      populated via a 24-script data pipeline and continuously enriched. All runtime tables support
+      <strong>multi-tenancy via organisations</strong> &mdash; composite keys with <code>org_id</code> ensure data isolation between teams.
     </p>
 
     <div class="card-row">
       <div class="card">
         <div class="card-header" style="color: var(--accent-blue);">
-          <span class="dot" style="background: var(--accent-blue);"></span> charities table
+          <span class="dot" style="background: var(--accent-blue);"></span> Grant Data (2 tables)
         </div>
         <div class="card-body" style="color: var(--text-muted);">
-          ~6,300 records from the NZ Charities Register + 272 curated funders.
-          Each row has a <code>curated_grant_url</code> and <code>regions[]</code>.
-          Source of truth for funder identity.
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" style="color: var(--accent-green);">
-          <span class="dot" style="background: var(--accent-green);"></span> grants table
-        </div>
-        <div class="card-body" style="color: var(--text-muted);">
-          Individual grant programs linked to funders via <code>funder_id</code>.
-          Fields: name, type, description, url, amount range, deadline, regions[], sectors[], eligibility[], application_form_url.
+          <strong>charities</strong> &mdash; ~6,300 records from the NZ Charities Register + 272 curated funders.
+          Each row has <code>curated_grant_url</code> and <code>regions[]</code>. Source of truth for funder identity.<br><br>
+          <strong>grants</strong> &mdash; Individual grant programs linked to funders via <code>funder_id</code>.
+          Fields: name, type, description, url, amount range, deadline, regions[], sectors[], eligibility[].
           GIN indexes on regions &amp; sectors for fast overlap queries.
         </div>
       </div>
       <div class="card">
-        <div class="card-header" style="color: var(--accent-purple);">
-          <span class="dot" style="background: var(--accent-purple);"></span> Runtime storage
+        <div class="card-header" style="color: var(--accent-green);">
+          <span class="dot" style="background: var(--accent-green);"></span> Auth &amp; Tenancy (3 tables)
         </div>
         <div class="card-body" style="color: var(--text-muted);">
-          4 tables created on first use: <code>saved_searches</code>, <code>shortlisted_grants</code>,
-          <code>deep_searches</code>, <code>grant_applications</code>.
-          All store JSON payloads alongside metadata.
+          <strong>organisations</strong> &mdash; Tenant boundary. Name, slug. All runtime data scoped to an org.<br><br>
+          <strong>users</strong> &mdash; Authenticated users linked to an org. Email, name, role (admin/member), managed via NextAuth v5.<br><br>
+          <strong>invitations</strong> &mdash; Token-based team invites. Email, role, expiry, accepted status.
+        </div>
+      </div>
+    </div>
+
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-purple);">
+          <span class="dot" style="background: var(--accent-purple);"></span> Runtime Storage (5 tables)
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          All tenant-scoped with <code>org_id</code> composite keys:<br><br>
+          <strong>saved_searches</strong> &mdash; Search parameters and result snapshots<br>
+          <strong>shortlisted_grants</strong> &mdash; Grants saved for further review<br>
+          <strong>deep_searches</strong> &mdash; Per-grant research results from deep search<br>
+          <strong>grant_applications</strong> &mdash; Application tracking with status workflow<br>
+          <strong>documents</strong> &mdash; Document metadata for Vercel Blob uploads, with categories and usage tracking
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-amber);">
+          <span class="dot" style="background: var(--accent-amber);"></span> Checklist System (2 tables)
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          <strong>application_checklist_items</strong> &mdash; Initialized from deep search findings. Tracks required documents, forms, and steps for each application. Status: pending/complete.<br><br>
+          <strong>checklist_documents</strong> &mdash; Links uploaded documents to specific checklist items. Many-to-many join table.
         </div>
       </div>
     </div>
@@ -227,9 +244,10 @@
       <div class="section-title">Grant Search (Two-Pass Pipeline)</div>
     </div>
     <p class="section-desc">
-      User submits a search form with their org details, sectors, regions, and funding purpose.
+      User completes a <strong>4-step search wizard</strong>: Organisation &rarr; Location/Focus &rarr; Funding Details &rarr; Review.
       The API queries the grants DB and runs a two-pass AI pipeline: cheap triage then full scoring.
-      <strong>No web scraping or external search &mdash; only GPT-4o-mini token costs.</strong>
+      Results are delivered as <strong>streaming SSE responses</strong> so the UI updates progressively.
+      <strong>No web scraping or external search &mdash; only GPT-4.1-mini token costs.</strong>
     </p>
 
     <div class="card-row">
@@ -255,14 +273,14 @@
               <tr style="background: rgba(167, 139, 250, 0.05);">
                 <td><strong>Pass 1: Triage</strong></td>
                 <td style="text-align: right; font-family: monospace;">~200&ndash;400</td>
-                <td style="color: var(--text-muted);">GPT-4o-mini classifies each grant as RELEVANT or SKIP in batches of 100. Binary decision &mdash; cheap &amp; fast. Skips only when &ge;90% confident grant is irrelevant.</td>
-                <td style="text-align: right; color: var(--accent-blue);">GPT-4o-mini</td>
+                <td style="color: var(--text-muted);">GPT-4.1-mini classifies each grant as RELEVANT or SKIP in batches of 100. Binary decision &mdash; cheap &amp; fast. Skips only when &ge;90% confident grant is irrelevant.</td>
+                <td style="text-align: right; color: var(--accent-blue);">GPT-4.1-mini</td>
               </tr>
               <tr style="background: rgba(167, 139, 250, 0.05);">
                 <td><strong>Pass 2: Scoring</strong></td>
                 <td style="text-align: right; font-family: monospace;">~200&ndash;400</td>
-                <td style="color: var(--text-muted);">GPT-4o-mini scores each relevant grant on 3 dimensions (alignment, ease, attainability) in batches of 25. Generates orgSummary on first batch.</td>
-                <td style="text-align: right; color: var(--accent-blue);">GPT-4o-mini</td>
+                <td style="color: var(--text-muted);">GPT-4.1-mini scores each relevant grant on 3 dimensions (alignment, ease, attainability) in batches of 25. Generates orgSummary on first batch. Results streamed via SSE.</td>
+                <td style="text-align: right; color: var(--accent-blue);">GPT-4.1-mini</td>
               </tr>
               <tr style="background: rgba(248, 113, 113, 0.05);">
                 <td>Alignment filter</td>
@@ -288,7 +306,7 @@
       <div class="section-title">Scoring System</div>
     </div>
     <p class="section-desc">
-      Every grant is scored on three dimensions by GPT-4o-mini. The model evaluates mission fit,
+      Every grant is scored on three dimensions by GPT-4.1-mini. The model evaluates mission fit,
       application complexity, and win probability based on the org context and grant description.
     </p>
 
@@ -336,6 +354,7 @@
       that the initial database may not have: exact amounts, deadlines, application forms,
       eligibility criteria, and required documents. Recalibrates scores based on findings.
       <strong>Discovered data is written back to the grants DB</strong> so future searches benefit.
+      Also extracts <strong>application checklist items</strong> which are saved to the DB for tracking.
     </p>
 
     <div class="card-row">
@@ -363,12 +382,12 @@
               </tr>
               <tr>
                 <td>3. AI analysis</td>
-                <td style="color: var(--text-muted);">GPT-4o synthesises all content into structured output: amounts, dates, eligibility, checklist, contacts, score recalibration with reasoning</td>
+                <td style="color: var(--text-muted);">GPT-4o synthesises all content into structured output: amounts, dates, eligibility, checklist items, contacts, score recalibration with reasoning</td>
                 <td style="text-align: right; color: var(--accent-purple);">GPT-4o</td>
               </tr>
               <tr>
                 <td>4. DB write-back</td>
-                <td style="color: var(--text-muted);">Discovered fields (application_form_url, amount_min, amount_max, deadline) written back to grants table &mdash; only fills NULLs, never overwrites</td>
+                <td style="color: var(--text-muted);">Discovered fields (application_form_url, amount_min, amount_max, deadline) written back to grants table &mdash; only fills NULLs, never overwrites. Checklist items saved to <code>application_checklist_items</code>.</td>
                 <td style="text-align: right; color: var(--text-muted);">free</td>
               </tr>
             </tbody>
@@ -386,21 +405,31 @@
   <div class="pipeline-section">
     <div class="section-header">
       <div class="step-badge" style="background: rgba(244, 114, 182, 0.15); color: var(--accent-pink);">4</div>
-      <div class="section-title">User Workflow</div>
+      <div class="section-title">User Workflow &amp; Pages</div>
     </div>
     <p class="section-desc">
-      After search results appear, users can shortlist promising grants, run deep searches for more detail,
-      and track applications through to outcome.
+      Multi-tenant platform with authentication, team management, document storage, and full application tracking.
+      Users sign up, create or join an organisation, then search, shortlist, research, and manage grant applications.
+      <strong>Dark mode</strong> supported via theme toggle (light/dark/system).
     </p>
 
     <div class="card-row">
       <div class="card">
         <div class="card-header" style="color: var(--accent-blue);">
-          <span class="tag" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">/results</span> Search Results
+          <span class="tag" style="background: rgba(91, 156, 245, 0.15); color: var(--accent-blue);">/search</span> Search Wizard
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          4-step wizard: Organisation &rarr; Location/Focus &rarr; Funding Details &rarr; Review.
+          Streams results via SSE as scoring completes. Auto-saves search for future reference.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-green);">
+          <span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">/results</span> Search Results
         </div>
         <div class="card-body" style="color: var(--text-muted);">
           Filter by score, sort, group by funder. Shortlist grants or trigger deep search.
-          Auto-saved for future reference.
+          View scoring breakdown per grant.
         </div>
       </div>
       <div class="card">
@@ -412,13 +441,51 @@
           Start application from here.
         </div>
       </div>
+    </div>
+
+    <div class="card-row" style="margin-top: 12px;">
       <div class="card">
-        <div class="card-header" style="color: var(--accent-green);">
-          <span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">/applications</span> Applications
+        <div class="card-header" style="color: var(--accent-amber);">
+          <span class="tag" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">/applications</span> Applications
         </div>
         <div class="card-body" style="color: var(--text-muted);">
           Track status: Preparing &rarr; Submitted &rarr; Under Review &rarr; Approved/Declined.
+          <strong>Checklist system</strong> initialized from deep search &mdash; track required items and attach documents.
           Notes, financial tracking, timeline.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-cyan);">
+          <span class="tag" style="background: rgba(34, 211, 238, 0.15); color: var(--accent-cyan);">/documents</span> Document Library
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Upload documents to <strong>Vercel Blob</strong> storage. Categorize by type (financial, governance, project plans, etc.).
+          Usage tracking shows which applications reference each document.
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-purple);">
+          <span class="tag" style="background: rgba(167, 139, 250, 0.15); color: var(--accent-purple);">/settings</span> Settings
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          Organisation settings and profile management.
+          Team member list, role management (admin/member).
+          Invite new members via email with token-based links.
+        </div>
+      </div>
+    </div>
+
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card">
+        <div class="card-header" style="color: var(--accent-orange);">
+          <span class="tag" style="background: rgba(251, 146, 60, 0.15); color: var(--accent-orange);">/login</span>
+          <span class="tag" style="background: rgba(251, 146, 60, 0.15); color: var(--accent-orange);">/signup</span>
+          <span class="tag" style="background: rgba(251, 146, 60, 0.15); color: var(--accent-orange);">/invite/[token]</span>
+          Auth
+        </div>
+        <div class="card-body" style="color: var(--text-muted);">
+          NextAuth v5 authentication with credentials provider. Sign up creates a new organisation.
+          Invitation tokens allow joining an existing organisation. Session-based with JWT.
         </div>
       </div>
     </div>
@@ -432,79 +499,168 @@
   <div class="pipeline-section">
     <div class="section-header">
       <div class="step-badge" style="background: rgba(251, 146, 60, 0.15); color: var(--accent-orange);">&#x2699;</div>
-      <div class="section-title">Data Pipeline (Offline Scripts)</div>
+      <div class="section-title">Data Pipeline (24 Offline Scripts)</div>
     </div>
     <p class="section-desc">
-      One-time and periodic scripts that populate and enrich the grants database.
+      One-time and periodic scripts that populate, enrich, and maintain the grants database.
       Run locally via <code>DATABASE_URL="..." npx tsx scripts/&lt;script&gt;.ts</code>.
+      Grouped by function below.
     </p>
 
+    <!-- Import & Discovery -->
     <div class="card-row">
       <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-blue);">Import &amp; Discovery</div>
         <div class="card-body" style="padding: 0;">
           <table>
-            <thead>
-              <tr style="border-bottom: 1px solid var(--border);">
-                <th style="width: 36px;">#</th>
-                <th>Script</th>
-                <th>Description</th>
-                <th style="text-align: right;">Status</th>
-              </tr>
-            </thead>
             <tbody>
               <tr>
-                <td style="color: var(--accent-green);">1</td>
                 <td><code>import-charities.ts</code></td>
                 <td style="color: var(--text-muted);">Import ~6,310 charities from NZ Charities Register API. Batched inserts, safe to re-run.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
               </tr>
               <tr>
-                <td style="color: var(--accent-green);">2</td>
                 <td><code>import-curated-funders.ts</code></td>
-                <td style="color: var(--text-muted);">Import 272 hand-curated funders from nz.ts with grant URLs and regions. Cross-source dedup with register.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+                <td style="color: var(--text-muted);">Import 272 hand-curated funders from nz.ts with grant URLs and regions. Cross-source dedup.</td>
               </tr>
               <tr>
-                <td style="color: var(--accent-green);">3</td>
-                <td><code>enrich-charities.ts</code></td>
-                <td style="color: var(--text-muted);">Scrape funder websites, extract grant programs via GPT-4o-mini, insert into grants table.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+                <td><code>discover-websites.ts</code></td>
+                <td style="color: var(--text-muted);">Find funder websites via web search for charities without URLs.</td>
               </tr>
               <tr>
-                <td style="color: var(--accent-green);">4</td>
-                <td><code>classify-grant-makers.ts</code></td>
-                <td style="color: var(--text-muted);">GPT-4o classifies which charities are actual grant-makers. 1,762 non-grant-maker grants deactivated.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+                <td><code>discover-from-directories.ts</code></td>
+                <td style="color: var(--text-muted);">Discover new funders and grants from NZ funding directories.</td>
               </tr>
               <tr>
-                <td style="color: var(--accent-green);">5</td>
+                <td><code>discover-trustee-grants.ts</code></td>
+                <td style="color: var(--text-muted);">Find grants from trustee companies and community trusts.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enrichment -->
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-green);">Enrichment</div>
+        <div class="card-body" style="padding: 0;">
+          <table>
+            <tbody>
+              <tr>
+                <td><code>enrich-with-tavily.ts</code></td>
+                <td style="color: var(--text-muted);">Enrich grant data using Tavily content extraction &mdash; bypasses 403s and JS-rendered pages.</td>
+              </tr>
+              <tr>
+                <td><code>enrich-with-playwright.ts</code></td>
+                <td style="color: var(--text-muted);">Enrich grants using headless browser (Playwright) for sites that block API scraping.</td>
+              </tr>
+              <tr>
                 <td><code>fill-missing-fields.ts</code></td>
                 <td style="color: var(--text-muted);">Targeted re-enrichment for amounts, deadlines, and form URLs on grants with missing data.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
               </tr>
               <tr>
-                <td style="color: var(--accent-green);">6</td>
-                <td><code>retag-new-sectors.ts</code></td>
-                <td style="color: var(--text-muted);">Re-tag all grants with new sector IDs (economic-development, animal-welfare) via GPT-4o-mini.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
+                <td><code>fill-missing-fields-tavily.ts</code></td>
+                <td style="color: var(--text-muted);">Tavily-based re-enrichment for eligibility, amounts, deadlines where direct scraping fails.</td>
               </tr>
               <tr>
-                <td style="color: var(--accent-green);">7</td>
-                <td><code>db-quality-fixes.ts</code></td>
-                <td style="color: var(--text-muted);">Merge errors, dedup funders, fix homepage URLs, deactivate contamination grants.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(52, 211, 153, 0.15); color: var(--accent-green);">done</span></td>
-              </tr>
-              <tr>
-                <td style="color: var(--accent-amber);">8</td>
                 <td><code>fill-apply-urls.ts</code></td>
                 <td style="color: var(--text-muted);">Find application form URLs via Tavily extract + search. Groups by source_url. Dry-run by default.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">available</span></td>
               </tr>
               <tr>
-                <td style="color: var(--accent-amber);">9</td>
-                <td><code>fill-missing-fields-tavily.ts</code></td>
-                <td style="color: var(--text-muted);">Re-enrichment using Tavily (bypasses 403s / JS-rendered pages) for eligibility, amounts, deadlines.</td>
-                <td style="text-align: right;"><span class="tag" style="background: rgba(251, 191, 36, 0.15); color: var(--accent-amber);">available</span></td>
+                <td><code>fill-grant-regions.ts</code></td>
+                <td style="color: var(--text-muted);">Populate missing region tags on grants based on funder data and content analysis.</td>
+              </tr>
+              <tr>
+                <td><code>batch-deep-search.ts</code></td>
+                <td style="color: var(--text-muted);">Run deep search in bulk across multiple grants to backfill detailed data.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Classification -->
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-purple);">Classification</div>
+        <div class="card-body" style="padding: 0;">
+          <table>
+            <tbody>
+              <tr>
+                <td><code>classify-grant-makers.ts</code></td>
+                <td style="color: var(--text-muted);">GPT classifies which charities are actual grant-makers vs. service providers.</td>
+              </tr>
+              <tr>
+                <td><code>classify-funder-types.ts</code></td>
+                <td style="color: var(--text-muted);">Classify funders by type (community trust, government, corporate, etc.) using rule-based logic.</td>
+              </tr>
+              <tr>
+                <td><code>classify-funder-types-gpt.ts</code></td>
+                <td style="color: var(--text-muted);">GPT-based funder type classification for cases where rules are insufficient.</td>
+              </tr>
+              <tr>
+                <td><code>find-individual-grants.ts</code></td>
+                <td style="color: var(--text-muted);">Identify and tag grants aimed at individuals (scholarships, personal grants) vs. organisations.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quality & Maintenance -->
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-amber);">Quality &amp; Maintenance</div>
+        <div class="card-body" style="padding: 0;">
+          <table>
+            <tbody>
+              <tr>
+                <td><code>dedup-grants.ts</code></td>
+                <td style="color: var(--text-muted);">Find and merge duplicate grant entries across funders.</td>
+              </tr>
+              <tr>
+                <td><code>deactivate-expired.ts</code></td>
+                <td style="color: var(--text-muted);">Deactivate grants with past deadlines to keep search results current.</td>
+              </tr>
+              <tr>
+                <td><code>fix-dead-urls.ts</code></td>
+                <td style="color: var(--text-muted);">Detect and fix broken URLs across grants and funder records.</td>
+              </tr>
+              <tr>
+                <td><code>verify-grant-urls.ts</code></td>
+                <td style="color: var(--text-muted);">Bulk-verify that grant and application URLs are still live and returning valid content.</td>
+              </tr>
+              <tr>
+                <td><code>check-orphaned-ids.ts</code></td>
+                <td style="color: var(--text-muted);">Find grants referencing non-existent funder IDs or other data integrity issues.</td>
+              </tr>
+              <tr>
+                <td><code>clear-user-data.ts</code></td>
+                <td style="color: var(--text-muted);">Wipe runtime user data (searches, shortlists, applications) for dev/testing resets.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reporting & Analysis -->
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card card-wide">
+        <div class="card-header" style="color: var(--accent-cyan);">Reporting &amp; Analysis</div>
+        <div class="card-body" style="padding: 0;">
+          <table>
+            <tbody>
+              <tr>
+                <td><code>analyse-scoring.ts</code></td>
+                <td style="color: var(--text-muted);">Analyse scoring distribution and calibration across search results.</td>
+              </tr>
+              <tr>
+                <td><code>coverage-report.ts</code></td>
+                <td style="color: var(--text-muted);">Report on data completeness: how many grants have amounts, deadlines, URLs, etc.</td>
               </tr>
             </tbody>
           </table>
@@ -528,26 +684,39 @@
       <div class="card">
         <div class="card-header" style="color: var(--accent-cyan);">Application</div>
         <div class="card-body" style="color: var(--text-muted);">
-          Next.js 14 (App Router) + TypeScript<br>
-          Tailwind CSS + shadcn/ui<br>
+          Next.js 16.1.6 (App Router) + React 19<br>
+          TypeScript throughout<br>
+          Tailwind CSS 4 + shadcn/ui (base-nova)<br>
           SWR for client data fetching<br>
+          Dark mode (light/dark/system)<br>
           Vercel hosting
         </div>
       </div>
       <div class="card">
+        <div class="card-header" style="color: var(--accent-orange);">Auth &amp; Storage</div>
+        <div class="card-body" style="color: var(--text-muted);">
+          <strong>NextAuth v5:</strong> Credentials provider, JWT sessions, multi-tenant user management<br>
+          <strong>Vercel Blob:</strong> Document upload and storage with categorization<br>
+          <strong>Neon:</strong> Serverless Postgres with multi-tenant schema
+        </div>
+      </div>
+    </div>
+
+    <div class="card-row" style="margin-top: 12px;">
+      <div class="card">
         <div class="card-header" style="color: var(--accent-purple);">AI Services</div>
         <div class="card-body" style="color: var(--text-muted);">
-          <strong>Search:</strong> GPT-4o-mini (triage + scoring)<br>
-          <strong>Deep search:</strong> GPT-4o (analysis)<br>
-          <strong>Scripts:</strong> GPT-4o-mini (enrichment, classification)
+          <strong>Search:</strong> GPT-4.1-mini (triage + scoring)<br>
+          <strong>Deep search:</strong> GPT-4o (analysis + checklist extraction)<br>
+          <strong>Scripts:</strong> GPT-4o-mini / GPT-4o (enrichment, classification)
         </div>
       </div>
       <div class="card">
         <div class="card-header" style="color: var(--accent-green);">External APIs</div>
         <div class="card-body" style="color: var(--text-muted);">
           <strong>Serper:</strong> Web search (deep search only)<br>
-          <strong>Tavily:</strong> Page extraction (deep search + scripts)<br>
-          <strong>Neon:</strong> Serverless Postgres
+          <strong>Tavily:</strong> Page extraction (deep search + enrichment scripts)<br>
+          <strong>Playwright:</strong> Headless browser for JS-heavy sites (scripts only)
         </div>
       </div>
     </div>
@@ -557,7 +726,7 @@
   <!-- FOOTER -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 48px; padding-bottom: 24px;">
-    GrantSearch NZ &mdash; Last updated March 2026
+    GrantSearch NZ &mdash; Last updated April 2026
   </div>
 
 </div>

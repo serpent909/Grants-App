@@ -156,7 +156,7 @@
 <body>
 <div class="container">
   <h1>GrantSearch NZ &mdash; Detailed Technical Reference</h1>
-  <p class="subtitle">Complete documentation of the application architecture, data flows, database schema, API routes, and data pipeline scripts</p>
+  <p class="subtitle">Complete documentation of the application architecture, data flows, database schema, API routes, authentication, document management, and data pipeline scripts</p>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <!-- TABLE OF CONTENTS -->
@@ -166,10 +166,15 @@
     <ol>
       <li><a href="#architecture">Architecture Overview</a></li>
       <li><a href="#database">Database Schema</a></li>
+      <li><a href="#auth">Authentication &amp; Multi-Tenancy</a></li>
       <li><a href="#search-api">Search API &mdash; POST /api/search</a></li>
       <li><a href="#deep-search-api">Deep Search API &mdash; POST /api/deep-search</a></li>
       <li><a href="#storage-apis">Storage APIs (Saved Searches, Shortlist, Applications)</a></li>
+      <li><a href="#document-apis">Document Management APIs</a></li>
+      <li><a href="#checklist-apis">Checklist System APIs</a></li>
+      <li><a href="#org-apis">Organisation &amp; Auth APIs</a></li>
       <li><a href="#frontend-pages">Frontend Pages</a></li>
+      <li><a href="#components">Components</a></li>
       <li><a href="#lib-modules">Library Modules</a></li>
       <li><a href="#data-pipeline">Data Pipeline Scripts</a></li>
       <li><a href="#scoring">Scoring System Details</a></li>
@@ -182,7 +187,7 @@
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <h2 id="architecture">1. Architecture Overview</h2>
 
-  <p>GrantSearch NZ is a Next.js 14 App Router application that helps NZ non-profits find, evaluate, and track grant applications. The core innovation is a <strong>two-pass AI search pipeline</strong> that queries a pre-populated Postgres database of ~4,500 active grants, triages them cheaply, then scores the relevant ones in detail.</p>
+  <p>GrantSearch NZ is a Next.js 16.1.6 App Router application that helps NZ non-profits find, evaluate, and track grant applications. The core innovation is a <strong>two-pass AI search pipeline</strong> that queries a pre-populated Postgres database of ~4,500 active grants, triages them cheaply, then scores the relevant ones in detail. The application is <strong>multi-tenant</strong>, scoping all runtime data by organisation (<code>org_id</code>), with authentication via NextAuth v5.</p>
 
   <div class="card">
     <div class="card-header" style="color: var(--accent-blue);">Tech Stack</div>
@@ -191,8 +196,9 @@
         <div>
           <strong style="color: var(--text);">Frontend</strong>
           <ul>
-            <li>Next.js 14 (App Router) + TypeScript</li>
-            <li>Tailwind CSS + shadcn/ui components</li>
+            <li>Next.js 16.1.6 (App Router) + React 19 + TypeScript</li>
+            <li>Tailwind CSS 4 + shadcn/ui (base-nova style)</li>
+            <li>Dark mode via ThemeProvider + ThemeToggle (class-based Tailwind dark variant)</li>
             <li>SWR for client-side data fetching &amp; caching</li>
             <li>Vercel hosting</li>
           </ul>
@@ -200,8 +206,10 @@
         <div>
           <strong style="color: var(--text);">Backend / Services</strong>
           <ul>
-            <li><strong>Neon Postgres</strong> &mdash; serverless database (grants, charities, app storage)</li>
-            <li><strong>OpenAI GPT-4o-mini</strong> &mdash; triage &amp; scoring (search), enrichment (scripts)</li>
+            <li><strong>Neon Postgres</strong> &mdash; serverless database (grants, charities, orgs, users, app storage)</li>
+            <li><strong>NextAuth v5</strong> &mdash; Credentials provider, JWT sessions, 30-day max age</li>
+            <li><strong>Vercel Blob</strong> &mdash; document storage (application supporting documents)</li>
+            <li><strong>OpenAI GPT-4.1-mini</strong> &mdash; triage &amp; scoring (search), enrichment (scripts)</li>
             <li><strong>OpenAI GPT-4o</strong> &mdash; deep search analysis</li>
             <li><strong>Serper</strong> &mdash; web search (deep search only)</li>
             <li><strong>Tavily</strong> &mdash; page content extraction (deep search + scripts)</li>
@@ -211,7 +219,7 @@
     </div>
   </div>
 
-  <p><strong>Key design principle:</strong> The search pipeline has zero external search/scraping costs. All grant data lives in the DB. The only runtime cost is GPT-4o-mini tokens for triage and scoring. Deep search (per-grant, user-triggered) is the only operation that calls Serper/Tavily.</p>
+  <p><strong>Key design principles:</strong> (1) The search pipeline has zero external search/scraping costs. All grant data lives in the DB. The only runtime cost is GPT-4.1-mini tokens for triage and scoring. Deep search (per-grant, user-triggered) is the only operation that calls Serper/Tavily. (2) All runtime data is scoped by <code>org_id</code>, enabling multi-tenancy &mdash; each organisation sees only its own saved searches, shortlists, applications, documents, and checklists.</p>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <!-- 2. DATABASE -->
@@ -220,18 +228,48 @@
 
   <p>Neon Postgres with connection pooling. Migrations in <code>migrations/</code>.</p>
 
+  <h3>organisations</h3>
+  <p>Multi-tenancy root table. Every runtime storage table references an organisation.</p>
+  <pre>id              TEXT PRIMARY KEY        -- UUID
+name            TEXT NOT NULL
+slug            TEXT UNIQUE NOT NULL     -- URL-safe identifier
+created_at      TIMESTAMPTZ DEFAULT now()
+updated_at      TIMESTAMPTZ DEFAULT now()</pre>
+
+  <h3>users</h3>
+  <p>Authenticated users, each belonging to one organisation.</p>
+  <pre>id              TEXT PRIMARY KEY        -- UUID
+email           TEXT UNIQUE NOT NULL
+email_verified  TIMESTAMPTZ
+password_hash   TEXT NOT NULL
+name            TEXT
+org_id          TEXT REFERENCES organisations(id)
+created_at      TIMESTAMPTZ DEFAULT now()
+updated_at      TIMESTAMPTZ DEFAULT now()</pre>
+
+  <h3>invitations</h3>
+  <p>Pending team invitations. Tokens expire and are single-use.</p>
+  <pre>id              TEXT PRIMARY KEY        -- UUID
+org_id          TEXT REFERENCES organisations(id)
+email           TEXT NOT NULL
+invited_by      TEXT REFERENCES users(id)
+token           TEXT UNIQUE NOT NULL     -- secure random token
+expires_at      TIMESTAMPTZ NOT NULL
+accepted_at     TIMESTAMPTZ             -- null until accepted
+created_at      TIMESTAMPTZ DEFAULT now()</pre>
+
   <h3>charities</h3>
   <p>Source-of-truth for funder identity. Populated from the NZ Charities Register and curated funders list.</p>
-  <pre>id              INTEGER PRIMARY KEY
-charity_number  TEXT            -- Charities Register number (null for curated-only)
+  <pre>charity_number  TEXT                    -- Charities Register number (null for curated-only)
 name            TEXT NOT NULL
-url             TEXT            -- website_url or homepage
-charity_status  TEXT
-primary_activity TEXT
-source          TEXT            -- 'register' | 'curated'
-curated_grant_url TEXT          -- hand-verified grants page URL
-regions         TEXT[]          -- region IDs this funder serves
-enriched_at     TIMESTAMPTZ    -- when grant programs were extracted
+website_url     TEXT                    -- funder homepage
+purpose         TEXT                    -- charitable purpose statement
+funder_type     TEXT                    -- Government|Foundation|Corporate|Community|Other
+regions         TEXT[]                  -- region IDs this funder serves
+curated_grant_url TEXT                  -- hand-verified grants page URL
+source          TEXT                    -- 'register' | 'curated'
+enriched_at     TIMESTAMPTZ            -- when grant programs were extracted
+id              INTEGER PRIMARY KEY
 created_at      TIMESTAMPTZ
 updated_at      TIMESTAMPTZ</pre>
 
@@ -267,45 +305,113 @@ updated_at          TIMESTAMPTZ
 -- FTS on name, description, funder_name
 -- B-tree on type, is_active, funder_id</pre>
 
+  <h3>documents</h3>
+  <p>Organisation document library, stored in Vercel Blob.</p>
+  <pre>org_id          TEXT NOT NULL           -- composite PK part, FK to organisations
+id              TEXT NOT NULL           -- UUID
+filename        TEXT NOT NULL
+blob_url        TEXT NOT NULL           -- Vercel Blob URL
+content_type    TEXT                    -- MIME type
+size_bytes      INTEGER
+category        TEXT                    -- e.g. 'financial', 'governance', 'identity', etc.
+notes           TEXT
+uploaded_at     TIMESTAMPTZ DEFAULT now()
+PRIMARY KEY (org_id, id)</pre>
+
+  <h3>application_checklist_items</h3>
+  <p>Per-application checklist items, derived from deep search checklist data.</p>
+  <pre>org_id          TEXT NOT NULL           -- composite PK part, FK to organisations
+id              TEXT NOT NULL           -- UUID
+grant_id        TEXT NOT NULL           -- FK to grant_applications
+item_index      INTEGER NOT NULL        -- display order
+item_name       TEXT NOT NULL
+description     TEXT
+required        BOOLEAN DEFAULT true
+checked         BOOLEAN DEFAULT false
+checked_at      TIMESTAMPTZ
+PRIMARY KEY (org_id, id)</pre>
+
+  <h3>checklist_documents</h3>
+  <p>Junction table linking checklist items to uploaded documents.</p>
+  <pre>org_id              TEXT NOT NULL       -- composite PK part, FK to organisations
+id                  TEXT NOT NULL       -- UUID
+checklist_item_id   TEXT NOT NULL       -- FK to application_checklist_items
+document_id         TEXT NOT NULL       -- FK to documents
+attached_at         TIMESTAMPTZ DEFAULT now()
+PRIMARY KEY (org_id, id)</pre>
+
   <h3>Runtime Storage Tables</h3>
-  <p>Created automatically by <code>ensureStorageTables()</code> in <code>lib/db.ts</code> on first API call.</p>
+  <p>Created automatically by <code>ensureStorageTables()</code> in <code>lib/db.ts</code> on first API call. All tables include <code>org_id</code> as part of their composite primary key for multi-tenant isolation.</p>
 
   <div class="col-2">
     <div class="card">
       <div class="card-header" style="color: var(--accent-blue);">saved_searches</div>
       <div class="card-body" style="color: var(--text-muted);">
-        <code>id</code> TEXT PK, <code>name</code>, <code>saved_at</code>, <code>grant_count</code>, <code>org_summary</code>, <code>market</code>, <code>result_json</code> JSONB
+        <code>org_id</code>, <code>id</code> TEXT (composite PK), <code>name</code>, <code>saved_at</code>, <code>grant_count</code>, <code>org_summary</code>, <code>market</code>, <code>result_json</code> JSONB
       </div>
     </div>
     <div class="card">
       <div class="card-header" style="color: var(--accent-pink);">shortlisted_grants</div>
       <div class="card-body" style="color: var(--text-muted);">
-        <code>grant_id</code> TEXT PK, <code>grant_json</code> JSONB, <code>search_title</code>, <code>shortlisted_at</code>
+        <code>org_id</code>, <code>grant_id</code> TEXT (composite PK), <code>grant_json</code> JSONB, <code>search_title</code>, <code>shortlisted_at</code>
       </div>
     </div>
     <div class="card">
       <div class="card-header" style="color: var(--accent-amber);">deep_searches</div>
       <div class="card-body" style="color: var(--text-muted);">
-        <code>grant_id</code> TEXT PK, <code>result_json</code> JSONB (DeepSearchResult), <code>searched_at</code>
+        <code>org_id</code>, <code>grant_id</code> TEXT (composite PK), <code>result_json</code> JSONB (DeepSearchResult), <code>searched_at</code>
       </div>
     </div>
     <div class="card">
       <div class="card-header" style="color: var(--accent-green);">grant_applications</div>
       <div class="card-body" style="color: var(--text-muted);">
-        <code>grant_id</code> TEXT PK, <code>id</code>, <code>grant_json</code> JSONB, <code>search_title</code>, <code>status</code>, <code>status_history</code> JSONB, <code>notes</code>, <code>started_at</code>, <code>submitted_at</code>, <code>decided_at</code>, <code>amount_requested</code>, <code>amount_awarded</code>
+        <code>org_id</code>, <code>grant_id</code> TEXT (composite PK), <code>id</code>, <code>grant_json</code> JSONB, <code>search_title</code>, <code>status</code>, <code>status_history</code> JSONB, <code>notes</code>, <code>started_at</code>, <code>submitted_at</code>, <code>decided_at</code>, <code>amount_requested</code>, <code>amount_awarded</code>
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 3. SEARCH API -->
+  <!-- 3. AUTHENTICATION & MULTI-TENANCY -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="search-api">3. Search API &mdash; POST /api/search</h2>
+  <h2 id="auth">3. Authentication &amp; Multi-Tenancy</h2>
 
-  <p>File: <code>app/api/search/route.ts</code></p>
+  <p>Authentication is handled by <strong>NextAuth v5</strong> with a Credentials provider. Sessions use JWT strategy with a 30-day max age. All runtime data is scoped by <code>org_id</code>, derived from the authenticated user's organisation.</p>
+
+  <div class="card">
+    <div class="card-header" style="color: var(--accent-purple);">Auth Flow</div>
+    <div class="card-body">
+      <ol>
+        <li><strong>Signup</strong> (<code>/signup</code>) &mdash; User provides name, email, password, and organisation name. Creates organisation + user in a single transaction. Redirects to login.</li>
+        <li><strong>Login</strong> (<code>/login</code>) &mdash; Email/password authentication. On success, JWT session includes <code>userId</code> and <code>orgId</code>.</li>
+        <li><strong>Invite</strong> (<code>/invite/[token]</code>) &mdash; Existing team members send invitations via Settings. Invitee clicks link, sets password, joins the existing organisation.</li>
+        <li><strong>Session</strong> &mdash; Every API route calls <code>getOrgId()</code> (from <code>lib/auth-helpers.ts</code>) to extract the <code>org_id</code> from the JWT. All DB queries are scoped by this <code>org_id</code>.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="color: var(--accent-green);">Multi-Tenancy Model</div>
+    <div class="card-body">
+      <ul>
+        <li>Every runtime storage table uses <code>(org_id, ...)</code> composite primary keys</li>
+        <li>All API endpoints derive <code>org_id</code> from the session JWT via <code>getOrgId()</code></li>
+        <li>No cross-org data leakage is possible &mdash; queries always include <code>WHERE org_id = $1</code></li>
+        <li>Pipeline/reference tables (<code>charities</code>, <code>grants</code>) are shared across all organisations (global grant database)</li>
+        <li>Dark mode preference is persisted client-side via <code>ThemeProvider</code> (class-based Tailwind dark variant)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 4. SEARCH API -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="search-api">4. Search API &mdash; POST /api/search</h2>
+
+  <p>File: <code>app/api/search/route.ts</code>. Response is streamed via <strong>SSE (Server-Sent Events)</strong> for real-time progress updates. All data scoped by <code>org_id</code>.</p>
 
   <h3>Request (OrgInfo)</h3>
   <pre>{
+  searchTitle: string,     // user-provided title for this search
   website: string,         // org website URL
   linkedin?: string,       // org LinkedIn URL
   fundingPurpose: string,  // what funding is for
@@ -327,10 +433,10 @@ updated_at          TIMESTAMPTZ
     <li>Returns all active grants matching (typically 500&ndash;4,500)</li>
   </ul>
 
-  <p><strong>Step 2: Pass 1 &mdash; Triage</strong> (GPT-4o-mini)</p>
+  <p><strong>Step 2: Pass 1 &mdash; Triage</strong> (GPT-4.1-mini)</p>
   <ul>
     <li>All grants split into batches of 100</li>
-    <li>Each batch sent to GPT-4o-mini with the <code>RELEVANCE_TRIAGE_PROMPT</code></li>
+    <li>Each batch sent to GPT-4.1-mini with the <code>RELEVANCE_TRIAGE_PROMPT</code></li>
     <li>Model classifies each grant as <code>RELEVANT</code> or <code>SKIP</code></li>
     <li>SKIP only when &ge;90% confident: wrong sector, wrong region, wrong org type, dramatic amount mismatch, or non-grant content</li>
     <li>On error, defaults all to RELEVANT (never drops grants due to API failure)</li>
@@ -338,7 +444,7 @@ updated_at          TIMESTAMPTZ
     <li>Typically filters to 200&ndash;400 relevant grants</li>
   </ul>
 
-  <p><strong>Step 3: Pass 2 &mdash; Scoring</strong> (GPT-4o-mini)</p>
+  <p><strong>Step 3: Pass 2 &mdash; Scoring</strong> (GPT-4.1-mini)</p>
   <ul>
     <li>Relevant grants split into batches of 25</li>
     <li>Each batch sent with <code>SCORING_SYSTEM_PROMPT</code> + org context</li>
@@ -349,14 +455,14 @@ updated_at          TIMESTAMPTZ
     <li>Includes multi-check logic: URL quality, geographic eligibility, form-of-support match, regional relevance, deadline validation</li>
   </ul>
 
-  <p><strong>Step 4: Filter &amp; Return</strong></p>
+  <p><strong>Step 4: Filter &amp; Stream</strong></p>
   <ul>
     <li>Remove grants with alignment &lt; 5.0</li>
     <li>Assign deterministic IDs: <code>g_</code> + sha256(funder|name|url)[:16]</li>
-    <li>Return <code>SearchResult</code> with grants array, orgSummary, timestamp, market, original inputs</li>
+    <li>Stream <code>SearchResult</code> via SSE with progress events for each pipeline stage</li>
   </ul>
 
-  <h3>Response (SearchResult)</h3>
+  <h3>Response (SearchResult, streamed via SSE)</h3>
   <pre>{
   grants: GrantOpportunity[],  // scored grants
   orgSummary: string,          // AI-generated org description
@@ -366,9 +472,9 @@ updated_at          TIMESTAMPTZ
 }</pre>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 4. DEEP SEARCH API -->
+  <!-- 5. DEEP SEARCH API -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="deep-search-api">4. Deep Search API &mdash; POST /api/deep-search</h2>
+  <h2 id="deep-search-api">5. Deep Search API &mdash; POST /api/deep-search</h2>
 
   <p>File: <code>app/api/deep-search/route.ts</code></p>
 
@@ -391,7 +497,8 @@ updated_at          TIMESTAMPTZ
   <h3>Phase 3: AI Analysis (GPT-4o)</h3>
   <ul>
     <li>All extracted content sent to GPT-4o (full model, not mini) for structured analysis</li>
-    <li>Extracts: precise amounts, open/close dates, eligibility criteria, application form URL &amp; type, checklist of required/optional documents, key contacts, past recipient insights</li>
+    <li>Extracts: precise amounts, open/close dates, eligibility criteria, application form URL &amp; type, <strong>checklist of required/optional documents</strong>, key contacts, past recipient insights</li>
+    <li>Checklist items include: item name, description, whether required or optional</li>
     <li>Recalibrates all three scores (alignment, ease, attainability) with reasoning for each change</li>
   </ul>
 
@@ -399,7 +506,8 @@ updated_at          TIMESTAMPTZ
   <ul>
     <li>Discovered fields written back to the grants table via <code>writeDeepSearchUpdates()</code></li>
     <li>Only fills NULL fields &mdash; existing data is never overwritten</li>
-    <li>Fields: <code>application_form_url</code>, <code>amount_min</code>, <code>amount_max</code>, <code>deadline</code></li>
+    <li>Fields: <code>application_form_url</code>, <code>amount_min</code>, <code>amount_max</code>, <code>deadline</code>, <strong><code>checklist</code></strong> (JSONB)</li>
+    <li>Checklist data stored as <code>DeepSearchChecklistItem[]</code> in the grants table for future searches</li>
     <li>Benefits all future searches (not just the user who triggered deep search)</li>
   </ul>
 
@@ -418,11 +526,11 @@ updated_at          TIMESTAMPTZ
 }</pre>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 5. STORAGE APIS -->
+  <!-- 6. STORAGE APIS -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="storage-apis">5. Storage APIs</h2>
+  <h2 id="storage-apis">6. Storage APIs</h2>
 
-  <p>All storage uses Neon Postgres (no localStorage). Tables created on first use.</p>
+  <p>All storage uses Neon Postgres (no localStorage). Tables created on first use. All endpoints scoped by <code>org_id</code> via <code>getOrgId()</code>.</p>
 
   <table>
     <thead>
@@ -436,30 +544,149 @@ updated_at          TIMESTAMPTZ
       <tr>
         <td><code>/api/saved-searches</code></td>
         <td>GET, POST, DELETE</td>
-        <td>Save/list/delete search results. Auto-saved after each search. Stores full SearchResult as JSONB.</td>
+        <td>Save/list/delete search results. Auto-saved after each search. Stores full SearchResult as JSONB. Scoped by org_id.</td>
       </tr>
       <tr>
         <td><code>/api/shortlist</code></td>
         <td>GET, POST, DELETE</td>
-        <td>Add/remove/list shortlisted grants. Batch check endpoint. Grouped by search title.</td>
+        <td>Add/remove/list shortlisted grants. Batch check endpoint. Grouped by search title. Scoped by org_id.</td>
       </tr>
       <tr>
         <td><code>/api/deep-search-results</code></td>
         <td>GET, POST, DELETE</td>
-        <td>Store/retrieve deep search results. Batch lookup by grant IDs.</td>
+        <td>Store/retrieve deep search results. Batch lookup by grant IDs. Scoped by org_id.</td>
       </tr>
       <tr>
         <td><code>/api/applications</code></td>
         <td>GET, POST, PUT, DELETE</td>
-        <td>Full CRUD for application tracking. Status transitions, notes, financial amounts.</td>
+        <td>Full CRUD for application tracking. Status transitions, notes, financial amounts. Scoped by org_id.</td>
       </tr>
     </tbody>
   </table>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 6. FRONTEND PAGES -->
+  <!-- 7. DOCUMENT MANAGEMENT APIS -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="frontend-pages">6. Frontend Pages</h2>
+  <h2 id="document-apis">7. Document Management APIs</h2>
+
+  <p>Documents are stored in <strong>Vercel Blob</strong> with metadata in Postgres. Each document belongs to an organisation and can be categorised and attached to checklist items.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Endpoint</th>
+        <th>Methods</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/api/documents/upload</code></td>
+        <td>POST</td>
+        <td>Upload a document to Vercel Blob. Accepts multipart form data with file, category, and optional notes. Returns document metadata with blob URL.</td>
+      </tr>
+      <tr>
+        <td><code>/api/documents</code></td>
+        <td>GET, POST, PUT, DELETE</td>
+        <td>CRUD for document metadata. GET lists all documents for the org (filterable by category). PUT updates category/notes. DELETE removes blob and metadata.</td>
+      </tr>
+      <tr>
+        <td><code>/api/documents/download</code></td>
+        <td>GET</td>
+        <td>Proxied download of a document from Vercel Blob. Validates org ownership before serving.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card">
+    <div class="card-header" style="color: var(--accent-orange);">Document Categories</div>
+    <div class="card-body" style="color: var(--text-muted);">
+      Defined in <code>lib/document-categories.ts</code>. Categories include: financial statements, governance documents, identity/registration, project plans, letters of support, annual reports, and other. Each category has a label and optional description for the UI.
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 8. CHECKLIST SYSTEM APIS -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="checklist-apis">8. Checklist System APIs</h2>
+
+  <p>Application checklists are derived from deep search results and allow users to track required documents and preparation items per application. Checklist items can have documents attached from the document library.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Endpoint</th>
+        <th>Methods</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/api/checklist</code></td>
+        <td>GET, POST, PUT, DELETE</td>
+        <td>CRUD for checklist items. GET returns items for a grant application (by grant_id). POST creates items (typically from deep search checklist data). PUT toggles checked status or updates item details. DELETE removes an item.</td>
+      </tr>
+      <tr>
+        <td><code>/api/checklist/attach</code></td>
+        <td>POST, DELETE</td>
+        <td>Attach or detach documents to/from checklist items. Creates/removes entries in the <code>checklist_documents</code> junction table.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 9. ORGANISATION & AUTH APIS -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="org-apis">9. Organisation &amp; Auth APIs</h2>
+
+  <p>Organisation management and authentication endpoints.</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Endpoint</th>
+        <th>Methods</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>/api/auth/signup</code></td>
+        <td>POST</td>
+        <td>Create a new user and organisation. Hashes password, creates org with auto-generated slug, creates user linked to org. Returns success status.</td>
+      </tr>
+      <tr>
+        <td><code>/api/auth/invite</code></td>
+        <td>GET, POST</td>
+        <td>GET validates an invitation token and returns org/email info. POST accepts an invitation (sets password, creates user in the existing org).</td>
+      </tr>
+      <tr>
+        <td><code>/api/auth/[...nextauth]</code></td>
+        <td>GET, POST</td>
+        <td>NextAuth v5 handler. Credentials provider with email/password. JWT session callbacks inject userId and orgId into the token and session.</td>
+      </tr>
+      <tr>
+        <td><code>/api/org</code></td>
+        <td>GET, PUT</td>
+        <td>Read/update organisation details (name). Scoped to the authenticated user's org.</td>
+      </tr>
+      <tr>
+        <td><code>/api/org/members</code></td>
+        <td>GET, DELETE</td>
+        <td>List team members or remove a member from the organisation.</td>
+      </tr>
+      <tr>
+        <td><code>/api/org/invitations</code></td>
+        <td>GET, POST, DELETE</td>
+        <td>List pending invitations, send new invitation (generates token, stores in DB), or revoke a pending invitation.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 10. FRONTEND PAGES -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="frontend-pages">10. Frontend Pages</h2>
 
   <table>
     <thead>
@@ -471,9 +698,24 @@ updated_at          TIMESTAMPTZ
     </thead>
     <tbody>
       <tr>
+        <td><code>/login</code></td>
+        <td><code>app/login/page.tsx</code></td>
+        <td><strong>Login page.</strong> Email/password form. Links to signup. NextAuth Credentials provider.</td>
+      </tr>
+      <tr>
+        <td><code>/signup</code></td>
+        <td><code>app/signup/page.tsx</code></td>
+        <td><strong>Signup page.</strong> Name, email, password, organisation name. Creates org + user, redirects to login.</td>
+      </tr>
+      <tr>
+        <td><code>/invite/[token]</code></td>
+        <td><code>app/invite/[token]/page.tsx</code></td>
+        <td><strong>Invitation acceptance.</strong> Validates token, shows org name, collects name + password. Joins existing org.</td>
+      </tr>
+      <tr>
         <td><code>/</code></td>
         <td><code>app/page.tsx</code></td>
-        <td><strong>Search form.</strong> Collects org info (website, purpose, amount, regions, sectors, org type). Loading animation with 9 progress stages. Auto-saves and redirects to results.</td>
+        <td><strong>Search form.</strong> 4-step wizard: (1) Organisation &mdash; name, website, type; (2) Location/Focus &mdash; regions, sectors; (3) Funding Details &mdash; purpose, amount, previous funders; (4) Review &mdash; summary before submission. Loading animation with progress stages. Auto-saves and redirects to results.</td>
       </tr>
       <tr>
         <td><code>/results</code></td>
@@ -488,12 +730,22 @@ updated_at          TIMESTAMPTZ
       <tr>
         <td><code>/applications</code></td>
         <td><code>app/applications/page.tsx</code></td>
-        <td><strong>Application tracker.</strong> Grouped by status (Preparing &rarr; Submitted &rarr; Under Review &rarr; Approved/Declined/Withdrawn). Notes, financial tracking, timeline.</td>
+        <td><strong>Application tracker.</strong> Grouped by status (Preparing &rarr; Submitted &rarr; Under Review &rarr; Approved/Declined/Withdrawn). Notes, financial tracking, timeline. <strong>Checklist integration</strong> with document attachment per checklist item.</td>
+      </tr>
+      <tr>
+        <td><code>/documents</code></td>
+        <td><code>app/documents/page.tsx</code></td>
+        <td><strong>Document library.</strong> Upload documents via drag-and-drop (Vercel Blob). Categorise documents, add notes, view usage across checklist items. Filter by category.</td>
       </tr>
       <tr>
         <td><code>/saved</code></td>
         <td><code>app/saved/page.tsx</code></td>
         <td><strong>Saved searches.</strong> List previous searches with grant count, summary, date. Re-run or delete.</td>
+      </tr>
+      <tr>
+        <td><code>/settings</code></td>
+        <td><code>app/settings/page.tsx</code></td>
+        <td><strong>Organisation settings.</strong> Update organisation name, view/manage team members, send/revoke invitations.</td>
       </tr>
       <tr>
         <td><code>/grant/[id]/deep-search</code></td>
@@ -504,9 +756,56 @@ updated_at          TIMESTAMPTZ
   </table>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 7. LIB MODULES -->
+  <!-- 11. COMPONENTS -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="lib-modules">7. Library Modules</h2>
+  <h2 id="components">11. Components</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>File</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>ThemeProvider</strong></td>
+        <td><code>components/theme-provider.tsx</code></td>
+        <td>Context provider for dark/light mode. Wraps the app, reads system preference, persists choice. Uses class-based Tailwind dark variant.</td>
+      </tr>
+      <tr>
+        <td><strong>ThemeToggle</strong></td>
+        <td><code>components/theme-toggle.tsx</code></td>
+        <td>Toggle button in the header for switching between dark and light mode.</td>
+      </tr>
+      <tr>
+        <td><strong>ApplicationChecklist</strong></td>
+        <td><code>components/application-checklist.tsx</code></td>
+        <td>Checklist UI for application tracking. Displays checklist items with check/uncheck, required/optional badges, and document attachment slots. Integrates with checklist APIs.</td>
+      </tr>
+      <tr>
+        <td><strong>DocumentCard</strong></td>
+        <td><code>components/document-card.tsx</code></td>
+        <td>Card component for displaying a document in the library. Shows filename, category badge, size, upload date, notes, and action buttons (download, edit, delete).</td>
+      </tr>
+      <tr>
+        <td><strong>DocumentPicker</strong></td>
+        <td><code>components/document-picker.tsx</code></td>
+        <td>Modal for selecting documents from the library to attach to a checklist item. Filterable by category, shows already-attached documents.</td>
+      </tr>
+      <tr>
+        <td><strong>UploadDropzone</strong></td>
+        <td><code>components/upload-dropzone.tsx</code></td>
+        <td>Drag-and-drop file upload zone. Handles file validation, progress indication, and calls the upload API. Used on the documents page.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- 12. LIB MODULES -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <h2 id="lib-modules">12. Library Modules</h2>
 
   <table>
     <thead>
@@ -523,6 +822,16 @@ updated_at          TIMESTAMPTZ
         <td>Database access layer. Connection pooling, grants query with region/sector filtering, deep-search write-back, deterministic ID generation, storage table setup.</td>
       </tr>
       <tr>
+        <td><code>lib/auth.ts</code></td>
+        <td><code>authOptions</code>, NextAuth handler</td>
+        <td>NextAuth v5 configuration. Credentials provider, JWT session strategy, 30-day max age. Callbacks inject userId and orgId into JWT and session.</td>
+      </tr>
+      <tr>
+        <td><code>lib/auth-helpers.ts</code></td>
+        <td><code>getAuthSession</code>, <code>getOrgId</code></td>
+        <td>Server-side helpers to get the current session and extract org_id. Used by all API routes for multi-tenant scoping.</td>
+      </tr>
+      <tr>
         <td><code>lib/types.ts</code></td>
         <td><code>OrgInfo</code>, <code>GrantOpportunity</code>, <code>SearchResult</code>, <code>DeepSearchResult</code>, <code>GrantApplication</code>, etc.</td>
         <td>All TypeScript interfaces for the app.</td>
@@ -536,6 +845,26 @@ updated_at          TIMESTAMPTZ
         <td><code>lib/constants.ts</code></td>
         <td><code>SECTORS</code> (17), <code>ORG_TYPES</code> (6)</td>
         <td>Domain config arrays used by the search form.</td>
+      </tr>
+      <tr>
+        <td><code>lib/document-categories.ts</code></td>
+        <td>Document category constants</td>
+        <td>Defines document categories (financial, governance, identity, project plans, letters of support, annual reports, other) with labels and descriptions.</td>
+      </tr>
+      <tr>
+        <td><code>lib/document-storage.ts</code></td>
+        <td>Document CRUD helpers</td>
+        <td>Client-side SWR hooks and API calls for document upload, listing, updating, deleting, and downloading.</td>
+      </tr>
+      <tr>
+        <td><code>lib/checklist-storage.ts</code></td>
+        <td>Checklist management helpers</td>
+        <td>Client-side SWR hooks and API calls for checklist item CRUD, document attachment/detachment, and checked status toggling.</td>
+      </tr>
+      <tr>
+        <td><code>lib/nav-links.ts</code></td>
+        <td>HTML parsing for grant links</td>
+        <td>Utility for parsing and extracting navigation links from grant funder pages. Used by deep search and pipeline scripts.</td>
       </tr>
       <tr>
         <td><code>lib/saved-searches.ts</code></td>
@@ -581,11 +910,11 @@ updated_at          TIMESTAMPTZ
   </table>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 8. DATA PIPELINE -->
+  <!-- 13. DATA PIPELINE -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="data-pipeline">8. Data Pipeline Scripts</h2>
+  <h2 id="data-pipeline">13. Data Pipeline Scripts</h2>
 
-  <p>All scripts run locally via <code>DATABASE_URL="..." npx tsx scripts/&lt;script&gt;.ts</code>. Some also require <code>OPENAI_API_KEY</code> and/or <code>TAVILY_API_KEY</code>.</p>
+  <p>24 scripts total. All run locally via <code>DATABASE_URL="..." npx tsx scripts/&lt;script&gt;.ts</code>. Some also require <code>OPENAI_API_KEY</code> and/or <code>TAVILY_API_KEY</code>.</p>
 
   <h3>Core Pipeline (run in order)</h3>
 
@@ -610,33 +939,33 @@ updated_at          TIMESTAMPTZ
           <tr>
             <td>2</td>
             <td><code>import-curated-funders.ts</code></td>
-            <td>Imports 272 hand-curated funders from <code>lib/markets/nz.ts</code>. URL normalisation + dedup. Single-program funders merged with register entries; multi-program funders inserted separately.</td>
+            <td>Imports ~272 hand-curated funders from <code>lib/markets/nz.ts</code>. URL normalisation + dedup. Single-program funders merged with register entries; multi-program funders inserted separately.</td>
             <td style="color: var(--text-muted);">none</td>
           </tr>
           <tr>
             <td>3</td>
-            <td><code>enrich-charities.ts</code></td>
-            <td>For each unenriched funder: fetches curated_grant_url (or homepage), extracts grant programs via GPT-4o-mini, inserts into grants table. Only processes enriched_at IS NULL records.</td>
-            <td style="color: var(--accent-blue);">GPT-4o-mini</td>
+            <td><code>enrich-with-tavily.ts</code></td>
+            <td>For each unenriched funder: fetches curated_grant_url (or homepage) via Tavily, extracts grant programs via GPT, inserts into grants table. Only processes enriched_at IS NULL records.</td>
+            <td style="color: var(--accent-green);">Tavily + GPT</td>
           </tr>
           <tr>
             <td>4</td>
-            <td><code>classify-grant-makers.ts</code></td>
-            <td>GPT-4o classifies which charities are actual grant-makers vs grant-recipients incorrectly included. 1,762 non-grant-maker grants deactivated (<code>is_active = false</code>).</td>
-            <td style="color: var(--accent-purple);">GPT-4o</td>
+            <td><code>enrich-with-playwright.ts</code></td>
+            <td>Alternative enrichment using Playwright for JS-rendered pages that Tavily cannot extract. Headless browser fetches page content, GPT extracts grant programs.</td>
+            <td style="color: var(--accent-blue);">Playwright + GPT</td>
           </tr>
           <tr>
             <td>5</td>
-            <td><code>fill-missing-fields.ts</code></td>
-            <td>Targeted re-enrichment pass for grants with missing amounts, deadlines, or form URLs. Fetches source pages and uses GPT-4o-mini to extract specific fields.</td>
-            <td style="color: var(--accent-blue);">GPT-4o-mini</td>
+            <td><code>classify-grant-makers.ts</code></td>
+            <td>GPT-4o classifies which charities are actual grant-makers vs grant-recipients incorrectly included. Non-grant-maker grants deactivated (<code>is_active = false</code>).</td>
+            <td style="color: var(--accent-purple);">GPT-4o</td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <h3>Quality &amp; Enhancement Scripts</h3>
+  <h3>Discovery &amp; Enrichment</h3>
 
   <div class="card">
     <div class="card-body" style="padding: 0;">
@@ -650,28 +979,86 @@ updated_at          TIMESTAMPTZ
         </thead>
         <tbody>
           <tr>
-            <td><code>retag-new-sectors.ts</code></td>
-            <td>Re-tags all active grants with new sector IDs (<code>economic-development</code>, <code>animal-welfare</code>) using GPT-4o-mini. Only adds tags, never removes. Batches of 50.</td>
-            <td style="color: var(--accent-blue);">GPT-4o-mini</td>
+            <td><code>discover-from-directories.ts</code></td>
+            <td>Discovers new funders from online grant directories and funding databases. Extracts funder names and URLs for import.</td>
+            <td style="color: var(--accent-green);">Tavily</td>
           </tr>
           <tr>
-            <td><code>db-quality-fixes.ts</code></td>
-            <td>Comprehensive fixes: merge errors (Fillmor House, Aoraki, etc.), homepage &rarr; grants page URL corrections, funder deduplication (NZCT, Four Winds, etc.), contamination grant deactivation, enriched_at resets.</td>
-            <td style="color: var(--text-muted);">none (SQL only)</td>
+            <td><code>discover-trustee-grants.ts</code></td>
+            <td>Discovers grant programs from trustee/estate-based funders that are often missed by standard searches.</td>
+            <td style="color: var(--accent-green);">Tavily + GPT</td>
           </tr>
           <tr>
-            <td><code>fill-apply-urls.ts</code></td>
-            <td>Finds application form URLs for grants missing them. Part B: Tavily extract on source_url + GPT for URL extraction. Part A: Tavily search fallback (portal domains only). Dry-run by default (<code>--write</code> to persist).</td>
-            <td style="color: var(--accent-green);">Tavily + GPT-4o-mini</td>
+            <td><code>discover-websites.ts</code></td>
+            <td>Finds website URLs for charities that have no website recorded. Searches for the charity by name and validates discovered URLs.</td>
+            <td style="color: var(--accent-green);">Tavily</td>
+          </tr>
+          <tr>
+            <td><code>fill-missing-fields.ts</code></td>
+            <td>Targeted re-enrichment pass for grants with missing amounts, deadlines, or form URLs. Fetches source pages and uses GPT to extract specific fields.</td>
+            <td style="color: var(--accent-blue);">GPT</td>
           </tr>
           <tr>
             <td><code>fill-missing-fields-tavily.ts</code></td>
             <td>Re-enrichment using Tavily (bypasses 403s / JS-rendered pages). Groups by source_url for efficiency. Targets eligibility, amounts, deadlines. Only fills NULL fields.</td>
-            <td style="color: var(--accent-green);">Tavily + GPT-4o-mini</td>
+            <td style="color: var(--accent-green);">Tavily + GPT</td>
           </tr>
           <tr>
-            <td><code>seed-oct-grants.ts</code></td>
-            <td>Manually seeds Otago Community Trust grants (uses Fluxx portal that can't be scraped). Hardcoded grant programs inserted directly.</td>
+            <td><code>fill-apply-urls.ts</code></td>
+            <td>Finds application form URLs for grants missing them. Part B: Tavily extract on source_url + GPT for URL extraction. Part A: Tavily search fallback (portal domains only). Dry-run by default (<code>--write</code> to persist).</td>
+            <td style="color: var(--accent-green);">Tavily + GPT</td>
+          </tr>
+          <tr>
+            <td><code>fill-grant-regions.ts</code></td>
+            <td>Populates region data for grants with missing region information. Uses funder location and grant description to infer regions.</td>
+            <td style="color: var(--accent-blue);">GPT</td>
+          </tr>
+          <tr>
+            <td><code>batch-deep-search.ts</code></td>
+            <td>Runs deep search in batch mode for multiple grants. Used to pre-populate detailed information for high-priority grants.</td>
+            <td style="color: var(--accent-green);">Serper + Tavily + GPT-4o</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>Classification &amp; Quality</h3>
+
+  <div class="card">
+    <div class="card-body" style="padding: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 260px;">Script</th>
+            <th>What it does</th>
+            <th style="width: 100px;">APIs used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>classify-funder-types.ts</code></td>
+            <td>Classifies funders into types (Government, Foundation, Corporate, Community, Other) using rule-based heuristics on name and purpose.</td>
+            <td style="color: var(--text-muted);">none</td>
+          </tr>
+          <tr>
+            <td><code>classify-funder-types-gpt.ts</code></td>
+            <td>GPT-based funder type classification for entries where rule-based classification is uncertain. More accurate but slower.</td>
+            <td style="color: var(--accent-blue);">GPT</td>
+          </tr>
+          <tr>
+            <td><code>dedup-grants.ts</code></td>
+            <td>Deduplicates grant entries by comparing names, funders, and URLs. Merges duplicate records, keeping the most complete data.</td>
+            <td style="color: var(--text-muted);">none</td>
+          </tr>
+          <tr>
+            <td><code>find-individual-grants.ts</code></td>
+            <td>Identifies and deactivates grants that are for individuals rather than organisations (scholarships, personal awards). These are not relevant for org grant searches.</td>
+            <td style="color: var(--accent-blue);">GPT</td>
+          </tr>
+          <tr>
+            <td><code>deactivate-expired.ts</code></td>
+            <td>Marks grants with past deadlines as inactive (<code>is_active = false</code>). Handles various deadline formats (ISO dates, textual descriptions).</td>
             <td style="color: var(--text-muted);">none</td>
           </tr>
         </tbody>
@@ -679,10 +1066,76 @@ updated_at          TIMESTAMPTZ
     </div>
   </div>
 
+  <h3>Verification &amp; Maintenance</h3>
+
+  <div class="card">
+    <div class="card-body" style="padding: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 260px;">Script</th>
+            <th>What it does</th>
+            <th style="width: 100px;">APIs used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>verify-grant-urls.ts</code></td>
+            <td>Checks all grant URLs for validity (404s, redirects, domain changes). Flags or deactivates grants with dead links.</td>
+            <td style="color: var(--text-muted);">HTTP checks</td>
+          </tr>
+          <tr>
+            <td><code>fix-dead-urls.ts</code></td>
+            <td>Attempts to find replacement URLs for grants flagged with dead links. Searches for the grant by name on the funder's domain.</td>
+            <td style="color: var(--accent-green);">Tavily</td>
+          </tr>
+          <tr>
+            <td><code>check-orphaned-ids.ts</code></td>
+            <td>Finds grants in runtime storage tables (shortlisted, applications) that no longer exist in the grants table. Reports orphaned references.</td>
+            <td style="color: var(--text-muted);">none (SQL only)</td>
+          </tr>
+          <tr>
+            <td><code>clear-user-data.ts</code></td>
+            <td>Clears all runtime storage data (saved searches, shortlists, applications, deep search results). Used for development/testing resets.</td>
+            <td style="color: var(--text-muted);">none (SQL only)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <h3>Analysis &amp; Utilities</h3>
+
+  <div class="card">
+    <div class="card-body" style="padding: 0;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 260px;">Script</th>
+            <th>What it does</th>
+            <th style="width: 100px;">APIs used</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>analyse-scoring.ts</code></td>
+            <td>Analyses scoring distribution across grants. Reports on score ranges, dimension correlations, and identifies outliers.</td>
+            <td style="color: var(--text-muted);">none (SQL only)</td>
+          </tr>
+          <tr>
+            <td><code>coverage-report.ts</code></td>
+            <td>Generates a coverage report showing data completeness: how many grants have amounts, deadlines, URLs, regions, sectors, etc.</td>
+            <td style="color: var(--text-muted);">none (SQL only)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 9. SCORING -->
+  <!-- 14. SCORING -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="scoring">9. Scoring System Details</h2>
+  <h2 id="scoring">14. Scoring System Details</h2>
 
   <h3>Pre-checks (applied before scoring)</h3>
   <ol>
@@ -725,9 +1178,9 @@ updated_at          TIMESTAMPTZ
   <p>When deep search runs, GPT-4o recalibrates all three scores based on the detailed information discovered. Each change includes a <code>reason</code> explaining why the score moved (e.g. "Application requires detailed financials and site visit &mdash; reduced ease from 7 to 4").</p>
 
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <!-- 10. MARKETS -->
+  <!-- 15. MARKETS -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
-  <h2 id="markets">10. Market Configuration</h2>
+  <h2 id="markets">15. Market Configuration</h2>
 
   <p>Each market (NZ, AU) is defined in <code>lib/markets/</code> with:</p>
 
@@ -758,7 +1211,7 @@ updated_at          TIMESTAMPTZ
   <!-- FOOTER -->
   <!-- ══════════════════════════════════════════════════════════════════════════ -->
   <div style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 48px; padding-bottom: 24px;">
-    GrantSearch NZ &mdash; Last updated March 2026
+    GrantSearch NZ &mdash; Last updated April 2026
   </div>
 
 </div>

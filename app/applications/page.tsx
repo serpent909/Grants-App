@@ -746,7 +746,7 @@ export default function ApplicationsPage() {
 
                   {/* Column headers — desktop only */}
                   <div
-                    className="hidden lg:grid items-center py-2 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium sticky top-0 bg-[#f7f5f0] dark:bg-zinc-800 z-10 border-b border-zinc-200 dark:border-zinc-700 rounded-t-lg"
+                    className="hidden lg:grid items-center py-2 text-[10px] uppercase tracking-wider text-zinc-400 dark:text-zinc-500 font-medium sticky top-0 bg-[#f7f5f0] dark:bg-zinc-900 z-10 border-b border-zinc-200 dark:border-zinc-700"
                     style={{ gridTemplateColumns: GRID_COLS }}
                   >
                     <span className="px-4">Grant</span>
