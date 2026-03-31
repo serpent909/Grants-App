@@ -5,16 +5,16 @@ import { useSession, signOut } from 'next-auth/react';
 import { LogOut, Settings, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 
-function getCachedInitial(): string {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem('user-initial') || '';
-}
-
 export default function UserMenu() {
   const { data: session, status } = useSession();
   const [open, setOpen] = useState(false);
-  const [cachedInitial] = useState(getCachedInitial);
+  const [cachedInitial, setCachedInitial] = useState('');
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user-initial');
+    if (stored) setCachedInitial(stored);
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
