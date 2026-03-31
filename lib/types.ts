@@ -50,6 +50,8 @@ export interface GrantOpportunity {
   amountMin?: number;
   amountMax?: number;
   deadline?: string;
+  isRecurring?: boolean;
+  roundFrequency?: string;
   url: string;
   scores: {
     alignment: number;             // 0-10: how well grant matches org mission + request

@@ -15,7 +15,7 @@ import {
 } from '@/lib/application-storage';
 import { useDeepSearchBatch } from '@/lib/deep-search-storage';
 import { GrantApplication, ApplicationStatus, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
-import { scoreColor, scoreTextClass, formatAmountRange, formatDate, formatDeadline } from '@/lib/formatting';
+import { scoreColor, scoreTextClass, formatAmountRange, formatDate, formatDeadline, getDeadlineStatus, deadlineStatusLabel } from '@/lib/formatting';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import ApplicationChecklist from '@/components/application-checklist';
 import { useChecklistProgress } from '@/lib/checklist-storage';
@@ -166,9 +166,12 @@ function ApplicationCard({
   const transitions = STATUS_TRANSITIONS[app.status];
 
   const amount = formatAmountRange(deep?.amountMin ?? grant.amountMin, deep?.amountMax ?? grant.amountMax);
-  const deadline = formatDeadline(deep?.applicationCloseDate ?? grant.deadline);
+  const rawDeadline = deep?.applicationCloseDate ?? grant.deadline;
+  const deadline = formatDeadline(rawDeadline);
   const openDate = formatDate(deep?.applicationOpenDate);
   const score = deep?.scores?.overall ?? grant.scores?.overall ?? 0;
+  const dlStatus = getDeadlineStatus(rawDeadline, grant.isRecurring);
+  const dlBadge = deadlineStatusLabel(rawDeadline, grant.isRecurring, grant.roundFrequency);
   const checklistProgress = useChecklistProgress(app.grantId);
 
   async function handleConfirmTransition() {
@@ -293,8 +296,17 @@ function ApplicationCard({
               {amount && <span className="font-medium text-zinc-700">{amount}</span>}
               {deadline && (
                 <span className="flex items-center gap-1">
-                  <CalendarDays className="w-3 h-3 text-zinc-400" />
+                  <CalendarDays className={`w-3 h-3 ${dlStatus === 'closing-soon' ? 'text-amber-500' : dlStatus === 'passed' ? 'text-red-400' : 'text-zinc-400'}`} />
                   {deadline}
+                  {dlBadge && (
+                    <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                      dlStatus === 'closing-soon' ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                      : dlStatus === 'passed' ? 'bg-red-50 text-red-600 ring-1 ring-red-200'
+                      : ''
+                    }`}>
+                      {dlBadge}
+                    </span>
+                  )}
                 </span>
               )}
               <span className="text-zinc-400">Started {formatDateShort(app.startedAt)}</span>

@@ -19,8 +19,8 @@ import {
 import { SearchResult, GrantOpportunity, DeepSearchResult, DeepSearchScoreChange, OrgInfo } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { getSaved, saveSearch } from '@/lib/saved-searches';
-import { saveDeepSearch, getAllDeepSearchIds, batchGetDeepSearch } from '@/lib/deep-search-storage';
-import { addToShortlist, removeFromShortlist, getAllShortlistedIds } from '@/lib/shortlist-storage';
+import { saveDeepSearch, batchGetDeepSearch } from '@/lib/deep-search-storage';
+import { addToShortlist, removeFromShortlist } from '@/lib/shortlist-storage';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -302,41 +302,46 @@ function GrantDetail({
             <p className="text-sm text-zinc-700 leading-relaxed">{grant.attainabilityNotes}</p>
           </div>
 
-          <div className="bg-white rounded-xl border border-zinc-200 p-4">
-            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Score breakdown</p>
-            <div className="space-y-2.5">
-              {[
-                { label: 'Alignment', score: grant.scores?.alignment ?? 0 },
-                { label: 'Ease', score: grant.scores?.ease ?? 0 },
-                { label: 'Attainability', score: grant.scores?.attainability ?? 0 },
-              ].map(({ label, score }) => (
-                <div key={label} className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">{label}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${score * 10}%`,
-                          backgroundColor: scoreColor(score),
-                        }}
-                      />
+          {(() => {
+            const scores = ds?.scores ?? grant.scores;
+            return (
+              <div className="bg-white rounded-xl border border-zinc-200 p-4">
+                <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Score breakdown</p>
+                <div className="space-y-2.5">
+                  {[
+                    { label: 'Alignment', score: scores?.alignment ?? 0 },
+                    { label: 'Ease', score: scores?.ease ?? 0 },
+                    { label: 'Attainability', score: scores?.attainability ?? 0 },
+                  ].map(({ label, score }) => (
+                    <div key={label} className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-500">{label}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-20 h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${score * 10}%`,
+                              backgroundColor: scoreColor(score),
+                            }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-zinc-700 tabular-nums w-6 text-right">
+                          {score.toFixed(1)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="text-xs font-bold text-zinc-700 tabular-nums w-6 text-right">
-                      {score.toFixed(1)}
+                  ))}
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
+                    <span className="text-xs font-semibold text-zinc-700">Overall</span>
+                    <span className="text-sm font-bold text-zinc-900 tabular-nums">
+                      {(scores?.overall ?? 0).toFixed(1)}
+                      <span className="text-xs font-normal text-zinc-400">/10</span>
                     </span>
                   </div>
                 </div>
-              ))}
-              <div className="flex items-center justify-between pt-2 border-t border-zinc-100">
-                <span className="text-xs font-semibold text-zinc-700">Overall</span>
-                <span className="text-sm font-bold text-zinc-900 tabular-nums">
-                  {(grant.scores?.overall ?? 0).toFixed(1)}
-                  <span className="text-xs font-normal text-zinc-400">/10</span>
-                </span>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -666,30 +671,38 @@ function FunderAccordion({
                     </div>
                   </div>
 
-                  {/* Sub-scores */}
-                  <div className="hidden lg:flex items-end gap-4 flex-shrink-0">
-                    <ScorePill score={grant.scores.alignment} label="Align" />
-                    <ScorePill score={grant.scores.ease} label="Ease" />
-                    <ScorePill score={grant.scores.attainability} label="Win" />
-                  </div>
+                  {/* Sub-scores — use deep search recalibrated scores when available */}
+                  {(() => {
+                    const ds = deepSearchData?.get(grant.id);
+                    const scores = ds?.scores ?? grant.scores;
+                    return (
+                      <>
+                        <div className="hidden lg:flex items-end gap-4 flex-shrink-0">
+                          <ScorePill score={scores.alignment} label="Align" />
+                          <ScorePill score={scores.ease} label="Ease" />
+                          <ScorePill score={scores.attainability} label="Win" />
+                        </div>
 
-                  {/* Overall score */}
-                  <div className="flex-shrink-0 ml-3 relative">
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white tabular-nums"
-                      style={{ backgroundColor: scoreColor(grant.scores.overall) }}
-                    >
-                      {(grant.scores?.overall ?? 0).toFixed(1)}
-                    </div>
-                    {deepSearchIds?.has(grant.id) && (
-                      <Tooltip>
-                        <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
-                          <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-                        </TooltipTrigger>
-                        <TooltipContent>Deep research completed</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </div>
+                        {/* Overall score */}
+                        <div className="flex-shrink-0 ml-3 relative">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white tabular-nums"
+                            style={{ backgroundColor: scoreColor(scores.overall) }}
+                          >
+                            {(scores?.overall ?? 0).toFixed(1)}
+                          </div>
+                          {deepSearchIds?.has(grant.id) && (
+                            <Tooltip>
+                              <TooltipTrigger className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white">
+                                <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                              </TooltipTrigger>
+                              <TooltipContent>Deep research completed</TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
 
                   <div className="text-zinc-400 flex-shrink-0">
                     {isExpanded
@@ -916,16 +929,9 @@ function ResultsContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Eagerly fetch all deep-search and shortlist IDs on mount (parallel with results loading)
-  useEffect(() => {
-    Promise.all([
-      getAllDeepSearchIds(),
-      getAllShortlistedIds(),
-    ]).then(([deepMap, shortIds]) => {
-      setDeepSearchIds(deepMap);
-      setShortlistedIds(shortIds);
-    });
-  }, []);
+  // Deep search and shortlist state start empty for each search session.
+  // Badges and recalibrated scores only reflect actions taken within this search,
+  // since scores are context-specific (different funding purposes yield different scores).
 
   // Load full deep search data once we know which results have them
   useEffect(() => {
@@ -1018,12 +1024,18 @@ function ResultsContent() {
     }
   }
 
+  // Return deep-search-recalibrated scores when available, otherwise original scores
+  const effectiveScores = (g: GrantOpportunity) => {
+    const ds = deepSearchData.get(g.id);
+    return ds?.scores ?? g.scores;
+  };
+
   const funderGroups = useMemo((): FunderGroup[] => {
     if (!result) return [];
-    let grants = result.grants.filter(g => g.scores?.overall !== undefined);
+    let grants = result.grants.filter(g => effectiveScores(g)?.overall !== undefined);
 
     const min = parseFloat(minScore);
-    if (min > 0) grants = grants.filter(g => g.scores.overall >= min);
+    if (min > 0) grants = grants.filter(g => effectiveScores(g).overall >= min);
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -1048,19 +1060,21 @@ function ResultsContent() {
     const groups: FunderGroup[] = Array.from(map.entries()).map(([funder, fGrants]) => {
       const sorted = [...fGrants].sort((a, b) => {
         let av: number | string, bv: number | string;
+        const aScores = effectiveScores(a);
+        const bScores = effectiveScores(b);
         switch (sortField) {
-          case 'overall':               av = a.scores.overall;               bv = b.scores.overall; break;
-          case 'alignment':             av = a.scores.alignment;             bv = b.scores.alignment; break;
-          case 'attainability':         av = a.scores.attainability;         bv = b.scores.attainability; break;
-          case 'ease':                  av = a.scores.ease;                  bv = b.scores.ease; break;
+          case 'overall':               av = aScores.overall;               bv = bScores.overall; break;
+          case 'alignment':             av = aScores.alignment;             bv = bScores.alignment; break;
+          case 'attainability':         av = aScores.attainability;         bv = bScores.attainability; break;
+          case 'ease':                  av = aScores.ease;                  bv = bScores.ease; break;
           case 'deadline':              av = a.deadline || 'ZZZ';            bv = b.deadline || 'ZZZ'; break;
-          default:                      av = a.scores.overall;               bv = b.scores.overall;
+          default:                      av = aScores.overall;               bv = bScores.overall;
         }
         if (av < bv) return sortDir === 'asc' ? -1 : 1;
         if (av > bv) return sortDir === 'asc' ? 1 : -1;
         return 0;
       });
-      const bestScore = Math.max(...fGrants.map(g => g.scores?.overall ?? 0));
+      const bestScore = Math.max(...fGrants.map(g => effectiveScores(g)?.overall ?? 0));
       return { funder, type: fGrants[0].type, grants: sorted, bestScore };
     });
 
@@ -1072,7 +1086,7 @@ function ResultsContent() {
       }
       return sortDir === 'asc' ? a.bestScore - b.bestScore : b.bestScore - a.bestScore;
     });
-  }, [result, searchQuery, typeFilter, sortField, sortDir, minScore]);
+  }, [result, searchQuery, typeFilter, sortField, sortDir, minScore, deepSearchData]);
 
   const totalShown = funderGroups.reduce((sum, g) => sum + g.grants.length, 0);
   const market = result ? getMarket(result.market ?? 'nz') : null;

@@ -29,6 +29,8 @@ export interface GrantRow {
   amount_min: number | null;
   amount_max: number | null;
   deadline: string | null;
+  is_recurring: boolean | null;
+  round_frequency: string | null;
   application_form_url: string | null;
 }
 
@@ -55,6 +57,7 @@ export async function searchGrants(
          g.source_url,
          g.regions, g.sectors, g.eligibility,
          g.amount_min, g.amount_max, g.deadline,
+         g.is_recurring, g.round_frequency,
          g.application_form_url
        FROM grants g
        JOIN charities c ON c.id = g.funder_id

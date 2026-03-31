@@ -5,6 +5,7 @@ import { serperSearch } from '@/lib/serper';
 import { OrgInfo, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { writeDeepSearchUpdates } from '@/lib/db';
+import { findGrantLinksFromHtml } from '@/lib/nav-links';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -153,22 +154,30 @@ export async function POST(req: NextRequest) {
       ] : []),
     ];
 
-    const searchResults = await Promise.all(
-      queries.map(async q => {
-        costs.serperQueries++;
-        try {
-          const res = await serperSearch(q, {
-            num: 10,
-            gl: market.id,
-            excludeDomains: market.excludedDomains,
-          });
-          return res.results;
-        } catch (err) {
-          console.warn(`[DeepSearch] Serper query failed: ${q}`, err);
-          return [];
-        }
-      }),
-    );
+    // Run Serper queries and nav link discovery in parallel (nav links are free)
+    const homepageUrl = grantDomain ? `https://${grantDomain}` : null;
+
+    const [searchResults, navLinks] = await Promise.all([
+      // Serper queries
+      Promise.all(
+        queries.map(async q => {
+          costs.serperQueries++;
+          try {
+            const res = await serperSearch(q, {
+              num: 10,
+              gl: market.id,
+              excludeDomains: market.excludedDomains,
+            });
+            return res.results;
+          } catch (err) {
+            console.warn(`[DeepSearch] Serper query failed: ${q}`, err);
+            return [];
+          }
+        }),
+      ),
+      // Nav link discovery from funder homepage (free HTML fetch)
+      homepageUrl ? findGrantLinksFromHtml(homepageUrl) : Promise.resolve([]),
+    ]);
 
     // Collect unique URLs, prioritising the grant's own domain
     const seen = new Set<string>();
@@ -179,6 +188,24 @@ export async function POST(req: NextRequest) {
     // Always include the grant's original URL first
     seen.add(normaliseUrl(grant.url));
 
+    // Add nav-discovered URLs first (high-value same-domain pages)
+    for (const link of navLinks) {
+      const norm = normaliseUrl(link.url);
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      try {
+        const host = new URL(link.url).hostname.replace(/^www\./, '');
+        if (grantDomain && host.includes(grantDomain)) {
+          sameDomainUrls.push(link.url);
+        }
+      } catch { /* skip invalid URLs */ }
+    }
+
+    if (navLinks.length > 0) {
+      console.log(`[DeepSearch] Nav links discovered: ${navLinks.length} (${sameDomainUrls.length} same-domain)`);
+    }
+
+    // Add Serper-discovered URLs
     for (const results of searchResults) {
       for (const r of results) {
         const norm = normaliseUrl(r.url);
@@ -207,7 +234,7 @@ export async function POST(req: NextRequest) {
       ...otherUrls.slice(0, 4),
     ].slice(0, 10);
 
-    console.log(`[DeepSearch] Phase 1 complete: ${queries.length} queries → ${urlsToExtract.length} URLs to extract`);
+    console.log(`[DeepSearch] Phase 1 complete: ${queries.length} Serper queries + nav links → ${urlsToExtract.length} URLs to extract`);
 
     // ────────────────────────────────────────────────────────────────────────
     // Phase 2: Tavily content extraction

@@ -10,9 +10,13 @@
  *      their name — these are high-probability grant-givers regardless of primary activity
  *   3. Deduplicates by charity number
  *   4. Filters out noise (school PTAs, churches, sports clubs, etc.)
- *   5. Upserts into the `charities` table (source='register')
+ *   5. Charities without a website are still imported if they are self-declared
+ *      grant-makers (MainActivityId=3) — their websites are discovered later
+ *      by discover-websites.ts using email domain extraction + Tavily search
+ *   6. Upserts into the `charities` table (source='register')
  *
  * Safe to re-run — uses ON CONFLICT to update existing records.
+ * Discovered website_urls (from discover-websites.ts) are protected via COALESCE.
  */
 
 import { Pool } from '@neondatabase/serverless';
@@ -21,7 +25,7 @@ const ODATA_BASE = 'http://www.odata.charities.govt.nz';
 const PAGE_SIZE = 1000;
 
 // Names matching these patterns are unlikely to be external grant funders
-const EXCLUDE_NAME_PATTERNS = /\b(school|PTA|parent.?teacher|church|parish|mosque|temple|synagogue|scouts?|guides?|sports?\s*club|rugby\s*(league|union|club|football)?|cricket|football\s*club|netball|hockey\s*club|bowling|golf\s*club|swimming|surf\s*(club|life)|kindergarten|playcentre|preschool|kohanga|creche|playgroup|plunket|womens?\s*institute|rotary|lions?\s*club|kiwanis|jaycees|freemasons?|masonic|RSA\b|returned\s*services|mens?\s*shed|garden\s*club|bridge\s*club|tramping|mountaineering|rowing|sailing\s*club|yacht\s*club|tennis\s*club|squash|badminton|croquet|pony\s*club|riding\s*club)\b/i;
+const EXCLUDE_NAME_PATTERNS = /\b(school|PTSA|PTA|parent.?teacher|church|parish|mosque|temple|synagogue|scouts?|guides?|sports?\s*club|rugby\s*(league|union|club|football)?|cricket|football\s*club|netball|hockey\s*club|bowling|golf\s*club|swimming|surf\s*(club|life)|kindergarten|playcentre|preschool|kohanga|creche|playgroup|plunket|womens?\s*institute|rotary|lions?\s*club|kiwanis|jaycees|freemasons?|masonic|RSA\b|returned\s*services|mens?\s*shed|garden\s*club|bridge\s*club|tramping|mountaineering|rowing|sailing\s*club|yacht\s*club|tennis\s*club|squash|badminton|croquet|pony\s*club|riding\s*club)\b/i;
 
 // Generic trustee websites — still import the charities but flag for enrichment
 // via their specific trust grant page (discovered in import-curated-funders)
@@ -37,8 +41,10 @@ interface ODataOrg {
   Name: string;
   CharityRegistrationNumber: string;
   WebSiteURL: string | null;
+  CharityEmailAddress: string | null;
   CharitablePurpose: string | null;
   MainSectorId: number | null;
+  MainActivityId: number | null;
   RegistrationStatus: string;
 }
 
@@ -63,16 +69,23 @@ function normaliseWebsite(url: string | null): string | null {
 
 function shouldInclude(org: ODataOrg): boolean {
   if (org.RegistrationStatus !== 'Registered') return false;
-  if (!normaliseWebsite(org.WebSiteURL)) return false;
   if (EXCLUDE_NAME_PATTERNS.test(org.Name)) return false;
-  return true;
+
+  // Has website → import (existing behavior for all query types)
+  if (normaliseWebsite(org.WebSiteURL)) return true;
+
+  // No website → only import self-declared grant-makers (MainActivityId=3).
+  // Their websites will be discovered later by discover-websites.ts.
+  if (org.MainActivityId === 3) return true;
+
+  return false;
 }
 
 async function fetchPage(filter: string, skip: number): Promise<ODataOrg[]> {
   const url =
     `${ODATA_BASE}/Organisations?` +
     `$filter=${encodeURIComponent(filter)}` +
-    `&$select=OrganisationId,Name,CharityRegistrationNumber,WebSiteURL,CharitablePurpose,MainSectorId,RegistrationStatus` +
+    `&$select=OrganisationId,Name,CharityRegistrationNumber,WebSiteURL,CharityEmailAddress,CharitablePurpose,MainSectorId,MainActivityId,RegistrationStatus` +
     `&$top=${PAGE_SIZE}&$skip=${skip}` +
     `&$format=json`;
 
@@ -168,17 +181,15 @@ async function main() {
   const excluded = allOrgs.length - filtered.length;
   console.log(`After filtering: ${filtered.length} kept, ${excluded} excluded`);
 
-  let noWebsite = 0;
+  const withWebsite = filtered.filter(o => !!normaliseWebsite(o.WebSiteURL)).length;
+  const withoutWebsite = filtered.length - withWebsite;
+  console.log(`  - With website: ${withWebsite}`);
+  console.log(`  - Without website (MainActivityId=3, pending discovery): ${withoutWebsite}`);
+
   let nameExcluded = 0;
-  let genericWebsite = 0;
   for (const org of allOrgs) {
-    if (!org.WebSiteURL?.trim()) { noWebsite++; continue; }
-    const normUrl = normaliseWebsite(org.WebSiteURL);
-    if (!normUrl && org.WebSiteURL?.trim()) { genericWebsite++; continue; }
     if (EXCLUDE_NAME_PATTERNS.test(org.Name)) { nameExcluded++; }
   }
-  console.log(`  - No website: ${noWebsite}`);
-  console.log(`  - Generic trustee website: ${genericWebsite}`);
   console.log(`  - Name pattern excluded: ${nameExcluded}`);
 
   // ── Upsert into DB ─────────────────────────────────────────────────────────
@@ -201,10 +212,13 @@ async function main() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_charities_sector ON charities(sector_id)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_charities_website ON charities(website_url) WHERE website_url IS NOT NULL`);
 
-  // Ensure extended columns exist (from migration 003)
+  // Ensure extended columns exist (from migration 003+)
   await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'register'`);
   await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS curated_grant_url TEXT`);
   await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS regions TEXT[]`);
+  await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS charity_email TEXT`);
+  await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS website_source TEXT`);
+  await pool.query(`ALTER TABLE charities ADD COLUMN IF NOT EXISTS main_activity_id INTEGER`);
 
   let inserted = 0;
   let updated = 0;
@@ -215,26 +229,36 @@ async function main() {
 
     // Build multi-row VALUES clause
     const values: unknown[] = [];
+    const COLS_PER_ROW = 8;
     const placeholders = batch.map((org, j) => {
-      const base = j * 5;
+      const base = j * COLS_PER_ROW;
       values.push(
         org.CharityRegistrationNumber,
         org.Name,
         normaliseWebsite(org.WebSiteURL),
         org.CharitablePurpose?.slice(0, 5000) || null,
         org.MainSectorId,
+        org.CharityEmailAddress?.trim() || null,
+        normaliseWebsite(org.WebSiteURL) ? 'register' : null,
+        org.MainActivityId ?? null,
       );
-      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, 'register')`;
+      return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, 'register', $${base + 6}, $${base + 7}, $${base + 8})`;
     });
 
     const result = await pool.query(
-      `INSERT INTO charities (charity_number, name, website_url, purpose, sector_id, source)
+      `INSERT INTO charities (charity_number, name, website_url, purpose, sector_id, source, charity_email, website_source, main_activity_id)
        VALUES ${placeholders.join(', ')}
        ON CONFLICT (charity_number) DO UPDATE SET
          name = EXCLUDED.name,
-         website_url = EXCLUDED.website_url,
+         website_url = COALESCE(EXCLUDED.website_url, charities.website_url),
+         website_source = CASE
+           WHEN charities.website_url IS NULL AND EXCLUDED.website_url IS NOT NULL THEN 'register'
+           ELSE COALESCE(charities.website_source, EXCLUDED.website_source)
+         END,
          purpose = EXCLUDED.purpose,
-         sector_id = EXCLUDED.sector_id
+         sector_id = EXCLUDED.sector_id,
+         charity_email = COALESCE(EXCLUDED.charity_email, charities.charity_email),
+         main_activity_id = COALESCE(EXCLUDED.main_activity_id, charities.main_activity_id)
        RETURNING (xmax = 0) AS is_insert`,
       values
     );
@@ -254,6 +278,9 @@ async function main() {
 
   const { rows: withUrl } = await pool.query("SELECT COUNT(*) AS total FROM charities WHERE website_url IS NOT NULL AND source = 'register'");
   console.log(`Register records with website: ${withUrl[0].total}`);
+
+  const { rows: pendingDiscovery } = await pool.query("SELECT COUNT(*) AS total FROM charities WHERE website_url IS NULL AND source = 'register'");
+  console.log(`Register records pending website discovery: ${pendingDiscovery[0].total}`);
 
   await pool.end();
 }

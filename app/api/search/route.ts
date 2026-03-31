@@ -302,20 +302,23 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
         const allScoredGrants: GrantOpportunity[] = [];
 
         // Build structured payload for each grant (no free-text blob)
+        const sanitize = (s: string) => s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
         const toPayload = (g: GrantRow) => {
           const p: Record<string, unknown> = {
-            name: g.name,
+            name: sanitize(g.name),
             funder: g.funder_name,
             funderType: g.funder_type || 'other',
             type: g.type || 'Other',
           };
-          if (g.description) p.description = g.description.slice(0, 1500);
+          if (g.description) p.description = sanitize(g.description).slice(0, 1500);
           if (g.eligibility?.length) p.eligibility = g.eligibility;
           if (g.sectors?.length) p.sectors = g.sectors;
           if (g.regions?.length) p.regions = g.regions;
           if (g.amount_min != null) p.amountMin = g.amount_min;
           if (g.amount_max != null) p.amountMax = g.amount_max;
           if (g.deadline) p.deadline = g.deadline;
+          if (g.is_recurring != null) p.isRecurring = g.is_recurring;
+          if (g.round_frequency) p.roundFrequency = g.round_frequency;
           if (g.application_form_url) p.applicationFormUrl = g.application_form_url;
           p.url = g.url;
           return p;
@@ -357,7 +360,7 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
                 if (!scored?.scores) continue;
 
                 const { alignment = 0, ease = 5, attainability = 0 } = scored.scores;
-                const overall = scored.scores.overall || Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
+                const overall = Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
 
                 if (alignment <= 5) continue;
 
@@ -371,6 +374,8 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
                   amountMin: db.amount_min ?? scored.amountMin,
                   amountMax: db.amount_max ?? scored.amountMax,
                   deadline: scored.deadline,
+                  isRecurring: db.is_recurring ?? undefined,
+                  roundFrequency: db.round_frequency ?? undefined,
                   url: db.url,
                   scores: { alignment, ease, attainability, overall },
                   alignmentReason: scored.alignmentReason || '',

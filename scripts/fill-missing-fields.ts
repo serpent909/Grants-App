@@ -14,6 +14,7 @@
 
 import { Pool } from '@neondatabase/serverless';
 import OpenAI from 'openai';
+import { findGrantLinksFromHtml } from '../lib/nav-links';
 
 const CONCURRENCY = 15;
 const FETCH_TIMEOUT = 30_000;
@@ -53,7 +54,7 @@ function isTrustedFormUrl(formUrl: string, pageUrl: string): boolean {
   }
 }
 
-async function fetchPage(url: string): Promise<string | null> {
+async function fetchHtml(url: string): Promise<string | null> {
   try {
     const res = await fetch(url, {
       redirect: 'follow',
@@ -61,19 +62,71 @@ async function fetchPage(url: string): Promise<string | null> {
       headers: { 'User-Agent': UA },
     });
     if (!res.ok) return null;
-    return stripHtml(await res.text()).slice(0, PAGE_CHAR_LIMIT);
+    return await res.text();
   } catch {
     return null;
   }
+}
+
+async function fetchPage(url: string): Promise<string | null> {
+  const html = await fetchHtml(url);
+  return html ? stripHtml(html).slice(0, PAGE_CHAR_LIMIT) : null;
+}
+
+/**
+ * Fetch a page's content, and if it looks thin on grant details,
+ * also fetch grant-related subpages found via nav link parsing.
+ * Returns combined content from all fetched pages.
+ */
+async function fetchPageWithNavLinks(url: string): Promise<string | null> {
+  const html = await fetchHtml(url);
+  if (!html) return null;
+
+  let content = stripHtml(html).slice(0, PAGE_CHAR_LIMIT);
+  const lc = content.toLowerCase();
+
+  // If source page already has rich grant content, don't bother with subpages
+  const hasAmount = /\$[\d,]+/.test(content) || /nzd/i.test(content);
+  const hasDeadline = /\d{4}-\d{2}-\d{2}|deadline|closing date|applications?\s+close/i.test(content);
+  const hasForm = /application\s+form|apply\s+(now|here|online)/i.test(content);
+  if (hasAmount && hasDeadline && hasForm) return content;
+
+  // Parse nav links from the HTML we already fetched
+  const { parseGrantLinksFromHtml } = await import('../lib/nav-links');
+  const navLinks = parseGrantLinksFromHtml(html, url);
+
+  // Only follow same-domain subpages (up to 3)
+  let domain = '';
+  try { domain = new URL(url).hostname.replace(/^www\./, ''); } catch {}
+
+  const subpages = navLinks
+    .filter(link => {
+      try { return new URL(link.url).hostname.replace(/^www\./, '') === domain; } catch { return false; }
+    })
+    .filter(link => link.url !== url)
+    .slice(0, 3);
+
+  if (subpages.length > 0) {
+    const subContents = await Promise.allSettled(
+      subpages.map(link => fetchPage(link.url)),
+    );
+    for (const r of subContents) {
+      if (r.status === 'fulfilled' && r.value) {
+        content += '\n\n--- Additional page ---\n\n' + r.value;
+      }
+    }
+    // Re-truncate combined content
+    content = content.slice(0, PAGE_CHAR_LIMIT);
+  }
+
+  return content;
 }
 
 function stripHtml(html: string): string {
   return html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
     .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&[a-z]+;/gi, ' ')
     .replace(/\s+/g, ' ')
@@ -182,7 +235,7 @@ async function main() {
     const batch = pages.slice(i, i + CONCURRENCY);
 
     await Promise.allSettled(batch.map(async (page) => {
-      const content = await fetchPage(page.source_url);
+      const content = await fetchPageWithNavLinks(page.source_url);
       if (!content) {
         pagesFailed++;
         return;

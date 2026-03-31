@@ -7,13 +7,13 @@ import {
   Star, Trash2, ExternalLink, CalendarDays, Building2, Search,
   ChevronDown, ChevronUp, DollarSign, FileText, ClipboardList,
   ShieldCheck, Users, Info, MessageSquare, Link2,
-  CheckCircle2, Circle, TrendingUp, TrendingDown, Minus, Loader2,
+  CheckCircle2, Circle, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle,
 } from 'lucide-react';
 import { useShortlistedBySearch, removeFromShortlist, ShortlistedGrant } from '@/lib/shortlist-storage';
 import { useDeepSearchBatch } from '@/lib/deep-search-storage';
 import { startApplication, useApplicationCheck } from '@/lib/application-storage';
 import { GrantOpportunity, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
-import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDate, formatDeadline } from '@/lib/formatting';
+import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDate, formatDeadline, getDeadlineStatus, deadlineStatusLabel } from '@/lib/formatting';
 
 const TYPE_CONFIG: Record<
   GrantOpportunity['type'],
@@ -94,9 +94,12 @@ function GrantCard({
 
   // Use deep search data if available, fall back to grant data
   const amount = formatAmountRange(deep?.amountMin ?? grant.amountMin, deep?.amountMax ?? grant.amountMax);
-  const deadline = formatDeadline(deep?.applicationCloseDate ?? grant.deadline);
+  const rawDeadline = deep?.applicationCloseDate ?? grant.deadline;
+  const deadline = formatDeadline(rawDeadline);
   const openDate = formatDate(deep?.applicationOpenDate);
   const score = deep?.scores?.overall ?? grant.scores?.overall ?? 0;
+  const dlStatus = getDeadlineStatus(rawDeadline, grant.isRecurring);
+  const dlBadge = deadlineStatusLabel(rawDeadline, grant.isRecurring, grant.roundFrequency);
 
   return (
     <div className={`bg-white rounded-xl ring-1 ring-zinc-200 shadow-sm overflow-hidden border-l-4 ${cfg.border}`}>
@@ -130,8 +133,17 @@ function GrantCard({
             )}
             {deadline ? (
               <span className="flex items-center gap-1 text-xs text-zinc-500">
-                <CalendarDays className="w-3 h-3 text-zinc-400" />
+                <CalendarDays className={`w-3 h-3 ${dlStatus === 'closing-soon' ? 'text-amber-500' : dlStatus === 'passed' ? 'text-red-400' : 'text-zinc-400'}`} />
                 <span className="text-zinc-400">Closes:</span> <span className="font-medium">{deadline}</span>
+                {dlBadge && (
+                  <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                    dlStatus === 'closing-soon' ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                    : dlStatus === 'passed' ? 'bg-red-50 text-red-600 ring-1 ring-red-200'
+                    : ''
+                  }`}>
+                    {dlBadge}
+                  </span>
+                )}
               </span>
             ) : (
               <span className="text-xs text-zinc-400">Open / Rolling</span>
@@ -404,9 +416,19 @@ export default function ShortlistedPage() {
   const totalGrants = Object.values(grouped).reduce((sum, items) => sum + items.length, 0);
   const searchCount = Object.keys(grouped).length;
 
-  async function handleRemove(grantId: string) {
-    if (!confirm('Remove this grant from your shortlist?')) return;
-    await removeFromShortlist(grantId);
+  const [removeConfirm, setRemoveConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  function handleRemove(grantId: string, grantName: string) {
+    setRemoveConfirm({ id: grantId, name: grantName });
+  }
+
+  async function confirmRemove() {
+    if (!removeConfirm) return;
+    setRemoving(true);
+    await removeFromShortlist(removeConfirm.id);
+    setRemoving(false);
+    setRemoveConfirm(null);
   }
 
   async function handleStartApplication(item: ShortlistedGrant) {
@@ -472,7 +494,7 @@ export default function ShortlistedPage() {
                       item={item}
                       deep={deepSearchMap.get(item.grant.id) ?? null}
                       applying={applicationIds.has(item.grant.id)}
-                      onRemove={() => handleRemove(item.grant.id)}
+                      onRemove={() => handleRemove(item.grant.id, item.grant.name)}
                       onStartApplication={handleStartApplication}
                     />
                   ))}
@@ -482,6 +504,47 @@ export default function ShortlistedPage() {
           </div>
         )}
       </div>
+
+      {/* Remove confirmation modal */}
+      {removeConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setRemoveConfirm(null)}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-xl border border-zinc-200 w-full max-w-md mx-4 p-6"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="font-semibold text-zinc-900">Remove from shortlist?</h3>
+            </div>
+
+            <p className="text-sm text-zinc-600 mb-5">
+              <span className="font-medium">&ldquo;{removeConfirm.name}&rdquo;</span> will be removed from your shortlist.
+            </p>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setRemoveConfirm(null)}
+                className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemove}
+                disabled={removing}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {removing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
