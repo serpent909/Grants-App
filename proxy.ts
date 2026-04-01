@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // CSRF: reject state-changing API requests from foreign origins
   const { method, nextUrl, headers } = request;
   if (
