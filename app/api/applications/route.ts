@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
 import { getOrgId } from '@/lib/auth-helpers';
+import { createApplicationSchema, updateApplicationSchema, parseOrError } from '@/lib/schemas';
 
 export async function GET(req: NextRequest) {
   const orgId = await getOrgId();
@@ -52,8 +53,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const body = await req.json();
-  const { id, grantId, grant, searchTitle, status, statusHistory, notes, startedAt } = body;
+  const parsed = parseOrError(createApplicationSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { id, grantId, grant, searchTitle, status, statusHistory, notes, startedAt } = parsed.data;
   const db = getPool();
   await db.query(
     `INSERT INTO grant_applications
@@ -71,9 +73,9 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const body = await req.json();
-  const { grantId, ...updates } = body;
-  if (!grantId) return NextResponse.json({ error: 'grantId required' }, { status: 400 });
+  const parsed = parseOrError(updateApplicationSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { grantId, ...updates } = parsed.data;
 
   const db = getPool();
   const sets: string[] = ['updated_at = NOW()'];

@@ -75,7 +75,7 @@ export default function UserMenu() {
               Settings
             </Link>
             <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
+              onClick={() => { localStorage.clear(); sessionStorage.clear(); signOut({ callbackUrl: '/login' }); }}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
             >
               <LogOut className="w-4 h-4" />

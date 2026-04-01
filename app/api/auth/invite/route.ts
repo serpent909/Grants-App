@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getPool } from '@/lib/db';
+import { acceptInviteSchema, parseOrError } from '@/lib/schemas';
+import { authLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 // GET: validate token and return org info
 export async function GET(req: NextRequest) {
@@ -37,13 +39,14 @@ export async function GET(req: NextRequest) {
 
 // POST: accept invitation — create user and join org
 export async function POST(req: NextRequest) {
-  const { token, name, password } = await req.json();
-  if (!token || !password) {
-    return NextResponse.json({ error: 'token and password are required' }, { status: 400 });
+  const blocked = await checkRateLimit(authLimiter, getClientIp(req.headers));
+  if (blocked) return blocked;
+
+  const parsed = parseOrError(acceptInviteSchema, await req.json());
+  if ('error' in parsed) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-  if (password.length < 8) {
-    return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-  }
+  const { token, name, password } = parsed.data;
 
   const db = getPool();
   const { rows } = await db.query(
@@ -74,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Create user
-  const userId = `usr_${Date.now()}`;
+  const userId = `usr_${crypto.randomUUID()}`;
   const passwordHash = await bcrypt.hash(password, 12);
 
   await db.query(

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
 import { getOrgId } from '@/lib/auth-helpers';
+import { attachDocumentSchema, parseOrError } from '@/lib/schemas';
 
 export async function POST(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const { checklistItemId, documentId } = await req.json();
-  if (!checklistItemId || !documentId) {
-    return NextResponse.json({ error: 'checklistItemId and documentId required' }, { status: 400 });
-  }
+  const parsed = parseOrError(attachDocumentSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { checklistItemId, documentId } = parsed.data;
 
   const db = getPool();
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   );
   if (docRows.length === 0) return NextResponse.json({ error: 'document not found' }, { status: 404 });
 
-  const id = `cd-${Date.now()}`;
+  const id = `cd-${crypto.randomUUID()}`;
   await db.query(
     `INSERT INTO checklist_documents (id, org_id, checklist_item_id, document_id, attached_at)
      VALUES ($1, $2, $3, $4, NOW())

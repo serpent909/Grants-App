@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
 import { getOrgId } from '@/lib/auth-helpers';
+import { createSavedSearchSchema, updateSavedSearchSchema, parseOrError } from '@/lib/schemas';
 
 export async function GET() {
   const orgId = await getOrgId();
@@ -18,8 +19,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const body = await req.json();
-  const { id, name, savedAt, grantCount, orgSummary, market, result } = body;
+  const parsed = parseOrError(createSavedSearchSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { id, name, savedAt, grantCount, orgSummary, market, result } = parsed.data;
   const db = getPool();
   await db.query(
     `INSERT INTO saved_searches (id, org_id, name, saved_at, grant_count, org_summary, market, result_json)
@@ -36,8 +38,9 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const body = await req.json();
-  const { id, result, grantCount, orgSummary } = body;
+  const parsed = parseOrError(updateSavedSearchSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { id, result, grantCount, orgSummary } = parsed.data;
   const db = getPool();
   await db.query(
     `UPDATE saved_searches

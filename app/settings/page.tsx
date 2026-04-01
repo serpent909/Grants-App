@@ -15,7 +15,6 @@ interface Member {
 interface Invitation {
   id: string;
   email: string;
-  token: string;
   expiresAt: string;
   acceptedAt: string | null;
   createdAt: string;
@@ -32,7 +31,8 @@ export default function SettingsPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -80,10 +80,10 @@ export default function SettingsPage() {
         const data = await res.json();
         setInviteError(data.error || 'Failed to send invitation');
       } else {
-        const sentTo = inviteEmail;
+        const data = await res.json();
         setInviteEmail('');
-        setInviteSuccess(`Invitation sent to ${sentTo}`);
-        setTimeout(() => setInviteSuccess(''), 5000);
+        setInviteSuccess(`Invitation created for ${inviteEmail}`);
+        setInviteLink(`${window.location.origin}/invite/${data.token}`);
         loadData();
       }
     } finally {
@@ -102,11 +102,10 @@ export default function SettingsPage() {
     loadData();
   }
 
-  function copyInviteLink(token: string) {
-    const url = `${window.location.origin}/invite/${token}`;
-    navigator.clipboard.writeText(url);
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
+  function copyInviteLink() {
+    navigator.clipboard.writeText(inviteLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   }
 
   if (loading) {
@@ -194,8 +193,20 @@ export default function SettingsPage() {
         {inviteError && (
           <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{inviteError}</p>
         )}
-        {inviteSuccess && (
-          <p className="text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2">{inviteSuccess}</p>
+        {inviteSuccess && inviteLink && (
+          <div className="bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-2 space-y-2">
+            <p className="text-sm text-emerald-700 dark:text-emerald-400">{inviteSuccess}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-emerald-600 dark:text-emerald-500 font-mono truncate flex-1">{inviteLink}</p>
+              <button
+                onClick={copyInviteLink}
+                className="flex-shrink-0 p-1.5 text-emerald-600 hover:text-emerald-700 transition-colors"
+              >
+                {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-emerald-600 dark:text-emerald-500">Copy this link now — it won&apos;t be shown again.</p>
+          </div>
         )}
 
         {pendingInvites.length > 0 && (
@@ -209,26 +220,15 @@ export default function SettingsPage() {
                     Expires {new Date(inv.expiresAt).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Tooltip>
-                    <TooltipTrigger
-                      onClick={() => copyInviteLink(inv.token)}
-                      className="p-1.5 text-zinc-400 hover:text-teal-600 transition-colors"
-                    >
-                      {copiedToken === inv.token ? <Check className="w-4 h-4 text-teal-600" /> : <Copy className="w-4 h-4" />}
-                    </TooltipTrigger>
-                    <TooltipContent>Copy invite link</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger
-                      onClick={() => handleRevokeInvite(inv.id)}
-                      className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </TooltipTrigger>
-                    <TooltipContent>Revoke invitation</TooltipContent>
-                  </Tooltip>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger
+                    onClick={() => handleRevokeInvite(inv.id)}
+                    className="p-1.5 text-zinc-400 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </TooltipTrigger>
+                  <TooltipContent>Revoke invitation</TooltipContent>
+                </Tooltip>
               </div>
             ))}
           </div>

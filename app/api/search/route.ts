@@ -3,6 +3,9 @@ import { openai } from '@/lib/openai';
 import { OrgInfo, GrantOpportunity } from '@/lib/types';
 import { getMarket, MarketConfig } from '@/lib/markets';
 import { searchGrants, GrantRow } from '@/lib/db';
+import { searchSchema, parseOrError } from '@/lib/schemas';
+import { searchLimiter, checkRateLimit } from '@/lib/rate-limit';
+import { getOrgId } from '@/lib/auth-helpers';
 
 const TODAY = new Date().toISOString().split('T')[0];
 
@@ -201,18 +204,19 @@ async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): P
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // Parse and validate before starting the stream
-  let body: OrgInfo;
-  try {
-    body = await req.json() as OrgInfo;
-  } catch {
+  // Rate limit by org
+  const orgId = await getOrgId();
+  const blocked = await checkRateLimit(searchLimiter, orgId);
+  if (blocked) return blocked;
+
+  // Parse and validate
+  const parsed = parseOrError(searchSchema, await req.json());
+  if ('error' in parsed) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
+  const body = parsed.data as OrgInfo;
 
   const { website, fundingPurpose, fundingAmount, market: marketId } = body;
-  if (!website || !fundingPurpose || !fundingAmount) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-  }
 
   const market = getMarket(marketId || 'nz');
 

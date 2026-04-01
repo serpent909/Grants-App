@@ -6,6 +6,9 @@ import { OrgInfo, DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
 import { writeDeepSearchUpdates } from '@/lib/db';
 import { findGrantLinksFromHtml } from '@/lib/nav-links';
+import { deepSearchRequestSchema, parseOrError } from '@/lib/schemas';
+import { deepSearchLimiter, checkRateLimit } from '@/lib/rate-limit';
+import { getOrgId } from '@/lib/auth-helpers';
 
 const TODAY = new Date().toISOString().split('T')[0];
 const CURRENT_YEAR = new Date().getFullYear();
@@ -41,6 +44,33 @@ function computeCost(c: CostTracker) {
 
 function stripFences(text: string): string {
   return text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+}
+
+// ─── SSRF protection ─────────────────────────────────────────────────────────
+
+const PRIVATE_IP_PATTERNS = [
+  /^127\./,                          // loopback
+  /^10\./,                           // RFC1918
+  /^172\.(1[6-9]|2\d|3[01])\./,     // RFC1918
+  /^192\.168\./,                     // RFC1918
+  /^169\.254\./,                     // link-local (AWS metadata etc.)
+  /^::1$/,                           // IPv6 loopback
+  /^fc00:/i,                         // IPv6 private
+  /^fe80:/i,                         // IPv6 link-local
+];
+
+function isSafeUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname === 'localhost') return false;
+  if (PRIVATE_IP_PATTERNS.some(p => p.test(hostname))) return false;
+  return true;
 }
 
 function normaliseUrl(url: string): string {
@@ -121,15 +151,24 @@ interface DeepSearchRequest {
 // ─── Main handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Rate limit by org
+  const orgId = await getOrgId();
+  const blocked = await checkRateLimit(deepSearchLimiter, orgId);
+  if (blocked) return blocked;
+
   const costs = createCostTracker();
   const t0 = Date.now();
 
   try {
-    const body: DeepSearchRequest = await req.json();
+    const validated = parseOrError(deepSearchRequestSchema, await req.json());
+    if ('error' in validated) {
+      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+    const body = validated.data as DeepSearchRequest;
     const { grant, orgContext, market: marketId } = body;
 
-    if (!grant?.id || !grant?.url || !orgContext) {
-      return NextResponse.json({ error: 'Missing grant or orgContext' }, { status: 400 });
+    if (!isSafeUrl(grant.url)) {
+      return NextResponse.json({ error: 'Invalid grant URL' }, { status: 400 });
     }
 
     const market = getMarket(marketId || 'nz');
@@ -188,8 +227,9 @@ export async function POST(req: NextRequest) {
     // Always include the grant's original URL first
     seen.add(normaliseUrl(grant.url));
 
-    // Add nav-discovered URLs first (high-value same-domain pages)
+    // Add nav-discovered URLs first (high-value same-domain pages) — skip unsafe URLs
     for (const link of navLinks) {
+      if (!isSafeUrl(link.url)) continue;
       const norm = normaliseUrl(link.url);
       if (seen.has(norm)) continue;
       seen.add(norm);
