@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { del } from '@vercel/blob';
 import { getPool, ensureStorageTables } from '@/lib/db';
 import { getOrgId } from '@/lib/auth-helpers';
+import { createDocumentSchema, updateDocumentSchema, parseOrError } from '@/lib/schemas';
 
 export async function GET() {
   const orgId = await getOrgId();
@@ -24,7 +25,9 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const { id, filename, blobUrl, contentType, sizeBytes, category, notes } = await req.json();
+  const parsed = parseOrError(createDocumentSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { id, filename, blobUrl, contentType, sizeBytes, category, notes } = parsed.data;
   const db = getPool();
   await db.query(
     `INSERT INTO documents (id, org_id, filename, blob_url, content_type, size_bytes, category, notes, uploaded_at)
@@ -37,8 +40,9 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const { id, filename, category, notes } = await req.json();
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+  const parsed = parseOrError(updateDocumentSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { id, filename, category, notes } = parsed.data;
   const db = getPool();
   const sets: string[] = [];
   const vals: unknown[] = [];

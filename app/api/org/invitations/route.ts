@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { getPool } from '@/lib/db';
 import { getAuthSession } from '@/lib/auth-helpers';
+import { inviteEmailSchema, parseOrError } from '@/lib/schemas';
+import { inviteLimiter, checkRateLimit } from '@/lib/rate-limit';
 
 export async function GET() {
   const session = await getAuthSession();
   const db = getPool();
   const { rows } = await db.query(
-    `SELECT i.id, i.email, i.token, i.expires_at AS "expiresAt",
+    `SELECT i.id, i.email, i.expires_at AS "expiresAt",
             i.accepted_at AS "acceptedAt", i.created_at AS "createdAt",
             u.name AS "invitedByName"
      FROM invitations i
@@ -21,8 +23,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
-  const { email } = await req.json();
-  if (!email?.trim()) return NextResponse.json({ error: 'email required' }, { status: 400 });
+  const blocked = await checkRateLimit(inviteLimiter, session.orgId);
+  if (blocked) return blocked;
+
+  const parsed = parseOrError(inviteEmailSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { email } = parsed.data;
 
   const normalizedEmail = email.toLowerCase().trim();
   const db = getPool();
@@ -46,9 +52,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'An invitation has already been sent to this email' }, { status: 409 });
   }
 
-  const id = `inv_${Date.now()}`;
+  const id = `inv_${crypto.randomUUID()}`;
   const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 48 hours
 
   await db.query(
     `INSERT INTO invitations (id, org_id, email, invited_by, token, expires_at)

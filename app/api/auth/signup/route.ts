@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getPool } from '@/lib/db';
+import { signupSchema, parseOrError } from '@/lib/schemas';
+import { signupLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 function slugify(text: string): string {
   return text
@@ -12,39 +14,29 @@ function slugify(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { email, password, name, orgName } = await req.json();
+  const blocked = await checkRateLimit(signupLimiter, getClientIp(req.headers));
+  if (blocked) return blocked;
 
-  if (!email || !password || !orgName) {
-    return NextResponse.json(
-      { error: 'Email, password, and organisation name are required' },
-      { status: 400 },
-    );
+  const parsed = parseOrError(signupSchema, await req.json());
+  if ('error' in parsed) {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-
-  if (password.length < 8) {
-    return NextResponse.json(
-      { error: 'Password must be at least 8 characters' },
-      { status: 400 },
-    );
-  }
+  const { email, password, name, orgName } = parsed.data;
 
   const db = getPool();
   const normalizedEmail = email.toLowerCase().trim();
 
-  // Check if email already exists
+  // Check if email already exists — return generic response to prevent enumeration
   const { rows: existing } = await db.query(
     'SELECT id FROM users WHERE email = $1',
     [normalizedEmail],
   );
   if (existing.length > 0) {
-    return NextResponse.json(
-      { error: 'An account with this email already exists' },
-      { status: 409 },
-    );
+    return NextResponse.json({ ok: true }, { status: 200 });
   }
 
   // Create organisation
-  const orgId = `org_${Date.now()}`;
+  const orgId = `org_${crypto.randomUUID()}`;
   const orgSlug = slugify(orgName);
 
   // Check slug uniqueness
@@ -52,7 +44,7 @@ export async function POST(req: NextRequest) {
     'SELECT id FROM organisations WHERE slug = $1',
     [orgSlug],
   );
-  const finalSlug = slugCheck.length > 0 ? `${orgSlug}-${Date.now()}` : orgSlug;
+  const finalSlug = slugCheck.length > 0 ? `${orgSlug}-${crypto.randomUUID().slice(0, 8)}` : orgSlug;
 
   await db.query(
     `INSERT INTO organisations (id, name, slug) VALUES ($1, $2, $3)`,
@@ -60,7 +52,7 @@ export async function POST(req: NextRequest) {
   );
 
   // Create user
-  const userId = `usr_${Date.now()}`;
+  const userId = `usr_${crypto.randomUUID()}`;
   const passwordHash = await bcrypt.hash(password, 12);
 
   await db.query(
@@ -69,10 +61,5 @@ export async function POST(req: NextRequest) {
     [userId, normalizedEmail, passwordHash, (name || '').trim() || 'User', orgId],
   );
 
-  return NextResponse.json({
-    ok: true,
-    userId,
-    orgId,
-    email: normalizedEmail,
-  });
+  return NextResponse.json({ ok: true });
 }

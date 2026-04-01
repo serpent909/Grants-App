@@ -24,23 +24,13 @@ export const metadata: Metadata = {
   description: "Find and rank the best grants for your organisation. We search hundreds of government, foundation, corporate, and community funding sources.",
 };
 
-const themeScript = `
-(function(){
-  try {
-    var t = localStorage.getItem('theme');
-    var dark = t === 'dark' || ((!t || t === 'system') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (dark) document.documentElement.classList.add('dark');
-  } catch(e) {}
-})();
-`;
-
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script src="/theme.js" />
       </head>
       <body className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100`}>
         <Providers>

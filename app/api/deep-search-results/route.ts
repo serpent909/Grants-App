@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
 import { getOrgId } from '@/lib/auth-helpers';
+import { deepSearchResultSchema, parseOrError } from '@/lib/schemas';
 
 export async function GET(req: NextRequest) {
   const orgId = await getOrgId();
@@ -51,7 +52,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const result = await req.json();
+  const parsed = parseOrError(deepSearchResultSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const result = parsed.data;
   const db = getPool();
   await db.query(
     `INSERT INTO deep_searches (org_id, grant_id, result_json, searched_at)

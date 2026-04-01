@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
 import { getOrgId } from '@/lib/auth-helpers';
+import { initChecklistSchema, toggleChecklistSchema, parseOrError } from '@/lib/schemas';
 
 export async function GET(req: NextRequest) {
   const orgId = await getOrgId();
@@ -54,8 +55,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const { grantId } = await req.json();
-  if (!grantId) return NextResponse.json({ error: 'grantId required' }, { status: 400 });
+  const parsed = parseOrError(initChecklistSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { grantId } = parsed.data;
 
   const db = getPool();
 
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
   let paramIndex = 1;
   for (let i = 0; i < checklist.length; i++) {
     const item = checklist[i];
-    const id = `cli-${Date.now()}-${i}`;
+    const id = `cli-${crypto.randomUUID()}`;
     values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`);
     params.push(id, orgId, grantId, i, item.item, item.description || '', item.required || false);
   }
@@ -107,8 +109,9 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const orgId = await getOrgId();
   await ensureStorageTables();
-  const { id, checked } = await req.json();
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+  const parsed = parseOrError(toggleChecklistSchema, await req.json());
+  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  const { id, checked } = parsed.data;
 
   const db = getPool();
   await db.query(
