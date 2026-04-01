@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const securityHeaders = [
   // Prevent embedding in iframes (clickjacking protection)
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -12,19 +14,16 @@ const securityHeaders = [
   // Disable unused browser features
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
   // Content Security Policy
+  // Dev: allow unsafe-inline scripts for Next.js HMR/Turbopack; Production: self only
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      // Tailwind + shadcn require inline styles
-      "script-src 'self'",
+      isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self'",
       "style-src 'self' 'unsafe-inline'",
-      // Google Fonts loaded via next/font (inlined at build time — no external requests needed)
       "font-src 'self' data:",
-      // Images: self + data URIs + Vercel Blob storage
       "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
-      // API calls: self only
-      "connect-src 'self'",
+      isDev ? "connect-src 'self' ws:" : "connect-src 'self'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
