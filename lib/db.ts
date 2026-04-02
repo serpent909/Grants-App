@@ -42,6 +42,7 @@ export interface GrantRow {
 export async function searchGrants(
   orgSectors: string[],
   orgRegions: string[],
+  fundingAmount?: number,
   limit = 9999,
 ): Promise<GrantRow[]> {
   if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return [];
@@ -80,13 +81,18 @@ export async function searchGrants(
            OR g.sectors = '{}'
            OR g.sectors && $2::text[]
          )
+         AND (
+           $4::numeric IS NULL      -- no amount provided: no filter
+           OR g.amount_max IS NULL  -- unknown max: always include
+           OR g.amount_max >= $4::numeric * 0.1  -- max must be ≥10% of requested amount
+         )
        ORDER BY
          cardinality(ARRAY(
            SELECT unnest(COALESCE(g.sectors, '{}')) INTERSECT SELECT unnest($2::text[])
          )) DESC,
          COALESCE(g.funder_name, c.name) ASC
        LIMIT $3`,
-      [orgRegions, orgSectors.length ? orgSectors : ([] as string[]), limit],
+      [orgRegions, orgSectors.length ? orgSectors : ([] as string[]), limit, fundingAmount ?? null],
     );
     console.log(`[GrantSearch] DB grants query: ${rows.length} grants returned`);
     return rows;
