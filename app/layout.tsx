@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Providers from "./providers";
 import UserMenu from "@/components/user-menu";
 import ThemeToggle from "@/components/theme-toggle";
+import { headers } from "next/headers";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -24,13 +25,14 @@ export const metadata: Metadata = {
   description: "Find and rank the best grants for your organisation. We search hundreds of government, foundation, corporate, and community funding sources.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script src="/theme.js" />
+        <script src="/theme.js" nonce={nonce} />
       </head>
       <body className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100`}>
         <Providers>
