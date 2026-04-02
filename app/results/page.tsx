@@ -1295,8 +1295,8 @@ function ResultsContent() {
             {[
               ['8–10', '#10b981', 'Excellent match'],
               ['6.5–8', '#f59e0b', 'Good match'],
-              ['5–6.5', '#f97316', 'Partial match'],
-              ['0–5', '#ef4444', 'Low match'],
+              ['6–6.5', '#f97316', 'Moderate match'],
+              ['0–6', '#ef4444', 'Low match'],
             ].map(([range, color, label]) => (
               <div key={range} className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />

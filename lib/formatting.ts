@@ -4,7 +4,7 @@ export function scoreColor(score?: number): string {
   const s = score ?? 0;
   if (s >= 8) return '#10b981';
   if (s >= 6.5) return '#f59e0b';
-  if (s >= 5) return '#f97316';
+  if (s >= 6) return '#f97316';
   return '#ef4444';
 }
 
@@ -12,7 +12,7 @@ export function scoreTextClass(score?: number): string {
   const s = score ?? 0;
   if (s >= 8) return 'text-emerald-700 bg-emerald-50';
   if (s >= 6.5) return 'text-amber-700 bg-amber-50';
-  if (s >= 5) return 'text-orange-600 bg-orange-50';
+  if (s >= 6) return 'text-orange-600 bg-orange-50';
   return 'text-red-600 bg-red-50';
 }
 
