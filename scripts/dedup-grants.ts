@@ -181,7 +181,133 @@ async function main() {
     console.log('\nNo duplicates found.');
   }
 
+  await dedupBySourceUrl();
+  await removeHistoricalRoundListings();
   await pool.end();
+}
+
+async function dedupBySourceUrl() {
+  // Second pass: find grants from the same funder scraped from the same page.
+  // Normalise source_url by stripping trailing slash and lowercasing so that
+  // e.g. "tindall.org.nz/community" and "tindall.org.nz/community/" are treated
+  // as the same page.
+  const { rows: grants } = await pool.query<Grant>(`
+    SELECT id, funder_id, funder_name, name, description, url,
+           regions, sectors, eligibility, amount_min, amount_max,
+           deadline, application_form_url, source_url, is_active
+    FROM grants
+    WHERE is_active = true
+      AND source_url IS NOT NULL
+    ORDER BY funder_id, source_url
+  `);
+
+  const normalise = (u: string) => u.toLowerCase().replace(/\/+$/, '');
+
+  // Group by (funder_id, normalised source_url)
+  const groups = new Map<string, Grant[]>();
+  for (const g of grants) {
+    const key = `${g.funder_id}||${normalise(g.source_url!)}`;
+    const arr = groups.get(key) || [];
+    arr.push(g);
+    groups.set(key, arr);
+  }
+
+  const dupGroups: { keep: Grant; remove: Grant[] }[] = [];
+  let totalToRemove = 0;
+
+  for (const grp of groups.values()) {
+    if (grp.length < 2) continue;
+
+    // Within a same-URL group, only treat two grants as duplicates if their
+    // names are very similar (near-identical, just different abbreviations or
+    // minor wording differences). A high threshold prevents collapsing genuinely
+    // distinct programmes that share a funder page (e.g. Momentum Waikato's 20+
+    // named community funds, or "Education Equity Grant" vs "Health Equity Grant").
+    const NAME_THRESHOLD_URL = 0.83;
+    const visited = new Set<string>();
+    grp.sort((a, b) => completeness(b) - completeness(a));
+
+    for (let i = 0; i < grp.length; i++) {
+      if (visited.has(grp[i].id)) continue;
+      const cluster: Grant[] = [grp[i]];
+      visited.add(grp[i].id);
+
+      for (let j = i + 1; j < grp.length; j++) {
+        if (visited.has(grp[j].id)) continue;
+        // Only collapse if names are near-identical (e.g. "Hospice NZ Grants Programme"
+        // vs "Hospice New Zealand Grants Programme")
+        if (similarity(grp[i].name, grp[j].name) < NAME_THRESHOLD_URL) continue;
+        cluster.push(grp[j]);
+        visited.add(grp[j].id);
+      }
+
+      if (cluster.length > 1) {
+        const keep = cluster[0];
+        const remove = cluster.slice(1);
+        dupGroups.push({ keep, remove });
+        totalToRemove += remove.length;
+      }
+    }
+  }
+
+  console.log(`\n── Source URL duplicates ──────────────────────────────────────────────`);
+  console.log(`Found ${dupGroups.length} same-page groups, ${totalToRemove} grants to remove\n`);
+
+  for (const { keep, remove } of dupGroups) {
+    console.log('─'.repeat(70));
+    console.log(`FUNDER: ${keep.funder_name}  |  URL: ${keep.source_url}`);
+    console.log(`  KEEP:   [${completeness(keep).toString().padStart(2)}] "${keep.name}" (${keep.id})`);
+    for (const r of remove) {
+      console.log(`  REMOVE: [${completeness(r).toString().padStart(2)}] "${r.name}" (${r.id})`);
+    }
+  }
+
+  if (APPLY && totalToRemove > 0) {
+    const idsToRemove = dupGroups.flatMap(g => g.remove.map(r => r.id));
+    const { rowCount } = await pool.query(
+      `UPDATE grants SET is_active = false, scrape_notes = 'dedup: same source_url' WHERE id = ANY($1)`,
+      [idsToRemove],
+    );
+    console.log(`\nDeactivated ${rowCount} source-URL duplicates.`);
+  } else if (!APPLY && totalToRemove > 0) {
+    console.log(`\nDry run. Run with --apply to deactivate ${totalToRemove} source-URL duplicates.`);
+  }
+}
+
+async function removeHistoricalRoundListings() {
+  // Third pass: remove grants that are historical disbursement records rather than
+  // open grant programmes. These are scraped from past-grants pages and have names
+  // like "Successful Grants June 2023 - February 2024" or "Funds Granted in August 2024".
+  const { rows } = await pool.query<{ id: string; funder_name: string; name: string }>(`
+    SELECT id, funder_name, name
+    FROM grants
+    WHERE is_active = true
+      AND (
+        name ~* '^(Successful|UNSuccessful|Unsuccessful).{0,25}Grants? (January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '
+        OR name ~* '^Funds Granted in (January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '
+        OR name ~* '\\d{4} to \\d{4}$'
+        OR name ~* '^(Grants|Funding) Awarded '
+      )
+    ORDER BY funder_name, name
+  `);
+
+  console.log(`\n── Historical round listings ──────────────────────────────────────────`);
+  console.log(`Found ${rows.length} historical listing(s)\n`);
+
+  for (const r of rows) {
+    console.log(`  ${r.funder_name} → "${r.name}" (${r.id})`);
+  }
+
+  if (APPLY && rows.length > 0) {
+    const ids = rows.map(r => r.id);
+    const { rowCount } = await pool.query(
+      `UPDATE grants SET is_active = false, scrape_notes = 'dedup: historical round listing' WHERE id = ANY($1)`,
+      [ids],
+    );
+    console.log(`\nDeactivated ${rowCount} historical round listings.`);
+  } else if (!APPLY && rows.length > 0) {
+    console.log(`Dry run. Run with --apply to deactivate ${rows.length} historical listings.`);
+  }
 }
 
 main().catch(err => { console.error(err); process.exit(1); });

@@ -202,6 +202,8 @@ Return a JSON object with:
 - "funder_name": string — the funder's real/official name as shown on the page (or null if unclear)
 - "grants": array of grant program objects
 
+ONE PROGRAMME RULE: Many funders run a single grants programme described across multiple sections, themes, or priority areas. Do NOT create a separate grant object for each theme or section heading. Only create a separate grant object when it has a genuinely distinct application form, meaningfully different eligibility criteria, or is explicitly named as a separate stream or round. If the page describes one programme with multiple focus areas (e.g. "we fund health, education, and community projects"), extract it as ONE grant object. When in doubt, return fewer grants rather than more.
+
 Each grant object must have:
 - "name": string — the EXACT grant program name as written on the page (not just the org name). Do not invent or generalize names — if the page says "Operational Grants" use that exact text, do not create names like "General Grant" or "Community Fund" unless those exact words appear on the page
 - "type": one of "Government" | "Foundation" | "Corporate" | "Community" | "International" | "Other"
