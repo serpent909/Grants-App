@@ -752,7 +752,7 @@ function ResultsContent() {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [minScore, setMinScore] = useState('5');
+  const [minScore, setMinScore] = useState('6');
   const [sortField, setSortField] = useState<SortField>('overall');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
