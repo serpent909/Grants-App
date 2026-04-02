@@ -752,7 +752,7 @@ function ResultsContent() {
   const [result, setResult] = useState<SearchResult | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [minScore, setMinScore] = useState('5');
+  const [minScore, setMinScore] = useState('6');
   const [sortField, setSortField] = useState<SortField>('overall');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -1295,8 +1295,8 @@ function ResultsContent() {
             {[
               ['8–10', '#10b981', 'Excellent match'],
               ['6.5–8', '#f59e0b', 'Good match'],
-              ['5–6.5', '#f97316', 'Partial match'],
-              ['0–5', '#ef4444', 'Low match'],
+              ['6–6.5', '#f97316', 'Moderate match'],
+              ['0–6', '#ef4444', 'Low match'],
             ].map(([range, color, label]) => (
               <div key={range} className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />

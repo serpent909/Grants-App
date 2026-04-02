@@ -39,7 +39,7 @@ function computeCost(costs: CostTracker) {
 // ─── Prompt factory ───────────────────────────────────────────────────────────
 
 function buildPrompts(market: MarketConfig, orgRegions?: string[]) {
-  const { country, currency } = market;
+  const { country } = market;
   const regionText = orgRegions?.length ? orgRegions.join(', ') : '';
 
   const SCORING_SYSTEM_PROMPT = `You are an expert ${country} grant researcher. Score each grant program for a specific organisation.
@@ -95,6 +95,17 @@ Your alignmentReason MUST be consistent with your alignment score. If your reaso
 - If the grant's primary purpose differs from the org's specific need, even with topic overlap, score 4-5.
 - Only score 6+ if alignment is genuine and unqualified.
 
+EASE BASELINE BY FUNDER TYPE (start here, then adjust ±2 based on any description evidence):
+- gaming-trust: 8 — online form, minimal documentation, low overhead
+- council: 6 — moderate forms, some reporting requirements
+- community-trust: 6 — full proposal but typically straightforward
+- corporate: 7 — often streamlined online form
+- iwi: 7 — typically accessible, community-focused process
+- family-foundation: 5 — often relationship-based, process may be opaque
+- government: 4 — multi-stage, extensive documentation, audit trail typically required
+- sector-specific: 6 — varies by sector norms
+- other: 6 — unknown, default to moderate
+
 Scoring dimensions (0–10):
 alignment — how specifically the grant's stated purpose matches the org's specific mission and funding request
   0-2 wrong form of support, wrong sector, or ineligible | 3-4 tangential overlap or purpose mismatch | 5-6 partial/indirect overlap — org could apply but grant wasn't designed for this | 7-8 grant purpose directly supports org's specific work | 9-10 designed for exactly this type of organisation and activity
@@ -108,8 +119,8 @@ attainability — likelihood this org wins given competition and eligibility fit
 overall = (alignment × 0.5) + (attainability × 0.3) + (ease × 0.2), rounded to 1dp
 
 DEADLINE RULE — today is ${TODAY}:
-- Extract a deadline ONLY if the pageContent contains a specific future date explicitly stated as a closing or application date.
-- The date must be after ${TODAY}. If the date is in the past, or if no date is stated, omit the deadline field entirely — do not guess.
+- Use the \`deadline\` field from the structured grant data if it is present and is a future date (after ${TODAY}).
+- If the deadline field is absent, null, empty, or a past date, omit the deadline field from your output entirely — do not guess or invent a date.
 - Most grants run on rolling or annual cycles. Absence of a deadline means rolling/open, not closed.
 
 Each grant includes structured fields: name, funder, funderType (one of: government, council, gaming-trust, community-trust, iwi, corporate, family-foundation, sector-specific, other), type, description, eligibility (array), sectors (array), regions (array), amountMin, amountMax, deadline, url. Use ALL of these fields when scoring — they are authoritative data from the funder's own grant page.
@@ -122,8 +133,7 @@ Return a JSON object with this exact structure:
   "grants": [
     {
       "id": "g-1",
-      "name": "...", "funder": "...", "type": "...", "description": "...",
-      "amountMin": 5000, "amountMax": 50000, "deadline": "2026-09-30", "url": "...",
+      "amountMin": 5000, "amountMax": 50000, "deadline": "2026-09-30",
       "scores": { "alignment": 8, "ease": 6, "attainability": 6, "overall": 7.2 },
       "alignmentReason": "1-2 sentences explaining alignment with this org's specific mission and funding request",
       "applicationNotes": "1-2 sentences on application process complexity and what is required",
@@ -132,35 +142,7 @@ Return a JSON object with this exact structure:
   ]
 }`;
 
-  const RELEVANCE_TRIAGE_PROMPT = `You are a grant relevance screener for ${country} non-profits. Classify each grant as RELEVANT or SKIP.
-
-Mark SKIP ONLY when you are ≥90% confident the grant is irrelevant. When in doubt, mark RELEVANT.
-
-SKIP criteria (must meet at least one):
-1. The grant is exclusively for a completely different sector with NO overlap to the organisation's sectors. If ANY sector partially overlaps, mark RELEVANT.
-2. The grant is restricted to a specific region/locality the organisation does NOT operate in, AND the grant is clearly local (not national or country-wide). National funders are always RELEVANT.
-3. The grant is exclusively for an organisation type that clearly does not match (e.g. "schools only", "hospitals only", "sports clubs only").
-4. The grant's funding range is dramatically mismatched — e.g. the grant maximum is under ${currency}1,000 and the org seeks ${currency}100,000+, or the grant minimum is ${currency}1,000,000+ and the org seeks ${currency}5,000.
-5. The content describes a news article, past recipient list, or non-grant page rather than an actual grant program.
-
-Do NOT mark SKIP for:
-- Grants where the sector partially overlaps or is broadly stated
-- Grants where eligibility is unclear or not specified
-- National or country-wide grants (always RELEVANT regardless of org region)
-- Grants where the amount range is unstated or partially overlaps the org's request
-- Any grant where you are less than 90% confident it is irrelevant
-
-Return a JSON object:
-{
-  "decisions": [
-    { "index": 0, "decision": "RELEVANT" },
-    { "index": 1, "decision": "SKIP", "reason": "Arts-only grant; org is health sector" }
-  ]
-}
-
-You MUST return a decision for every grant. Default to RELEVANT.`;
-
-  return { SCORING_SYSTEM_PROMPT, RELEVANCE_TRIAGE_PROMPT };
+  return { SCORING_SYSTEM_PROMPT };
 }
 
 // ─── Rate-limit helpers ───────────────────────────────────────────────────────
@@ -281,7 +263,7 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
         const costs = createCostTracker();
 
         // ── Fetch sector-filtered grants from DB ──────────────────────────────
-        const allGrants = await searchGrants(body.sectors || [], body.regions || []);
+        const allGrants = await searchGrants(body.sectors || [], body.regions || [], body.fundingAmount);
         console.log(`[GrantSearch] ${allGrants.length} grants from DB (sector-filtered)`);
 
         if (!allGrants.length) {
@@ -374,7 +356,7 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
                   name: db.name,
                   funder: db.funder_name,
                   type: (db.type as GrantOpportunity['type']) || 'Other',
-                  description: scored.description || db.description || '',
+                  description: db.description || '',
                   amountMin: db.amount_min ?? scored.amountMin,
                   amountMax: db.amount_max ?? scored.amountMax,
                   deadline: scored.deadline,
