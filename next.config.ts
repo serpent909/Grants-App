@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-const isDev = process.env.NODE_ENV === 'development';
-
+// CSP is set dynamically (with a per-request nonce) in proxy.ts.
+// All other security headers are static and can live here.
 const securityHeaders = [
   // Prevent embedding in iframes (clickjacking protection)
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -13,22 +13,6 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // Disable unused browser features
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  // Content Security Policy
-  // Dev: allow unsafe-inline scripts for Next.js HMR/Turbopack; Production: self only
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      isDev ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'" : "script-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
-      "font-src 'self' data:",
-      "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
-      isDev ? "connect-src 'self' ws:" : "connect-src 'self'",
-      "frame-ancestors 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-    ].join('; '),
-  },
 ];
 
 const nextConfig: NextConfig = {
