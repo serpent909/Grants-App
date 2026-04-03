@@ -22,7 +22,9 @@
       "WebFetch(domain:www.toddfoundation.org.nz)",
       "WebFetch(domain:www.nikaufoundation.nz)",
       "WebFetch(domain:one.nz)",
-      "WebFetch(domain:wellingtoncommunityfund.org.nz)"
+      "WebFetch(domain:wellingtoncommunityfund.org.nz)",
+      "WebFetch(domain:www.wairarapamoana.org.nz)",
+      "WebFetch(domain:mtlt.org.nz)"
     ]
   }
 }

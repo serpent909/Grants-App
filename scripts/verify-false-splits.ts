@@ -107,7 +107,7 @@ async function getFalseSplitGroups(): Promise<FunderGroup[]> {
   // Re-classify with GPT-4.1-mini (same as audit script)
   const allGroups = Array.from(groupMap.values()).sort((a, b) => b.grants.length - a.grants.length);
   const BATCH = 8;
-  const batches = [];
+  const batches: typeof allGroups[] = [];
   for (let i = 0; i < allGroups.length; i += BATCH) batches.push(allGroups.slice(i, i + BATCH));
 
   const falseSplits: FunderGroup[] = [];
