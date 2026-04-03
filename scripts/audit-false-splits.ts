@@ -163,16 +163,34 @@ async function verifyWithPage(split: FalseSplit): Promise<FalseSplit> {
     has_own_form: !!g.application_form_url,
   }));
 
-  const system = `You are a New Zealand grants data quality reviewer.
+  const system = `You are auditing a New Zealand grants database. An automated check flagged these records as a FALSE SPLIT — one grant programme that a scraper extracted as multiple records.
 
-You have been given the actual text of a funder's grant page plus a list of grant records that came from that page. An automated check flagged these as a FALSE SPLIT (one programme split into multiple records). Your job: CONFIRM or DISPUTE that verdict using the page content as evidence.
+Your job: DISPUTE (keep all records) or CONFIRM (the records are duplicates of one programme).
 
-CONFIRM if the page shows these are themes/sections/focus areas of one programme — one application process, one set of eligibility criteria, described as one fund with multiple priority areas.
-DISPUTE if the page clearly shows these are genuinely separate programmes — different application forms, different eligibility, different deadlines, explicitly described as separate funds or schemes.
+─── ONLY CONFIRM if ALL of the following are true ───────────────────────────
+1. There is ONE application process described on the page (one form, one deadline, one set of criteria)
+2. The grant names in the DB are clearly THEMES or SECTORS of that single programme
+   (e.g. names like "Health", "Environment", "Education", "Arts" describing who can apply)
+3. There is NO suggestion that each named record has its own separate application, deadline, or contact
 
-Be conservative: only DISPUTE if the page content clearly shows distinct programmes. If uncertain, CONFIRM.
+─── DISPUTE if ANY of the following are true ────────────────────────────────
+1. Each record has a different PURPOSE (e.g. Events Fund vs Waste Minimisation Fund vs Economic Development Fund)
+2. The records serve different APPLICANT TYPES (e.g. community orgs vs individuals vs staff, or different geographic communities with separate applications)
+3. The page shows each grant has its own section, description, or "apply" link
+4. The grants have meaningfully different amounts, deadlines, or eligibility requirements
+5. The names describe what the FUNDING IS FOR, not just who can apply (purpose-named programmes, not sector filters)
+6. The funder explicitly describes these as separate funds, streams, or programmes
 
-Respond JSON: { "verdict": "CONFIRMED"|"DISPUTED", "reason": "2-3 sentences citing specific page evidence" }`;
+─── CRITICAL: "all listed on one page" does NOT mean "one programme" ────────
+Many funders list multiple distinct programmes on a single grants page.
+The key question is: does an applicant submit ONE application that could fund any of these?
+Or do they apply specifically to one of the named programmes?
+
+─── DEFAULT: when in doubt, DISPUTE ─────────────────────────────────────────
+The cost of incorrectly removing a real grant programme is much higher than
+the cost of keeping a duplicate. Only CONFIRM when the evidence is unambiguous.
+
+Respond JSON: { "verdict": "CONFIRMED"|"DISPUTED", "reason": "2-3 sentences citing specific evidence — name the application process, form, or eligibility text you found or did not find" }`;
 
   try {
     const res = await openai.chat.completions.create({
@@ -182,7 +200,7 @@ Respond JSON: { "verdict": "CONFIRMED"|"DISPUTED", "reason": "2-3 sentences citi
         { role: 'system', content: system },
         { role: 'user', content: `FUNDER: ${split.funder_name}\nURL: ${split.source_url}\n\nDB RECORDS:\n${JSON.stringify(grantList, null, 2)}\n\nPAGE CONTENT:\n${pageContent}` },
       ],
-      max_tokens: 500,
+      max_tokens: 800,
     });
     const parsed = JSON.parse(res.choices[0]?.message?.content || '{}');
     const status = parsed.verdict === 'DISPUTED' ? 'disputed' : 'confirmed';
