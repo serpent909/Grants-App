@@ -338,9 +338,10 @@ export async function fetchPdfText(url: string, maxChars = 15_000): Promise<stri
     if (buffer.length > 10 * 1024 * 1024) return null; // Skip PDFs > 10MB
 
     // Dynamic import to avoid requiring pdf-parse when not needed
-    const pdfParse = (await import('pdf-parse')).default;
-    const parsed = await pdfParse(buffer);
-    const text = parsed.text?.trim() || '';
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    const result = await parser.getText();
+    const text = result.text?.trim() || '';
 
     // If pdf-parse got meaningful text, use it
     if (text.length >= 50) return text.slice(0, maxChars);
