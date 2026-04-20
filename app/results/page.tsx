@@ -20,7 +20,8 @@ import { SearchResult, GrantOpportunity, DeepSearchResult, DeepSearchScoreChange
 import { getMarket } from '@/lib/markets';
 import { getSaved, saveSearch } from '@/lib/saved-searches';
 import { saveDeepSearch, batchGetDeepSearch } from '@/lib/deep-search-storage';
-import { addToShortlist, removeFromShortlist } from '@/lib/shortlist-storage';
+import { addToShortlist, removeFromShortlist, batchCheckShortlisted } from '@/lib/shortlist-storage';
+import { batchCheckDeepSearch } from '@/lib/deep-search-storage';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -205,15 +206,17 @@ function GrantDetail({
         <div>
           <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">About this grant</h4>
           <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.description}</p>
-          <a
-            href={grant.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors group"
-          >
-            {grant.url.includes('google.com/search') ? 'Search for this grant' : 'View grant page'}
-            <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </a>
+          {grant.url && (
+            <a
+              href={grant.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors group"
+            >
+              {grant.url.includes('google.com/search') ? 'Search for this grant' : 'View grant page'}
+              <ExternalLink className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+          )}
 
           {/* Deep Search button */}
           <div className="mt-3">
@@ -929,9 +932,13 @@ function ResultsContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Deep search and shortlist state start empty for each search session.
-  // Badges and recalibrated scores only reflect actions taken within this search,
-  // since scores are context-specific (different funding purposes yield different scores).
+  // Hydrate shortlist + deep-search badges from server when results load
+  useEffect(() => {
+    if (!result || isStreaming || result.grants.length === 0) return;
+    const ids = result.grants.map(g => g.id);
+    batchCheckShortlisted(ids).then(setShortlistedIds);
+    batchCheckDeepSearch(ids).then(setDeepSearchIds);
+  }, [result, isStreaming]);
 
   // Load full deep search data once we know which results have them
   useEffect(() => {
@@ -959,10 +966,20 @@ function ResultsContent() {
     });
 
     // Server call — we already know the state, no need for toggleShortlist's extra fetch
-    if (wasShortlisted) {
-      await removeFromShortlist(grant.id);
-    } else {
-      await addToShortlist(grant, searchTitle);
+    try {
+      if (wasShortlisted) {
+        await removeFromShortlist(grant.id);
+      } else {
+        await addToShortlist(grant, searchTitle);
+      }
+    } catch {
+      // Roll back optimistic update on failure
+      setShortlistedIds(prev => {
+        const next = new Set(prev);
+        if (wasShortlisted) next.add(grant.id);
+        else next.delete(grant.id);
+        return next;
+      });
     }
   }
 

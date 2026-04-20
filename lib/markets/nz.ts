@@ -183,7 +183,7 @@ export const NZ_MARKET: MarketConfig = {
     { url: 'https://www.topsouthfoundation.org.nz/our-grant-process/', regions: ['nelson', 'tasman', 'marlborough'] },
     { url: 'https://taranakifoundation.org.nz/apply-for-funding/', regions: ['taranaki'] },
     { url: 'https://www.northlandcommunityfoundation.org.nz/grants', regions: ['northland'] },
-    { url: 'https://www.45south.org/funding', regions: ['otago'] },  // formerly Wakatipu Community Foundation
+    { url: 'https://www.45south.org/applyforfunds', regions: ['otago'] },  // formerly Wakatipu Community Foundation
     { url: 'https://www.cluthafoundation.org.nz/apply/', regions: ['otago'] },
     { url: 'https://ttcfltd.org.nz/how-to-apply/', regions: ['auckland'] },
     // ── Charitable / philanthropic trusts — national ────────────────────────
@@ -386,12 +386,27 @@ export const NZ_MARKET: MarketConfig = {
   ],
 
   excludedDomains: [
+    // News
     'nzherald.co.nz', 'stuff.co.nz', 'rnz.co.nz', 'scoop.co.nz',
     'newshub.co.nz', 'tvnz.co.nz', 'beehive.govt.nz',
+    // Grant directories (not charity sites)
     'charities.govt.nz', 'grantguru.co.nz',
+    'grantstation.com', 'fconline.foundationcenter.org', 'foundationcenter.org', 'candid.org',
+    // Crowdfunding
     'givealittle.co.nz', 'gofundme.com',
+    // Social media
     'wikipedia.org', 'wikimedia.org', 'linkedin.com', 'facebook.com',
     'twitter.com', 'instagram.com', 'youtube.com', 'reddit.com',
+    'sites.google.com',
+    // Business/charity data directories
+    'charitydata.co.nz', 'bizdb.co.nz', 'nzxplorer.co.nz',
+    'companyhub.nz', 'businesscheck.co.nz', 'nzwao.com',
+    'gogravy.co.nz', 'whitepages.co.nz', 'yellowpages.co.nz',
+    'opencorporates.com', 'nzbn.govt.nz',
+    // Professional services (trustee, accounting, legal)
+    'publictrust.co.nz', 'perpetualguardian.co.nz', 'pgtrust.co.nz', 'nzgt.co.nz',
+    'bakertillysr.nz', 'findex.co.nz', 'borriegroup.co.nz', 'tgh.co.nz',
+    'wrlawyers.co.nz',
   ],
 
   regions: [

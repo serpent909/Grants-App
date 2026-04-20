@@ -162,6 +162,7 @@ export async function POST(req: NextRequest) {
   try {
     const validated = parseOrError(deepSearchRequestSchema, await req.json());
     if ('error' in validated) {
+      console.warn('[DeepSearch] Request validation failed:', validated.error);
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
     const body = validated.data as DeepSearchRequest;

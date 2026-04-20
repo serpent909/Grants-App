@@ -53,11 +53,14 @@ export async function getAllShortlistedIds(): Promise<Set<string>> {
 // ─── Mutations (invalidate SWR cache after write) ──────────────────────────
 
 export async function addToShortlist(grant: GrantOpportunity, searchTitle: string): Promise<void> {
-  await fetch('/api/shortlist', {
+  const res = await fetch('/api/shortlist', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ grant, searchTitle }),
   });
+  if (!res.ok) {
+    throw new Error('Failed to shortlist grant');
+  }
   await invalidateShortlist();
 }
 

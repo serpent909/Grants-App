@@ -1,0 +1,31 @@
+[dotenv@17.3.1] injecting env (8) from .env.local -- tip: 🛡️ auth for agents: https://vestauth.com
+
+════════════════════════════════════════════════════════════
+  Step 8: Repair Data Quality Issues
+════════════════════════════════════════════════════════════
+  Fix 1: Clear bad website URLs (directories, professional services)
+    1 charities with bad website URLs
+    Cleared 1 website URLs, deleted 0 bad grants
+
+  Fix 2: Fix curated funders classified as non-grant-makers
+    0 curated funders misclassified as non-grant-makers
+
+  Fix 3: Fix PDF grant pages (reset to homepage for extraction)
+    65 grant-makers with PDF grant pages and a website
+    Reset 49 PDF-page funders with 0 grants for re-extraction
+
+  Fix 4: Reset enriched_at for curated/validated funders with 0 grants
+    121 enriched funders with good grant pages but 0 grants
+    Reset 121 funders for re-extraction
+
+  Fix 5: Validate remaining websites against blocklist
+    3 additional websites on blocked domains
+    Cleared 3 more, deleted 0 bad grants
+
+--- Summary ---
+  Bad website URLs cleared: 4
+  Curated funders reclassified: 0
+  PDF grant pages (with website): 65
+  Zero-grant funders reset: 121
+  Dry run: false
+

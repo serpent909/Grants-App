@@ -1,0 +1,153 @@
+[dotenv@17.3.1] injecting env (8) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+════════════════════════════════════════════════════════════
+  Step 5A: Extract Grants (Tavily/Fetch)
+════════════════════════════════════════════════════════════
+  ⊘ Cromwell Lions Club Charitable Trust: shared URL with Lions Club of Stratford Charitable  Trust — skipping
+  ⊘ Lions Club of Gisborne Wainui Charitable Trust: shared URL with Lions Club of Stratford Charitable  Trust — skipping
+  ⊘ The Lions Club of Henderson-West Auckland Charitable Trust: shared URL with Lions Club of Stratford Charitable  Trust — skipping
+  ⊘ Lions Club Of Kairanga Incorporated: shared URL with Lions Club of Stratford Charitable  Trust — skipping
+  ⊘ Marshall-Inman Whakaari Trust: shared URL with Humanitix New Zealand Charitable Trust — skipping
+  ⊘ Life Matters Suicide Prevention Trust: shared URL with Perinatal Wellbeing Canterbury Trust — skipping
+  ⊘ Southern Cancer Society Trust: shared URL with C.M Laing Charitable Trust — skipping
+  ⊘ twosevenfive. Foundation: shared URL with Greenhithe Community Trust Board — skipping
+  ⊘ The University of Waikato Foundation: shared URL with The Students Campus Building Fund Trust  — skipping
+  ⊘ The Lawn Bowls Promotion and Development Trust: shared URL with The Esme and Tom Tombleson Charitable Trust — skipping
+  ⊘ Norman Kirk Memorial Trust: shared URL with Pacific Development And Conservation Trust — skipping
+  ⊘ Te Rarawa Anga Mua Trust: shared URL with Tupu-Ā-Nuku Limited — skipping
+  ⊘ Anglican Missions Board of the Church in Aotearoa, New Zealand and Polynesia: shared URL with Anglican World Aid (Aotearoa) Limited — skipping
+  ⊘ Auckland Korean Choir Inc: shared URL with New Zealand Korea Woman's Christian Temperance Union — skipping
+  966 funders → 952 after URL dedup (14 shared-URL skipped)
+  40/952 | enriched: 0 | grants: 0 | no-grants: 40 | failed: 0
+  ★ Tabnz: 1 grant(s)
+  ★ Codc: 2 grant(s)
+  80/952 | enriched: 2 | grants: 3 | no-grants: 78 | failed: 0
+  ★ Marlboroughlines: 1 grant(s)
+  120/952 | enriched: 3 | grants: 4 | no-grants: 117 | failed: 0
+  ★ Waikato: 1 grant(s)
+  ★ Disabilitysporthb: 1 grant(s)
+  ★ Nelsoncity: 3 grant(s)
+  ↻ Kiaorahauora: retry found 1 grant(s) via detail crawl
+  ★ Abodehb: 1 grant(s)
+  ★ Kiaorahauora: 1 grant(s)
+  ★ Wellingtonnz: 1 grant(s)
+  ↻ Ngobase: retry found 1 grant(s) via detail crawl
+  ★ Ngobase: 1 grant(s)
+  ★ Health: 3 grant(s)
+  ★ Hokimaikitaranaki: 9 grant(s)
+  160/952 | enriched: 12 | grants: 25 | no-grants: 147 | failed: 1
+  ↻ Myvoicemarlborough: retry found 1 grant(s) via detail crawl
+  ★ Myvoicemarlborough: 1 grant(s)
+  ↻ Teputahitanga: retry found 1 grant(s) via detail crawl
+  ★ Teputahitanga: 1 grant(s)
+  200/952 | enriched: 14 | grants: 27 | no-grants: 185 | failed: 1
+  ⚠ The Margot Foundation: filtered hallucinated grant "The Margot Foundation Fund"
+  ★ Rathkeale College Foundation: 1 grant(s)
+  ★ Qldc: 1 grant(s)
+  ★ Okareka Charitable Trust: 1 grant(s)
+  ★ Pncc: 1 grant(s)
+  ★ Crestrides: 2 grant(s)
+  ★ Qrc: 1 grant(s)
+  ★ Disability Community Trust: 2 grant(s)
+  240/952 | enriched: 21 | grants: 36 | no-grants: 218 | failed: 1
+  ⚠ Rotary Club of Waipukurau Charitable Trust: filtered hallucinated grant "Rotary Club of Waipukurau Charitable Trust Fund"
+  ⚠ Margaret Watt Children's Trust: filtered hallucinated grant "Margaret Watt Children's Trust Fund"
+  ★ The IHC Foundation: 1 grant(s)
+  ★ Lions Club of Wanaka and Districts Charitable Trust: 1 grant(s)
+  280/952 | enriched: 23 | grants: 38 | no-grants: 256 | failed: 1
+  ★ Nga Tawa Diocesan School Old Girls Association Incorporated: 1 grant(s)
+  ⚠ Malvern Farmers' Veterinary Club Charitable Trust: filtered hallucinated grant "Malvern Farmers' Veterinary Club Charitable Trust Fund"
+  320/952 | enriched: 24 | grants: 39 | no-grants: 295 | failed: 1
+  ⚠ Upper Clutha Children's Medical Trust: filtered hallucinated grant "Upper Clutha Children's Medical Trust Fund"
+  ★ Te Waimana Kaaku Trust: 2 grant(s)
+  360/952 | enriched: 25 | grants: 41 | no-grants: 334 | failed: 1
+  ⚠ Hawkes Bay Rescue Helicopter Trust: filtered hallucinated grant "Hawkes Bay Rescue Helicopter Trust Fund"
+  ↻ The Work Opportunities Trust: retry found 1 grant(s) via detail crawl
+  ★ The Work Opportunities Trust: 1 grant(s)
+  ↻ Leadership New Zealand Trust Board: retry found 1 grant(s) via detail crawl
+  ★ Leadership New Zealand Trust Board: 1 grant(s)
+  ↻ Hukarere Old Girls Association Trust: retry found 1 grant(s) via detail crawl
+  ★ Hukarere Old Girls Association Trust: 1 grant(s)
+  400/952 | enriched: 28 | grants: 44 | no-grants: 371 | failed: 1
+  ★ STEWART ISLAND SENIORS COTTAGE TRUST: 1 grant(s)
+  ↻ Arts Murihiku Charitable Trust: retry found 1 grant(s) via detail crawl
+  ★ Arts Murihiku Charitable Trust: 1 grant(s)
+  440/952 | enriched: 30 | grants: 46 | no-grants: 409 | failed: 1
+  480/952 | enriched: 30 | grants: 46 | no-grants: 449 | failed: 1
+  520/952 | enriched: 30 | grants: 46 | no-grants: 489 | failed: 1
+  ★ SEED OF HOPE: 1 grant(s)
+  ★ Te Waiiti Marae Ruatahuna: 1 grant(s)
+  ↻ Ngati Toa Limited: retry found 3 grant(s) via detail crawl
+  ★ Ngati Toa Limited: 3 grant(s)
+  ↻ Abbeyfield Western Bay of Plenty Incorporated: retry found 3 grant(s) via detail crawl
+  ★ Abbeyfield Western Bay of Plenty Incorporated: 3 grant(s)
+  560/952 | enriched: 34 | grants: 54 | no-grants: 525 | failed: 1
+  ★ St Paul's Collegiate School Association Incorporated: 1 grant(s)
+  600/952 | enriched: 35 | grants: 55 | no-grants: 564 | failed: 1
+  ⚠ The Robert and Barbara Stewart Charitable Trust: filtered hallucinated grant "The Robert and Barbara Stewart Charitable Trust Fund"
+  ⚠ The Paraparaumu R.S.A Memorial Scholarship Trust: filtered hallucinated grant "Paraparaumu R.S.A Memorial Scholarship"
+  ⚠ The Wallath Trust: filtered hallucinated grant "The Wallath Trust Fund"
+  ★ Pacific Development And Conservation Trust: 1 grant(s)
+  640/952 | enriched: 36 | grants: 56 | no-grants: 603 | failed: 1
+  ⚠ Rotary Club of Hastings Karamu Charitable Trust: filtered hallucinated grant "Rotary Club of Hastings Karamu Charitable Trust Fund"
+  ⚠ Boys' Brigade Waikato Charitable Trust: filtered hallucinated grant "Oliver Gordon Dixon and R.E.S. (Ward) Fischer Training & Development Fund"
+  ⚠ Boys' Brigade Waikato Charitable Trust: filtered hallucinated grant "Andrew Robertson Wilson & Harry Ivan Shaw Activities Fund"
+  ↻ Fletcher-Cole Memorial Charitable Trust: retry found 1 grant(s) via detail crawl
+  ★ Fletcher-Cole Memorial Charitable Trust: 1 grant(s)
+  680/952 | enriched: 37 | grants: 57 | no-grants: 642 | failed: 1
+  ★ West Coast Coal Heritage Trust: 3 grant(s)
+  ⚠ Te Mana O Ngati Rangitihi Charitable Trust: filtered hallucinated grant "Te Mana O Ngati Rangitihi Charitable Trust Fund"
+  ★ Wesley College Amenities Charitable Trust: 1 grant(s)
+  720/952 | enriched: 39 | grants: 61 | no-grants: 680 | failed: 1
+  ⚠ Polish Charitable and Educational Trust Board: filtered hallucinated grant "Polish Cultural and Educational Fund"
+  760/952 | enriched: 39 | grants: 61 | no-grants: 720 | failed: 1
+  ★ Sarjeant Gallery Trust Board: 2 grant(s)
+  ⚠ The Kennedy Educational Scholarship Trust: filtered hallucinated grant "Kennedy Educational Scholarship Fund"
+  ⚠ The Waipawa Building Society Scholarship Trust: filtered hallucinated grant "Waipawa Building Society Scholarship"
+  800/952 | enriched: 40 | grants: 63 | no-grants: 759 | failed: 1
+  ⚠ Ngati Rarua Iwi Trust: filtered hallucinated grant "Ngati Rarua Iwi Trust Fund"
+  ⚠ Bowron Foundation Trust Fund: filtered hallucinated grant "Bowron Foundation Fund"
+  ⚠ The Gen Fujii Memorial Trust: filtered hallucinated grant "The Gen Fujii Memorial Trust Fund"
+  ↻ The Ian Axford (New Zealand) Fellowships In Public Policy Trust Incorporated: retry found 2 grant(s) via detail crawl
+  ★ The Ian Axford (New Zealand) Fellowships In Public Policy Trust Incorporated: 2 grant(s)
+  840/952 | enriched: 41 | grants: 65 | no-grants: 798 | failed: 1
+  ⚠ Marsh Scholarship Trust: filtered hallucinated grant "Marsh Scholarship Fund"
+  ⚠ Katikati Innovative Horticulture Trust: filtered hallucinated grant "Katikati Innovative Horticulture Fund"
+  ⚠ Exercise Association Charitable Trust Board: filtered hallucinated grant "Exercise Association Charitable Trust Fund"
+  ↻ The Hospitality New Zealand Charitable Trust Board: retry found 1 grant(s) via detail crawl
+  ★ The Hospitality New Zealand Charitable Trust Board: 1 grant(s)
+  ★ Waihikurangi Charitable Trust: 1 grant(s)
+  ★ Dignity Freedom Network New Zealand Charitable Trust: 3 grant(s)
+  880/952 | enriched: 44 | grants: 70 | no-grants: 835 | failed: 1
+  ★ Alan Duff Charitable Foundation: 1 grant(s)
+  ↻ Pouwels Charitable Foundation: retry found 1 grant(s) via detail crawl
+  ★ Pouwels Charitable Foundation: 1 grant(s)
+  ↻ Te Akatea Incorporated: retry found 2 grant(s) via detail crawl
+  ↻ Cochlear Implant Foundation Of New Zealand: retry found 1 grant(s) via detail crawl
+  ★ Te Akatea Incorporated: 2 grant(s)
+  ★ Cochlear Implant Foundation Of New Zealand: 1 grant(s)
+  ↻ The Foundation For Peace Studies Aotearoa/New Zealand Incorporated: retry found 1 grant(s) via detail crawl
+  ★ The Foundation For Peace Studies Aotearoa/New Zealand Incorporated: 1 grant(s)
+  ★ The Against Malaria Foundation (New Zealand): 1 grant(s)
+  920/952 | enriched: 50 | grants: 77 | no-grants: 869 | failed: 1
+  ⚠ The Mate Nola Scholarship: filtered hallucinated grant "The Mate Nola Scholarship Fund"
+  ↻ Auckland University Canoe Club Incorporated: retry found 1 grant(s) via detail crawl
+  ★ Auckland University Canoe Club Incorporated: 1 grant(s)
+  952/952 | enriched: 51 | grants: 78 | no-grants: 900 | failed: 1
+
+  --- Outcome by grant_page_source ---
+    nav-discovery            processed:   390 | enriched:    27 (6.9%) | grants:    40 | no-grants:   363 | failed: 0
+    search                   processed:   293 | enriched:     3 (1.0%) | grants:     3 | no-grants:   290 | failed: 0
+    curated                  processed:   208 | enriched:    18 (8.7%) | grants:    32 | no-grants:   189 | failed: 1
+    nav-discovery-deep       processed:    61 | enriched:     3 (4.9%) | grants:     3 | no-grants:    58 | failed: 0
+
+--- Summary ---
+  Funders processed: 952
+  Funders enriched: 51
+  No grants found: 900
+  Failed: 1
+  New grants added: 78
+  Total v4 grants: 2663
+  Individual-only: 644
+  Avg quality score: 61
+

@@ -1,0 +1,105 @@
+[dotenv@17.3.1] injecting env (8) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+════════════════════════════════════════════════════════════
+  Step 6C: Verify and Score
+════════════════════════════════════════════════════════════
+
+  Phase 1: URL Verification...
+    100/1361 URLs checked | dead: 0
+    200/1361 URLs checked | dead: 0
+    300/1361 URLs checked | dead: 0
+    400/1361 URLs checked | dead: 0
+    500/1361 URLs checked | dead: 1
+    600/1361 URLs checked | dead: 1
+    700/1361 URLs checked | dead: 1
+    800/1361 URLs checked | dead: 1
+    900/1361 URLs checked | dead: 1
+    1000/1361 URLs checked | dead: 1
+    1100/1361 URLs checked | dead: 1
+    1200/1361 URLs checked | dead: 1
+    1300/1361 URLs checked | dead: 1
+    Checked 1361 URLs | Dead: 1
+
+  Phase 2: Deadline management...
+    Converted to text: 19 | Deactivated: 0
+
+  Phase 3: Final quality scores...
+    2587 scores computed
+
+  Phase 2B: Grant TTL...
+    TTL: 0 funders flagged for re-scrape (enriched > 180 days ago)
+
+════════════════════════════════════════════════════════════
+  Coverage Report
+════════════════════════════════════════════════════════════
+  Total active v4 grants: 2587
+  Organisation grants: 1965
+  Individual-only: 622
+  Unique funders: 1348
+  Avg quality score: 61
+
+  Field coverage:
+    description:         100% (2581/2587)
+    sectors:             98% (2532/2587)
+    regions:             79% (2040/2587)
+    deadline:            41% (1051/2587)
+    application_form:    53% (1372/2587)
+    eligibility:         91% (2350/2587)
+    amount_max:          20% (521/2587)
+
+  Grants by funder type:
+    type                   funders  grants
+    sector-specific         4217     992
+    community-trust          986     368
+    family-foundation       1896     327
+    council                  215     261
+    other                   5263     260
+    iwi                      989     221
+    government                98      62
+    corporate                131      57
+    gaming-trust              51      24
+    null                     119      14
+    university                 2       1
+
+  Grants by discovery step:
+    extract-tavily            2471
+    extract-playwright        116
+
+  Recent pipeline runs:
+    06c-verify-and-score           running output=? 
+    06b-fill-gaps                  completed output=34 (822s)
+    06b-fill-gaps                  completed output=167 (842s)
+    06a-dedup                      completed output=21 (19s)
+    05a-extract-tavily             completed output=302 (1118s)
+    05a-extract-tavily             completed output=54 (71s)
+    07-dedup-charities             completed output=779 (684s)
+    07-dedup-charities             completed output=1036 (231s)
+    07-dedup-charities             completed output=1555 (344s)
+    06c-verify-and-score           completed output=2328 (2s)
+    04d-classify-type              completed output=15298 (1843s)
+    04d-classify-type              running output=? 
+    04d-classify-type              running output=? 
+    06c-verify-and-score           completed output=2328 (768s)
+    06b-fill-gaps                  completed output=1042 (921s)
+    06a-dedup                      completed output=79 (61s)
+    06a-dedup                      completed output=250 (299s)
+    05c-extract-deep               completed output=378 (2242s)
+    05b-extract-playwright         completed output=152 (1128s)
+    05a-extract-tavily             completed output=1 (9s)
+    05a-extract-tavily             completed output=2251 (6792s)
+    04d-classify-type              completed output=15349 (6836s)
+    03b-resolve-nav                completed output=1443 (5889s)
+    03b-resolve-nav                completed output=205 (506s)
+    04c-classify-gpt               completed output=9120 (1464s)
+    04a-classify-rules             completed output=9872 (5s)
+    03c-resolve-search             completed output=514 (653s)
+    03b-resolve-nav                completed output=4410 (9946s)
+    03a-resolve-curated            completed output=315 (1s)
+    02c-discover-search-websites   completed output=479 (4511s)
+
+--- Summary ---
+  Total active v4 grants: 2587
+  Organisation grants: 1965
+  Unique funders: 1348
+  Avg quality score: 61
+

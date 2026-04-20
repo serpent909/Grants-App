@@ -1,0 +1,43 @@
+[dotenv@17.3.1] injecting env (8) from .env.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+════════════════════════════════════════════════════════════
+  Step 6A: Dedup and Clean
+════════════════════════════════════════════════════════════
+  Starting with 2663 active v3 grants
+
+════════════════════════════════════════════════════════════
+  Pass 1: Exact Dedup
+════════════════════════════════════════════════════════════
+  Pass 1: 0 exact duplicates removed
+
+════════════════════════════════════════════════════════════
+  Pass 1B: Cross-Funder Contamination
+════════════════════════════════════════════════════════════
+  Pass 1B: 17 cross-funder contaminated grants removed
+
+════════════════════════════════════════════════════════════
+  Pass 2: Name Similarity Dedup
+════════════════════════════════════════════════════════════
+  Pass 2: 0 name-similar duplicates removed
+  Pass 3: skipped (false-split audit disabled)
+
+════════════════════════════════════════════════════════════
+  Pass 4: Misnamed Grants
+════════════════════════════════════════════════════════════
+  Pass 4: 46 grants renamed (funder name = grant name)
+
+════════════════════════════════════════════════════════════
+  Pass 5: Historical Round Listings
+════════════════════════════════════════════════════════════
+  Pass 5: 0 historical listings removed
+
+--- Summary ---
+  Starting grants: 2663
+  Exact duplicates: 0
+  Name-similar duplicates: 0
+  False splits: 0
+  Renamed: 46
+  Historical: 0
+  Total removed: 17
+  Final active grants: 2646
+

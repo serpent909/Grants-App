@@ -416,6 +416,15 @@ export default function ShortlistedPage() {
   const totalGrants = Object.values(grouped).reduce((sum, items) => sum + items.length, 0);
   const searchCount = Object.keys(grouped).length;
 
+  // Local optimistic state for newly-started applications
+  const [startedIds, setStartedIds] = useState<Set<string>>(new Set());
+  const applyingIds = useMemo(() => {
+    if (startedIds.size === 0) return applicationIds;
+    const merged = new Set(applicationIds);
+    for (const id of startedIds) merged.add(id);
+    return merged;
+  }, [applicationIds, startedIds]);
+
   const [removeConfirm, setRemoveConfirm] = useState<{ id: string; name: string } | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -432,6 +441,7 @@ export default function ShortlistedPage() {
   }
 
   async function handleStartApplication(item: ShortlistedGrant) {
+    setStartedIds(prev => new Set(prev).add(item.grant.id));
     await startApplication(item);
   }
 
@@ -493,7 +503,7 @@ export default function ShortlistedPage() {
                       key={item.grant.id}
                       item={item}
                       deep={deepSearchMap.get(item.grant.id) ?? null}
-                      applying={applicationIds.has(item.grant.id)}
+                      applying={applyingIds.has(item.grant.id)}
                       onRemove={() => handleRemove(item.grant.id, item.grant.name)}
                       onStartApplication={handleStartApplication}
                     />

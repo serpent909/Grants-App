@@ -32,6 +32,12 @@ export interface GrantRow {
   is_recurring: boolean | null;
   round_frequency: string | null;
   application_form_url: string | null;
+  // Pipeline v2 confidence tracking
+  field_confidence: Record<string, string> | null;
+  extraction_model: string | null;
+  data_quality_score: number | null;
+  pipeline_version: number | null;
+  individual_only: boolean | null;
 }
 
 /**
@@ -54,7 +60,7 @@ export async function searchGrants(
          COALESCE(g.funder_name, c.name) AS funder_name,
          c.funder_type,
          g.type, g.description,
-         COALESCE(g.application_form_url, g.url) AS url,
+         g.url,
          g.source_url,
          g.regions, g.sectors, g.eligibility,
          g.amount_min, g.amount_max, g.deadline,
@@ -63,6 +69,8 @@ export async function searchGrants(
        FROM grants g
        JOIN charities c ON c.id = g.funder_id
        WHERE g.is_active
+         AND g.url IS NOT NULL AND g.url <> ''
+         AND (g.individual_only IS NULL OR g.individual_only = false)
          AND (
            g.deadline IS NULL
            OR g.deadline = ''

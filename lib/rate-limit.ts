@@ -47,6 +47,7 @@ export async function checkRateLimit(
   limiter: Ratelimit | null,
   key: string,
 ): Promise<NextResponse | null> {
+  if (process.env.NODE_ENV !== 'production') return null; // skip in dev/test
   if (!limiter) return null; // Redis not configured — allow through
   try {
     const { success, reset } = await limiter.limit(key);
