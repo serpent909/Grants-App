@@ -1,5 +1,6 @@
 import useSWR, { mutate as globalMutate } from 'swr';
 import { SearchResult } from './types';
+import { apiFetch, json, ApiRequestError } from './fetcher';
 
 export interface SavedSearch {
   id: string;
@@ -17,48 +18,39 @@ const SWR_OPTS = { revalidateOnFocus: false } as const;
 // ─── SWR Hook ──────────────────────────────────────────────────────────────
 
 export function useSavedSearches() {
-  return useSWR<SavedSearch[]>(SWR_KEY,
-    () => fetch('/api/saved-searches').then(r => r.ok ? r.json() : []),
+  return useSWR<SavedSearch[]>(
+    SWR_KEY,
+    () => apiFetch<SavedSearch[]>('/api/saved-searches'),
     SWR_OPTS,
   );
 }
 
 // ─── Read functions ────────────────────────────────────────────────────────
 
-export async function listSaved(): Promise<SavedSearch[]> {
-  const res = await fetch('/api/saved-searches');
-  if (!res.ok) return [];
-  return res.json();
-}
-
+/** Load one saved search by ID. Resolves to undefined if it no longer exists. */
 export async function getSaved(id: string): Promise<SavedSearch | undefined> {
-  const all = await listSaved();
-  return all.find(s => s.id === id);
+  try {
+    return await apiFetch<SavedSearch>(`/api/saved-searches?id=${encodeURIComponent(id)}`);
+  } catch (err) {
+    if (err instanceof ApiRequestError && err.status === 404) return undefined;
+    throw err;
+  }
 }
 
 // ─── Mutations (invalidate SWR cache after write) ──────────────────────────
 
+/** Save a search result. The server assigns the ID and timestamp. */
 export async function saveSearch(name: string, result: SearchResult): Promise<SavedSearch> {
-  const entry: SavedSearch = {
-    id: `saved-${Date.now()}`,
-    name: name.trim() || autoName(result),
-    savedAt: new Date().toISOString(),
-    grantCount: result.grants.length,
-    orgSummary: result.orgSummary || '',
-    market: result.market,
-    result,
-  };
-  await fetch('/api/saved-searches', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(entry),
-  });
+  const saved = await apiFetch<SavedSearch>(
+    '/api/saved-searches',
+    json('POST', { name: name.trim() || autoName(result), result }),
+  );
   await globalMutate(SWR_KEY);
-  return entry;
+  return saved;
 }
 
 export async function deleteSaved(id: string): Promise<void> {
-  await fetch(`/api/saved-searches?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+  await apiFetch(`/api/saved-searches?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
   await globalMutate(SWR_KEY);
 }
 

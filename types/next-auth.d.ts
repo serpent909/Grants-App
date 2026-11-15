@@ -22,5 +22,7 @@ declare module 'next-auth/jwt' {
     userId?: string;
     orgId?: string;
     orgName?: string;
+    /** Epoch ms of the last time this token was checked against the users table. */
+    checkedAt?: number;
   }
 }

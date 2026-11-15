@@ -13,6 +13,7 @@ function buildCsp(nonce: string): string {
     "font-src 'self' data:",
     "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
     isDev ? "connect-src 'self' ws:" : "connect-src 'self'",
+    "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -29,6 +30,10 @@ export function proxy(request: NextRequest) {
   ) {
     const origin = headers.get('origin');
     if (origin && origin !== `${nextUrl.protocol}//${nextUrl.host}`) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    // Browsers that omit Origin still send Sec-Fetch-Site on cross-site requests.
+    if (!origin && headers.get('sec-fetch-site') === 'cross-site') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }
@@ -49,7 +54,10 @@ export function proxy(request: NextRequest) {
       if (nextUrl.pathname.startsWith('/api')) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
+      // Remember where the user was heading so login can send them back.
       const loginUrl = new URL('/login', request.url);
+      const destination = `${nextUrl.pathname}${nextUrl.search}`;
+      if (destination !== '/') loginUrl.searchParams.set('next', destination);
       return NextResponse.redirect(loginUrl);
     }
   }
@@ -66,6 +74,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Cover all routes; exclude only Next.js internals and static assets
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
+  // Cover all routes; exclude only Next.js internals and static assets.
+  // Public files must be excluded too: the login page needs /theme.js before
+  // the visitor has a session, and without this it was redirected to /login.
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|theme\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
 };

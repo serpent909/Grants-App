@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { Loader2, UserPlus } from 'lucide-react';
+import { Loader2, UserPlus, MailX } from 'lucide-react';
 import Link from 'next/link';
+import { AuthShell, AuthField, PasswordField, AuthError, AuthSubmit } from '@/components/auth-shell';
+import { LINK_CLASS } from '@/lib/grant-ui';
 
 export default function InvitePage() {
   const params = useParams();
-  const router = useRouter();
   const token = params.token as string;
 
   const [orgName, setOrgName] = useState('');
@@ -21,24 +22,26 @@ export default function InvitePage() {
   const [invalid, setInvalid] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     async function validate() {
       try {
         const res = await fetch(`/api/auth/invite?token=${encodeURIComponent(token)}`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
         if (!res.ok) {
-          const data = await res.json();
           setInvalid(data.error || 'Invalid invitation');
         } else {
-          const data = await res.json();
           setOrgName(data.orgName);
           setEmail(data.email);
         }
       } catch {
-        setInvalid('Failed to validate invitation');
+        if (!cancelled) setInvalid('We couldn’t check this invitation. Please try again.');
       } finally {
-        setValidating(false);
+        if (!cancelled) setValidating(false);
       }
     }
     validate();
+    return () => { cancelled = true; };
   }, [token]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -54,21 +57,17 @@ export default function InvitePage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setError(data.error || 'Failed to accept invitation');
         setLoading(false);
         return;
       }
 
       // Auto sign-in
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
-      });
+      const result = await signIn('credentials', { email, password, redirect: false });
 
       if (result?.error) {
-        setError('Account created but sign-in failed. Try logging in.');
+        setError('Your account was created, but we couldn’t sign you in automatically. Please sign in.');
         setLoading(false);
       } else {
         window.location.href = '/';
@@ -81,90 +80,59 @@ export default function InvitePage() {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-zinc-400" />
+      <div className="min-h-[calc(100vh-4rem)] bg-canvas flex items-center justify-center" role="status" aria-label="Checking invitation">
+        <Loader2 className="w-6 h-6 animate-spin text-zinc-400" aria-hidden />
       </div>
     );
   }
 
   if (invalid) {
     return (
-      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center px-4">
-        <div className="w-full max-w-sm text-center">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">GrantSearch</h1>
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 p-6">
-            <p className="text-sm text-red-600 mb-4">{invalid}</p>
-            <Link href="/login" className="text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">
-              Go to login
-            </Link>
-          </div>
+      <AuthShell title="Invitation unavailable" subtitle="This link can’t be used to join an organisation">
+        <div className="text-center py-2">
+          <MailX className="w-8 h-8 mx-auto mb-3 text-zinc-300 dark:text-zinc-600" aria-hidden />
+          <p role="alert" className="text-sm text-zinc-700 dark:text-zinc-300 mb-1">{invalid}</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
+            Ask the person who invited you to send a new link.
+          </p>
+          <Link href="/login" className={`text-sm ${LINK_CLASS}`}>Go to sign in</Link>
         </div>
-      </div>
+      </AuthShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">GrantSearch</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Join <span className="font-medium text-zinc-700 dark:text-zinc-300">{orgName}</span>
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                disabled
-                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2.5 bg-zinc-50 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Your name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoFocus
-                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="Jane Smith"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="At least 8 characters"
-              />
-            </div>
-
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-              Join {orgName}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+    <AuthShell
+      title={`Join ${orgName}`}
+      subtitle="You’ve been invited to collaborate on GrantSearch"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthField label="Email" type="email" value={email} disabled readOnly autoComplete="username" />
+        <AuthField
+          label="Your name"
+          type="text"
+          name="name"
+          autoComplete="name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          autoFocus
+          maxLength={200}
+          placeholder="Jane Smith"
+        />
+        <PasswordField
+          label="Password"
+          name="new-password"
+          autoComplete="new-password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          minLength={8}
+          maxLength={200}
+          placeholder="At least 8 characters"
+        />
+        <AuthError message={error} />
+        <AuthSubmit loading={loading} icon={UserPlus}>Join {orgName}</AuthSubmit>
+      </form>
+    </AuthShell>
   );
 }

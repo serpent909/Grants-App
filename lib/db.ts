@@ -1,4 +1,4 @@
-import { Pool } from '@neondatabase/serverless';
+import { Pool, type PoolClient } from '@neondatabase/serverless';
 import { createHash } from 'crypto';
 
 let pool: Pool | null = null;
@@ -10,6 +10,30 @@ export function getPool(): Pool {
     pool = new Pool({ connectionString: url });
   }
   return pool;
+}
+
+/**
+ * Run `fn` inside a database transaction. Commits on success, rolls back if
+ * `fn` throws. Use for any multi-statement write that must be all-or-nothing.
+ */
+export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* connection already broken */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/** True when a Postgres error is a unique-constraint violation. */
+export function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string } | null)?.code === '23505';
 }
 
 // ─── Grants Table Query ──────────────────────────────────────────────────────
@@ -108,6 +132,34 @@ export async function searchGrants(
     console.warn('[GrantSearch] searchGrants failed:', err);
     return [];
   }
+}
+
+// ─── Single grant lookup ─────────────────────────────────────────────────────
+
+export interface GrantIdentity {
+  id: string;
+  name: string;
+  funder_name: string;
+  url: string;
+  description: string | null;
+}
+
+/**
+ * Load the authoritative identity of a grant from the shared grants table.
+ * Deep search uses this instead of trusting the name/funder/URL sent by the
+ * client, so a tenant cannot steer research (and the DB write-back) at a page
+ * of their choosing.
+ */
+export async function getGrantIdentity(grantId: string): Promise<GrantIdentity | null> {
+  if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) return null;
+  const { rows } = await getPool().query<GrantIdentity>(
+    `SELECT g.id, g.name, COALESCE(g.funder_name, c.name) AS funder_name, g.url, g.description
+     FROM grants g
+     JOIN charities c ON c.id = g.funder_id
+     WHERE g.id = $1`,
+    [grantId],
+  );
+  return rows[0] ?? null;
 }
 
 // ─── Deep Search Write-back ──────────────────────────────────────────────────

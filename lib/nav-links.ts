@@ -31,16 +31,27 @@ export interface NavLink {
  */
 export async function findGrantLinksFromHtml(
   pageUrl: string,
+  /**
+   * Custom fetcher. Request handlers that fetch URLs influenced by user input
+   * must pass `safeFetch` from lib/url-safety.ts (SSRF protection); the offline
+   * pipeline scripts use the default.
+   */
+  fetchImpl?: (url: string, init: RequestInit) => Promise<Response>,
 ): Promise<NavLink[]> {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-    const res = await fetch(pageUrl, {
-      signal: controller.signal,
-      headers: { 'User-Agent': UA },
-      redirect: 'follow',
-    });
-    clearTimeout(timeout);
+    let res: Response;
+    if (fetchImpl) {
+      res = await fetchImpl(pageUrl, { headers: { 'User-Agent': UA } });
+    } else {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+      res = await fetch(pageUrl, {
+        signal: controller.signal,
+        headers: { 'User-Agent': UA },
+        redirect: 'follow',
+      });
+      clearTimeout(timeout);
+    }
     if (!res.ok) return [];
 
     const html = await res.text();

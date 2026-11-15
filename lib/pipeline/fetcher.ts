@@ -375,7 +375,8 @@ async function ocrPdfWithVision(
       const viewport = page.getViewport({ scale: 1.5 });
       const canvas = createCanvas(viewport.width, viewport.height);
       const ctx = canvas.getContext('2d');
-      await (page.render as any)({ canvasContext: ctx, viewport }).promise;
+      // node-canvas's 2D context is not the DOM type pdf.js declares, but is compatible at runtime.
+      await page.render({ canvasContext: ctx, viewport } as unknown as Parameters<typeof page.render>[0]).promise;
       images.push(canvas.toDataURL('image/png'));
     }
 

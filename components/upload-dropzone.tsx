@@ -2,18 +2,7 @@
 
 import { useCallback, useState, useRef } from 'react';
 import { Upload, Loader2, AlertCircle } from 'lucide-react';
-
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/jpeg',
-  'image/png',
-]);
-
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES, UPLOAD_ACCEPT, UPLOAD_TYPES_LABEL } from '@/lib/upload-rules';
 
 interface UploadDropzoneProps {
   onFiles: (files: File[]) => Promise<void>;
@@ -30,11 +19,11 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
   const validateFiles = useCallback((files: File[]): File[] => {
     const valid: File[] = [];
     for (const file of files) {
-      if (!ALLOWED_TYPES.has(file.type)) {
+      if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
         setError(`"${file.name}" is not a supported file type. Use PDF, Word, Excel, JPEG, or PNG.`);
         return [];
       }
-      if (file.size > MAX_SIZE) {
+      if (file.size > MAX_UPLOAD_BYTES) {
         setError(`"${file.name}" exceeds the 10MB size limit.`);
         return [];
       }
@@ -82,12 +71,12 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
           ref={inputRef}
           type="file"
           multiple
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+          accept={UPLOAD_ACCEPT}
           className="hidden"
           onChange={e => handleFiles(e.target.files)}
         />
         {error && (
-          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+          <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
             <AlertCircle className="w-3 h-3" /> {error}
           </p>
         )}
@@ -102,6 +91,15 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label="Upload documents: drop files here or press Enter to browse"
         className={`border-2 border-dashed rounded-xl px-6 py-8 text-center cursor-pointer transition-colors ${
           dragging
             ? 'border-teal-400 bg-teal-50/50 dark:bg-teal-950/30'
@@ -119,7 +117,7 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
             <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
               Drop files here or <span className="text-teal-600 dark:text-teal-400">browse</span>
             </p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">PDF, Word, Excel, JPEG, PNG — max 10MB</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-500">{UPLOAD_TYPES_LABEL}</p>
           </div>
         )}
       </div>
@@ -127,12 +125,12 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
         ref={inputRef}
         type="file"
         multiple
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+        accept={UPLOAD_ACCEPT}
         className="hidden"
         onChange={e => handleFiles(e.target.files)}
       />
       {error && (
-        <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
+        <p role="alert" className="text-xs text-red-600 dark:text-red-400 mt-2 flex items-center gap-1">
           <AlertCircle className="w-3 h-3" /> {error}
         </p>
       )}

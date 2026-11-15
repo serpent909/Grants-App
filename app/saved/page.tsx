@@ -1,274 +1,228 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Bookmark, Trash2, ArrowRight, Search, CalendarDays,
-  RotateCcw, History, Loader2, Star, FileText, AlertTriangle,
+  RotateCcw, History, Star, FileText,
 } from 'lucide-react';
 import { useSavedSearches, deleteSaved, SavedSearch } from '@/lib/saved-searches';
 import { useShortlistedBySearch } from '@/lib/shortlist-storage';
 import { useApplicationsByStatus } from '@/lib/application-storage';
 import { getMarket } from '@/lib/markets';
-import { GrantApplication } from '@/lib/types';
+import { errorMessage } from '@/lib/fetcher';
+import { PRIMARY_BUTTON_CLASS } from '@/lib/grant-ui';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { PageShell, PageHeader, EmptyState, ListSkeleton, ErrorState } from '@/components/page-shell';
+import ConfirmDialog from '@/components/confirm-dialog';
+import { toast } from '@/components/toast';
 
 export default function SavedPage() {
   const router = useRouter();
-  const { data: searches = [], isLoading } = useSavedSearches();
+  const { data: searches = [], isLoading, error, mutate } = useSavedSearches();
   const { data: shortlistGroups = {} } = useShortlistedBySearch();
   const { data: appsByStatus } = useApplicationsByStatus();
   const [deleteConfirm, setDeleteConfirm] = useState<SavedSearch | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Flatten all applications and group by searchTitle
-  const appsBySearch: Record<string, GrantApplication[]> = {};
-  if (appsByStatus) {
-    for (const apps of Object.values(appsByStatus)) {
+  // Count applications per search title
+  const appCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const apps of Object.values(appsByStatus ?? {})) {
       for (const app of apps) {
         const key = app.searchTitle || '';
-        if (!appsBySearch[key]) appsBySearch[key] = [];
-        appsBySearch[key].push(app);
+        counts[key] = (counts[key] ?? 0) + 1;
       }
     }
-  }
+    return counts;
+  }, [appsByStatus]);
 
-  function getShortlistCount(name: string): number {
-    return shortlistGroups[name]?.length ?? 0;
-  }
+  const shortlistCount = (name: string) => shortlistGroups[name]?.length ?? 0;
+  const appCount = (name: string) => appCounts[name] ?? 0;
 
-  function getAppCount(name: string): number {
-    return appsBySearch[name]?.length ?? 0;
-  }
-
-  function handleOpen(saved: SavedSearch) {
-    sessionStorage.setItem('grantSearchResult', JSON.stringify(saved.result));
-    router.push(`/results?saved=${saved.id}`);
-  }
-
-  function handleDeleteClick(saved: SavedSearch, e: React.MouseEvent) {
-    e.stopPropagation();
-    setDeleteConfirm(saved);
-  }
-
-  async function confirmDelete(saved: SavedSearch) {
-    setDeleting(true);
-    await deleteSaved(saved.id);
-    setDeleting(false);
-    setDeleteConfirm(null);
-  }
-
-  function handleRerun(saved: SavedSearch, e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleRerun(saved: SavedSearch) {
     if (saved.result.inputs) {
       sessionStorage.setItem('grantSearchPrefill', JSON.stringify(saved.result.inputs));
     }
     router.push('/');
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
-      </div>
-    );
+  async function confirmDelete() {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await deleteSaved(deleteConfirm.id);
+      toast.success('Search deleted');
+      setDeleteConfirm(null);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not delete this search.'));
+    } finally {
+      setDeleting(false);
+    }
   }
 
+  const linkedShortlisted = deleteConfirm ? shortlistCount(deleteConfirm.name) : 0;
+  const linkedApps = deleteConfirm ? appCount(deleteConfirm.name) : 0;
+
   return (
-    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900">
-      <div className="max-w-6xl mx-auto px-6 py-12">
+    <PageShell>
+      <PageHeader
+        icon={History}
+        title="Funding Searches"
+        subtitle={
+          isLoading ? 'Loading…'
+            : searches.length === 0 ? 'No searches yet'
+            : `${searches.length} saved search${searches.length === 1 ? '' : 'es'}`
+        }
+        actions={
+          <Link
+            href="/"
+            className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl ${PRIMARY_BUTTON_CLASS}`}
+          >
+            <Search className="w-3.5 h-3.5" aria-hidden />
+            New search
+          </Link>
+        }
+      />
 
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 bg-teal-50 dark:bg-teal-950 rounded-xl flex items-center justify-center">
-            <History className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Funding Searches</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              {searches.length === 0 ? 'No searches yet' : `${searches.length} active search${searches.length === 1 ? '' : 'es'}`}
-            </p>
-          </div>
-        </div>
-
-        {searches.length === 0 ? (
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 py-20 text-center shadow-sm">
-            <Bookmark className="w-8 h-8 mx-auto mb-3 text-zinc-200 dark:text-zinc-600" />
-            <p className="font-semibold text-zinc-400 text-sm">No funding searches yet</p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 mb-6">
-              Run a search and it will appear here automatically.
-            </p>
-            <button
-              onClick={() => router.push('/')}
+      {isLoading ? (
+        <ListSkeleton />
+      ) : error ? (
+        <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />
+      ) : searches.length === 0 ? (
+        <EmptyState
+          icon={Bookmark}
+          title="No funding searches yet"
+          action={
+            <Link
+              href="/"
               className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl transition-colors"
             >
-              <Search className="w-3.5 h-3.5" />
+              <Search className="w-3.5 h-3.5" aria-hidden />
               Run a search
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {searches.map(saved => {
-              const market = getMarket(saved.market);
-              const savedDate = new Date(saved.savedAt).toLocaleDateString(market.locale, {
-                day: 'numeric', month: 'short', year: 'numeric',
-              });
-              const searchDate = new Date(saved.result.searchedAt).toLocaleDateString(market.locale, {
-                day: 'numeric', month: 'short', year: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              });
-              const shortlisted = getShortlistCount(saved.name);
-              const apps = getAppCount(saved.name);
+            </Link>
+          }
+        >
+          Run a search and it will be saved here automatically, ready to revisit or re-run.
+        </EmptyState>
+      ) : (
+        <ul className="space-y-3">
+          {searches.map(saved => {
+            const market = getMarket(saved.market);
+            const searchDate = new Date(saved.result.searchedAt || saved.savedAt).toLocaleDateString(market.locale, {
+              day: 'numeric', month: 'short', year: 'numeric',
+            });
+            const shortlisted = shortlistCount(saved.name);
+            const apps = appCount(saved.name);
 
-              return (
-                <div
-                  key={saved.id}
-                  onClick={() => handleOpen(saved)}
-                  className="bg-white dark:bg-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-700 p-5 shadow-sm hover:shadow-md hover:border-teal-200 dark:hover:border-teal-800 transition-all cursor-pointer group"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
-                          {saved.name}
-                        </h2>
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-300 border border-teal-100 dark:border-teal-800">
-                          {market.displayName}
+            return (
+              <li
+                key={saved.id}
+                className="relative bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 p-5 shadow-sm hover:shadow-md hover:ring-teal-300 dark:hover:ring-teal-700 transition-all group"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="font-semibold text-zinc-900 dark:text-zinc-100 mb-1.5">
+                      {/* Stretched link: the whole card opens the search, while
+                          the action buttons stay independently focusable. */}
+                      <Link
+                        href={`/results?saved=${encodeURIComponent(saved.id)}`}
+                        className="group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-teal-500"
+                      >
+                        {saved.name}
+                      </Link>
+                    </h2>
+
+                    {saved.orgSummary && (
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2 mb-3">
+                        {saved.orgSummary}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-3 text-xs text-zinc-500 dark:text-zinc-400 flex-wrap">
+                      <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        {saved.grantCount} grant{saved.grantCount === 1 ? '' : 's'} found
+                      </span>
+                      {shortlisted > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-800 font-medium">
+                          <Star className="w-3 h-3" aria-hidden />
+                          {shortlisted} shortlisted
                         </span>
-                      </div>
-
-                      {saved.orgSummary && (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2 mb-3">
-                          {saved.orgSummary}
-                        </p>
                       )}
-
-                      <div className="flex items-center gap-3 text-xs text-zinc-400 dark:text-zinc-500 flex-wrap">
-                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                          {saved.grantCount} grants found
+                      {apps > 0 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-800 font-medium">
+                          <FileText className="w-3 h-3" aria-hidden />
+                          {apps} application{apps === 1 ? '' : 's'}
                         </span>
-                        {shortlisted > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800 font-medium">
-                            <Star className="w-3 h-3" />
-                            {shortlisted} shortlisted
-                          </span>
-                        )}
-                        {apps > 0 && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800 font-medium">
-                            <FileText className="w-3 h-3" />
-                            {apps} application{apps === 1 ? '' : 's'}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="w-3 h-3" />
-                          Searched {searchDate}
-                        </span>
-                        <span>Created {savedDate}</span>
-                      </div>
+                      )}
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="w-3 h-3" aria-hidden />
+                        Searched {searchDate}
+                      </span>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                  <div className="relative z-10 flex items-center gap-1 shrink-0">
+                    {saved.result.inputs && (
                       <Tooltip>
                         <TooltipTrigger
-                          onClick={e => handleDeleteClick(saved, e)}
-                          className="p-1.5 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                          onClick={() => handleRerun(saved)}
+                          aria-label={`Edit and re-run ${saved.name}`}
+                          className="p-2 rounded-lg text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <RotateCcw className="w-4 h-4" aria-hidden />
                         </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
+                        <TooltipContent>Edit &amp; re-run search</TooltipContent>
                       </Tooltip>
-                      {saved.result.inputs && (
-                        <Tooltip>
-                          <TooltipTrigger
-                            onClick={e => handleRerun(saved, e)}
-                            className="p-1.5 rounded-lg text-zinc-300 dark:text-zinc-600 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 transition-colors"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </TooltipTrigger>
-                          <TooltipContent>Edit & re-run search</TooltipContent>
-                        </Tooltip>
-                      )}
-                      <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 group-hover:bg-teal-100 dark:group-hover:bg-teal-900 flex items-center justify-center transition-colors">
-                        <ArrowRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:translate-x-0.5 transition-transform" />
-                      </div>
-                    </div>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger
+                        onClick={() => setDeleteConfirm(saved)}
+                        aria-label={`Delete ${saved.name}`}
+                        className="p-2 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" aria-hidden />
+                      </TooltipTrigger>
+                      <TooltipContent>Delete</TooltipContent>
+                    </Tooltip>
+                    <span className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950 group-hover:bg-teal-100 dark:group-hover:bg-teal-900 flex items-center justify-center transition-colors pointer-events-none" aria-hidden>
+                      <ArrowRight className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Delete confirmation modal */}
-      {deleteConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setDeleteConfirm(null)}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-md mx-4 p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-50 dark:bg-red-950 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-              </div>
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Delete search?</h3>
-            </div>
-
-            {(() => {
-              const shortlisted = getShortlistCount(deleteConfirm.name);
-              const apps = getAppCount(deleteConfirm.name);
-              const hasLinked = shortlisted > 0 || apps > 0;
-              return hasLinked ? (
-                <>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                    <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span> has linked data:
-                  </p>
-                  <div className="space-y-1.5 mb-5">
-                    {shortlisted > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 px-3 py-2 rounded-lg">
-                        <Star className="w-3.5 h-3.5" />
-                        {shortlisted} shortlisted grant{shortlisted === 1 ? '' : 's'}
-                      </div>
-                    )}
-                    {apps > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 px-3 py-2 rounded-lg">
-                        <FileText className="w-3.5 h-3.5" />
-                        {apps} application{apps === 1 ? '' : 's'} in progress
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-5">
-                    Deleting this search will only remove the search itself. Your shortlisted grants and applications will not be affected.
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-5">
-                  Are you sure you want to delete <span className="font-medium">&ldquo;{deleteConfirm.name}&rdquo;</span>?
-                </p>
-              );
-            })()}
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => confirmDelete(deleteConfirm)}
-                disabled={deleting}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                Delete search
-              </button>
-            </div>
-          </div>
-        </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
-    </div>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Delete search?"
+        confirmLabel="Delete search"
+        tone="danger"
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      >
+        {deleteConfirm && (
+          <>
+            <p>
+              <span className="font-medium text-zinc-800 dark:text-zinc-200">&ldquo;{deleteConfirm.name}&rdquo;</span>{' '}
+              will be permanently deleted.
+            </p>
+            {(linkedShortlisted > 0 || linkedApps > 0) && (
+              <p className="text-xs bg-zinc-50 dark:bg-zinc-900 rounded-lg px-3 py-2">
+                Your {[
+                  linkedShortlisted > 0 && `${linkedShortlisted} shortlisted grant${linkedShortlisted === 1 ? '' : 's'}`,
+                  linkedApps > 0 && `${linkedApps} application${linkedApps === 1 ? '' : 's'}`,
+                ].filter(Boolean).join(' and ')} from this search will not be affected.
+              </p>
+            )}
+          </>
+        )}
+      </ConfirmDialog>
+    </PageShell>
   );
 }

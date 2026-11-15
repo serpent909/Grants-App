@@ -7,6 +7,7 @@ export function TogglePill({ label, selected, onToggle }: {
     <button
       type="button"
       onClick={onToggle}
+      aria-pressed={selected}
       className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium border transition-all duration-150 ${
         selected
           ? 'bg-teal-50 dark:bg-teal-950 border-teal-400 dark:border-teal-600 text-teal-800 dark:text-teal-300 shadow-sm'

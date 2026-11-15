@@ -1,38 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getPool } from '@/lib/db';
-import { getAuthSession } from '@/lib/auth-helpers';
+import { NextResponse } from 'next/server';
+import { getPool, withTransaction } from '@/lib/db';
+import { authedRoute, requireIdParam, ApiError } from '@/lib/api';
+import { forgetUser } from '@/lib/auth';
 
-export async function GET() {
-  const session = await getAuthSession();
-  const db = getPool();
-  const { rows } = await db.query(
+export const GET = authedRoute(async (_req, { orgId }) => {
+  const { rows } = await getPool().query(
     `SELECT id, email, name, created_at AS "createdAt"
      FROM users WHERE org_id = $1 ORDER BY created_at`,
-    [session.orgId],
+    [orgId],
   );
   return NextResponse.json(rows);
-}
+});
 
-export async function DELETE(req: NextRequest) {
-  const session = await getAuthSession();
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+export const DELETE = authedRoute(async (req, { orgId, userId: currentUserId }) => {
+  const userId = requireIdParam(req.nextUrl.searchParams, 'userId');
 
-  // Cannot remove yourself
-  if (userId === session.userId) {
-    return NextResponse.json({ error: 'Cannot remove yourself' }, { status: 400 });
-  }
+  if (userId === currentUserId) throw new ApiError(400, 'Cannot remove yourself');
 
-  const db = getPool();
+  const removed = await withTransaction(async client => {
+    // Invitations reference their inviter, so they must go first or the delete
+    // fails on the foreign key. Pending invites from a removed member are revoked.
+    await client.query(
+      'DELETE FROM invitations WHERE invited_by = $1 AND org_id = $2',
+      [userId, orgId],
+    );
+    const { rowCount } = await client.query(
+      'DELETE FROM users WHERE id = $1 AND org_id = $2',
+      [userId, orgId],
+    );
+    return rowCount ?? 0;
+  });
 
-  // Verify user belongs to this org
-  const { rows } = await db.query(
-    'SELECT id FROM users WHERE id = $1 AND org_id = $2',
-    [userId, session.orgId],
-  );
-  if (rows.length === 0) return NextResponse.json({ error: 'user not found' }, { status: 404 });
+  if (removed === 0) throw new ApiError(404, 'Member not found');
 
-  await db.query('DELETE FROM users WHERE id = $1 AND org_id = $2', [userId, session.orgId]);
+  // Their session token is rejected on its next revalidation (see lib/auth.ts).
+  forgetUser(userId);
   return NextResponse.json({ ok: true });
-}
+});

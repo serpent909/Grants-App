@@ -3,11 +3,15 @@
 import { useState, useCallback, useRef } from 'react';
 import {
   ClipboardList, CheckCircle2, Circle, Loader2,
-  Paperclip, X, Download, Plus, Upload, FolderOpen,
+  Paperclip, X, Plus, Upload, FolderOpen,
 } from 'lucide-react';
 import { useChecklist, initializeChecklist, toggleChecklistItem, attachDocumentToChecklist, detachDocumentFromChecklist } from '@/lib/checklist-storage';
-import { uploadDocument } from '@/lib/document-storage';
-import { formatFileSize } from '@/lib/document-storage';
+import { uploadDocument, downloadDocument, formatFileSize } from '@/lib/document-storage';
+import { errorMessage } from '@/lib/fetcher';
+import { UPLOAD_ACCEPT } from '@/lib/upload-rules';
+import { PRIMARY_BUTTON_CLASS } from '@/lib/grant-ui';
+import { RequiredTag } from '@/components/grant/deep-search-details';
+import { toast } from '@/components/toast';
 import { ChecklistItem, AppDocument } from '@/lib/types';
 import DocumentPicker from './document-picker';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -27,12 +31,21 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
 
   const handleInitialize = useCallback(async () => {
     setInitializing(true);
-    await initializeChecklist(grantId);
-    setInitializing(false);
+    try {
+      await initializeChecklist(grantId);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not create the checklist.'));
+    } finally {
+      setInitializing(false);
+    }
   }, [grantId]);
 
   const handleToggle = useCallback(async (item: ChecklistItem) => {
-    await toggleChecklistItem(item.id, !item.checked, grantId);
+    try {
+      await toggleChecklistItem(item.id, !item.checked, grantId);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not update the checklist.'));
+    }
   }, [grantId]);
 
   const handleUploadForItem = useCallback(async (itemId: string, file: File, itemName: string) => {
@@ -40,6 +53,8 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
     try {
       const doc = await uploadDocument(file, { checklistItemName: itemName });
       await attachDocumentToChecklist(itemId, doc.id);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Upload failed.'));
     } finally {
       setUploadingItemId(null);
       setOpenMenuId(null);
@@ -47,51 +62,63 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
   }, []);
 
   const handleAttachExisting = useCallback(async (itemId: string, doc: AppDocument) => {
-    await attachDocumentToChecklist(itemId, doc.id);
-    setPickerItemId(null);
+    try {
+      await attachDocumentToChecklist(itemId, doc.id);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not attach the document.'));
+    } finally {
+      setPickerItemId(null);
+    }
   }, []);
 
   const handleDetach = useCallback(async (itemId: string, docId: string) => {
-    await detachDocumentFromChecklist(itemId, docId);
+    try {
+      await detachDocumentFromChecklist(itemId, docId);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not remove the document.'));
+    }
   }, []);
 
   const handleDownload = useCallback(async (docId: string, filename: string) => {
-    const res = await fetch(`/api/documents/download?id=${encodeURIComponent(docId)}`);
-    if (!res.ok) return;
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+    try {
+      await downloadDocument(docId, filename);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not download this document.'));
+    }
   }, []);
 
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 py-4">
         <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
-        <span className="text-xs text-zinc-400">Loading checklist...</span>
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">Loading checklist…</span>
       </div>
     );
   }
 
   // No checklist initialized yet
   if (!items || items.length === 0) {
-    if (!hasDeepSearch) return null;
+    if (!hasDeepSearch) {
+      return (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+          Run a Deep Search on this grant from its funding search to generate a checklist of
+          everything the funder asks for.
+        </p>
+      );
+    }
     return (
       <div className="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4 text-center">
         <ClipboardList className="w-6 h-6 mx-auto mb-2 text-zinc-300" />
-        <p className="text-sm text-zinc-500 mb-3">
-          This grant has deep search data with an application checklist.
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-3">
+          Deep Search found what this funder asks for. Create a checklist to track it.
         </p>
         <button
           onClick={handleInitialize}
           disabled={initializing}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-sm transition-all disabled:opacity-50"
+          className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg ${PRIMARY_BUTTON_CLASS}`}
         >
           {initializing ? <Loader2 className="w-3 h-3 animate-spin" /> : <ClipboardList className="w-3 h-3" />}
-          Initialize Checklist
+          Create checklist
         </button>
       </div>
     );
@@ -111,12 +138,12 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
             {checked}/{items.length} complete
           </span>
           {requiredTotal > 0 && (
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
               {requiredChecked}/{requiredTotal} required
             </span>
           )}
         </div>
-        <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+        <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPct} aria-label="Checklist progress">
           <div
             className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-300"
             style={{ width: `${progressPct}%` }}
@@ -128,15 +155,18 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
       <div className="space-y-2">
         {items.map(item => {
           const isUploading = uploadingItemId === item.id;
-          const existingDocIds = new Set(item.documents.map(d => d.id));
 
           return (
             <div key={item.id} className={`rounded-lg border p-3 transition-colors ${item.checked ? 'bg-emerald-50/50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'}`}>
               <div className="flex items-start gap-3">
                 {/* Checkbox */}
                 <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={item.checked}
+                  aria-label={item.itemName}
                   onClick={() => handleToggle(item)}
-                  className="mt-0.5 flex-shrink-0"
+                  className="mt-0.5 flex-shrink-0 rounded-full"
                 >
                   {item.checked ? (
                     <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -151,15 +181,11 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                     <span className={`text-sm font-medium ${item.checked ? 'text-zinc-500 dark:text-zinc-400 line-through' : 'text-zinc-800 dark:text-zinc-200'}`}>
                       {item.itemName}
                     </span>
-                    {item.required ? (
-                      <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">Required</span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">Optional</span>
-                    )}
+                    <RequiredTag required={item.required} />
                   </div>
 
                   {item.description && (
-                    <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{item.description}</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">{item.description}</p>
                   )}
 
                   {/* Attached documents */}
@@ -168,7 +194,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                       {item.documents.map(doc => (
                         <div
                           key={doc.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-xs group"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-700 text-xs group"
                         >
                           <Paperclip className="w-3 h-3 text-zinc-400" />
                           <button
@@ -182,7 +208,8 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                           <Tooltip>
                             <TooltipTrigger
                               onClick={() => handleDetach(item.id, doc.id)}
-                              className="p-0.5 rounded text-zinc-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                              aria-label={`Remove ${doc.filename}`}
+                              className="p-0.5 rounded text-zinc-400 hover:text-red-500 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
                             >
                               <X className="w-3 h-3" />
                             </TooltipTrigger>
@@ -202,8 +229,10 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
                     ) : (
                       <>
                         <button
+                          type="button"
                           onClick={() => setOpenMenuId(openMenuId === item.id ? null : item.id)}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-zinc-400 hover:text-teal-600 transition-colors"
+                          aria-expanded={openMenuId === item.id}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
                         >
                           <Plus className="w-3 h-3" /> Add document
                         </button>
@@ -242,7 +271,7 @@ export default function ApplicationChecklist({ grantId, hasDeepSearch }: Applica
       <input
         ref={uploadRef}
         type="file"
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+        accept={UPLOAD_ACCEPT}
         className="hidden"
         onChange={async e => {
           const file = e.target.files?.[0];

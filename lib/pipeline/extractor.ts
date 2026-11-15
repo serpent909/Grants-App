@@ -17,7 +17,6 @@ import {
   computeQualityScore,
   buildFieldConfidence,
   similarity,
-  type ConfidenceLevel,
 } from './quality';
 import { isValidFunderName } from './validator';
 

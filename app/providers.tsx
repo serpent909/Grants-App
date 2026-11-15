@@ -2,38 +2,27 @@
 
 import { SessionProvider } from 'next-auth/react';
 import { SWRConfig } from 'swr';
-import { useRouter } from 'next/navigation';
-import { useCallback } from 'react';
 import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster, toast } from '@/components/toast';
+import { ApiRequestError, errorMessage } from '@/lib/fetcher';
+
+/**
+ * Global handler for failed data loads. `apiFetch` already redirects to login
+ * on a 401, so those are skipped here; everything else becomes a toast instead
+ * of a page that quietly renders as if it were empty.
+ */
+function onSwrError(error: unknown) {
+  if (error instanceof ApiRequestError && error.status === 401) return;
+  toast.error(errorMessage(error, 'Could not load your data. Please refresh the page.'));
+}
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-
-  const onError = useCallback(
-    (error: Error) => {
-      if (error.message === '401') {
-        router.push('/login');
-      }
-    },
-    [router],
-  );
-
-  const fetcher = useCallback(async (url: string) => {
-    const res = await fetch(url);
-    if (res.status === 401) {
-      throw new Error('401');
-    }
-    if (!res.ok) {
-      throw new Error(`${res.status}`);
-    }
-    return res.json();
-  }, []);
-
   return (
     <SessionProvider>
       <ThemeProvider>
-        <SWRConfig value={{ fetcher, onError }}>
+        <SWRConfig value={{ onError: onSwrError, shouldRetryOnError: false }}>
           {children}
+          <Toaster />
         </SWRConfig>
       </ThemeProvider>
     </SessionProvider>

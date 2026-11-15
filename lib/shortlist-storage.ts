@@ -1,5 +1,6 @@
 import useSWR, { mutate as globalMutate } from 'swr';
 import { GrantOpportunity } from './types';
+import { apiFetch, json } from './fetcher';
 
 export interface ShortlistedGrant {
   grant: GrantOpportunity;
@@ -20,61 +21,30 @@ async function invalidateShortlist() {
 export function useShortlistedBySearch() {
   return useSWR<Record<string, ShortlistedGrant[]>>(
     'shortlist:grouped',
-    () => fetch('/api/shortlist?grouped=true').then(r => r.ok ? r.json() : {}),
+    () => apiFetch<Record<string, ShortlistedGrant[]>>('/api/shortlist?grouped=true'),
     SWR_OPTS,
   );
 }
 
 // ─── Read functions ────────────────────────────────────────────────────────
 
-export async function isShortlisted(grantId: string): Promise<boolean> {
-  const res = await fetch(`/api/shortlist?grantIds=${encodeURIComponent(grantId)}`);
-  if (!res.ok) return false;
-  const ids: string[] = await res.json();
-  return ids.includes(grantId);
-}
-
-export async function batchCheckShortlisted(grantIds: string[]): Promise<Set<string>> {
-  if (grantIds.length === 0) return new Set();
-  const res = await fetch(`/api/shortlist?grantIds=${grantIds.join(',')}`);
-  if (!res.ok) return new Set();
-  const ids: string[] = await res.json();
-  return new Set(ids);
-}
-
-/** Fetch all shortlisted grant IDs (lightweight — no grant JSON). */
+/**
+ * Fetch all shortlisted grant IDs (lightweight — no grant JSON).
+ * Callers intersect with the IDs they care about; this avoids putting hundreds
+ * of IDs in a query string, which overflowed URL limits on large result sets.
+ */
 export async function getAllShortlistedIds(): Promise<Set<string>> {
-  const res = await fetch('/api/shortlist?idsOnly=true');
-  if (!res.ok) return new Set();
-  const ids: string[] = await res.json();
-  return new Set(ids);
+  return new Set(await apiFetch<string[]>('/api/shortlist?idsOnly=true'));
 }
 
 // ─── Mutations (invalidate SWR cache after write) ──────────────────────────
 
 export async function addToShortlist(grant: GrantOpportunity, searchTitle: string): Promise<void> {
-  const res = await fetch('/api/shortlist', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grant, searchTitle }),
-  });
-  if (!res.ok) {
-    throw new Error('Failed to shortlist grant');
-  }
+  await apiFetch('/api/shortlist', json('POST', { grant, searchTitle }));
   await invalidateShortlist();
 }
 
 export async function removeFromShortlist(grantId: string): Promise<void> {
-  await fetch(`/api/shortlist?grantId=${encodeURIComponent(grantId)}`, { method: 'DELETE' });
+  await apiFetch(`/api/shortlist?grantId=${encodeURIComponent(grantId)}`, { method: 'DELETE' });
   await invalidateShortlist();
-}
-
-export async function toggleShortlist(grant: GrantOpportunity, searchTitle: string): Promise<boolean> {
-  const shortlisted = await isShortlisted(grant.id);
-  if (shortlisted) {
-    await removeFromShortlist(grant.id);
-    return false;
-  }
-  await addToShortlist(grant, searchTitle);
-  return true;
 }

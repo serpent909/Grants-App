@@ -1,13 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { openai } from '@/lib/openai';
-import { OrgInfo, GrantOpportunity } from '@/lib/types';
+import { GrantOpportunity } from '@/lib/types';
 import { getMarket, MarketConfig } from '@/lib/markets';
 import { searchGrants, GrantRow } from '@/lib/db';
-import { searchSchema, parseOrError } from '@/lib/schemas';
-import { searchLimiter, checkRateLimit } from '@/lib/rate-limit';
-import { getOrgId } from '@/lib/auth-helpers';
+import { searchSchema } from '@/lib/schemas';
+import { searchLimiter } from '@/lib/rate-limit';
+import { authedRoute, parseBody, enforceRateLimit } from '@/lib/api';
+import { SECTORS, ORG_TYPES } from '@/lib/constants';
+import { computeOverallScore, clampScore } from '@/lib/scoring';
 
-const TODAY = new Date().toISOString().split('T')[0];
+const SCORE_BATCH = 12;
+const SCORE_CONCURRENCY = 35;
+/** Grants scoring at or below this alignment are not returned to the client. */
+const MIN_ALIGNMENT = 5;
 
 // ─── Cost tracking ───────────────────────────────────────────────────────────
 
@@ -38,7 +42,7 @@ function computeCost(costs: CostTracker) {
 
 // ─── Prompt factory ───────────────────────────────────────────────────────────
 
-function buildPrompts(market: MarketConfig, orgRegions?: string[]) {
+function buildPrompts(market: MarketConfig, TODAY: string, orgRegions?: string[]) {
   const { country } = market;
   const regionText = orgRegions?.length ? orgRegions.join(', ') : '';
 
@@ -185,22 +189,34 @@ async function withConcurrency<T>(tasks: (() => Promise<T>)[], limit: number): P
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  // Rate limit by org
-  const orgId = await getOrgId();
-  const blocked = await checkRateLimit(searchLimiter, orgId);
-  if (blocked) return blocked;
+/** Model output for one grant — everything is untrusted until coerced. */
+interface ScoredGrant {
+  amountMin?: unknown;
+  amountMax?: unknown;
+  deadline?: unknown;
+  scores?: { alignment?: unknown; ease?: unknown; attainability?: unknown };
+  alignmentReason?: unknown;
+  applicationNotes?: unknown;
+  attainabilityNotes?: unknown;
+}
 
-  // Parse and validate
-  const parsed = parseOrError(searchSchema, await req.json());
-  if ('error' in parsed) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-  }
-  const body = parsed.data as OrgInfo;
+const text = (value: unknown, max = 2000): string =>
+  typeof value === 'string' ? value.slice(0, max) : '';
 
-  const { website, fundingPurpose, fundingAmount, market: marketId } = body;
+const amount = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 
-  const market = getMarket(marketId || 'nz');
+const isoDate = (value: unknown): string | undefined =>
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : undefined;
+
+export const POST = authedRoute(async (req, { orgId }) => {
+  await enforceRateLimit(searchLimiter, orgId);
+  const body = await parseBody(req, searchSchema);
+
+  const { website, fundingPurpose, fundingAmount } = body;
+  const market = getMarket(body.market);
+  // Computed per request — a module-level constant goes stale on a warm instance.
+  const TODAY = new Date().toISOString().split('T')[0];
 
   // Return a streaming SSE response — keeps the connection alive on Vercel
   // (streaming responses get up to 300s vs 60s for buffered responses)
@@ -220,37 +236,15 @@ export async function POST(req: NextRequest) {
 
       try {
         // Resolve region names from IDs
-        const regionNames = (body.regions || [])
+        const regionNames = body.regions
           .map(id => market.regions.find(r => r.id === id)?.name)
-          .filter(Boolean) as string[];
+          .filter((name): name is string => !!name);
         const regionText = regionNames.length ? regionNames.join(', ') : 'Nationwide';
 
-        // Resolve sector labels
-        const sectorLabels = (body.sectors || []).map(id => {
-          const map: Record<string, string> = {
-            'health': 'Health & Wellbeing', 'mental-health': 'Mental Health',
-            'education': 'Education & Training', 'youth': 'Youth',
-            'children-families': 'Children & Families', 'elderly': 'Elderly & Aged Care',
-            'disability': 'Disability', 'arts-culture': 'Arts & Culture',
-            'sport': 'Sport & Recreation', 'environment': 'Environment & Conservation',
-            'housing': 'Housing & Homelessness', 'community': 'Community Development',
-            'social-services': 'Social Services', 'indigenous': 'Indigenous Development',
-            'rural': 'Rural Communities', 'economic-development': 'Economic Development',
-            'animal-welfare': 'Animal Welfare',
-          };
-          return map[id] || id;
-        });
+        const sectorLabels = body.sectors.map(id => SECTORS.find(s => s.id === id)?.label ?? id);
+        const orgTypeLabel = ORG_TYPES.find(t => t.id === body.orgType)?.label ?? 'Unknown';
 
-        const orgTypeLabel = {
-          'registered-charity': 'Registered Charity',
-          'charitable-trust': 'Charitable Trust',
-          'incorporated-society': 'Incorporated Society',
-          'social-enterprise': 'Social Enterprise',
-          'community-group': 'Community Group',
-          'other': 'Other',
-        }[body.orgType || ''] || body.orgType || 'Unknown';
-
-        const { SCORING_SYSTEM_PROMPT } = buildPrompts(market, regionNames);
+        const { SCORING_SYSTEM_PROMPT } = buildPrompts(market, TODAY, regionNames);
 
         const orgContext = `Organisation website: ${website}${body.linkedin ? `\nLinkedIn: ${body.linkedin}` : ''}
 Organisation type: ${orgTypeLabel}
@@ -259,33 +253,31 @@ Sectors: ${sectorLabels.join(', ') || 'Not specified'}
 Funding purpose: ${fundingPurpose}
 Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLocaleString(market.locale)}${body.previousFunders ? `\nPrevious/current funders: ${body.previousFunders}` : ''}`;
 
-        // ─── Two-pass triage + score from grants DB ──────────────────────────
         const costs = createCostTracker();
 
-        // ── Fetch sector-filtered grants from DB ──────────────────────────────
-        const allGrants = await searchGrants(body.sectors || [], body.regions || [], body.fundingAmount);
+        // ── Fetch sector/region-filtered grants from DB ───────────────────────
+        const allGrants = await searchGrants(body.sectors, body.regions, body.fundingAmount);
         console.log(`[GrantSearch] ${allGrants.length} grants from DB (sector-filtered)`);
 
         if (!allGrants.length) {
           send({ type: 'complete', grants: [], orgSummary: '', searchedAt: new Date().toISOString(), market: market.id });
-          controller.close();
           return;
         }
 
         // ── Scoring — score all grants directly (SQL sector filter replaces triage) ──
         send({ type: 'progress', phase: 'scoring', completed: 0, total: 1 });
 
-        const SCORE_BATCH = 12;
         const batches: GrantRow[][] = [];
         for (let i = 0; i < allGrants.length; i += SCORE_BATCH) {
           batches.push(allGrants.slice(i, i + SCORE_BATCH));
         }
 
-        console.log(`[GrantSearch] Scoring ${allGrants.length} grants in ${batches.length} batches of ${SCORE_BATCH} (concurrency: 35)`);
+        console.log(`[GrantSearch] Scoring ${allGrants.length} grants in ${batches.length} batches of ${SCORE_BATCH} (concurrency: ${SCORE_CONCURRENCY})`);
 
         let scoreCompleted = 0;
+        let failedBatches = 0;
+        let returned = 0;
         let orgSummary = '';
-        const allScoredGrants: GrantOpportunity[] = [];
 
         // Build structured payload for each grant (no free-text blob)
         const sanitize = (s: string) => s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '');
@@ -312,6 +304,9 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
 
         await withConcurrency(
           batches.map((dbBatch, idx) => async () => {
+            // The user navigated away — stop spending on batches nobody will see.
+            if (req.signal.aborted) return null;
+
             const isFirst = idx === 0;
             const grantsPayload = dbBatch.map(toPayload);
             try {
@@ -327,50 +322,54 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
                 response_format: { type: 'json_object' },
                 temperature: 0,
                 max_tokens: 16000,
-              }));
+              }, { signal: req.signal }));
               trackOpenAI(costs, res.model || 'gpt-4.1-mini', res.usage);
               const raw = res.choices[0]?.message?.content || '{}';
-              const parsed = JSON.parse(raw);
-              const grantsArr: GrantOpportunity[] = parsed.grants || [];
+              const parsed: { orgSummary?: unknown; grants?: unknown } = JSON.parse(raw);
+              const grantsArr: ScoredGrant[] = Array.isArray(parsed.grants) ? parsed.grants : [];
 
               // Capture orgSummary from first batch
-              if (isFirst && parsed.orgSummary) {
-                orgSummary = parsed.orgSummary;
-              }
+              if (isFirst) orgSummary = text(parsed.orgSummary, 5000);
 
-              // Map model scores back onto original DB data by index
-              // Never use model's name/funder/url — only scores and reasons
+              // Map model scores back onto original DB data by index.
+              // Never use the model's name/funder/url — only scores and reasons,
+              // and only after coercing them to the expected types and ranges.
               const qualified: GrantOpportunity[] = [];
               for (let i = 0; i < Math.min(grantsArr.length, dbBatch.length); i++) {
                 const scored = grantsArr[i];
                 if (!scored?.scores) continue;
 
-                const { alignment = 0, ease = 5, attainability = 0 } = scored.scores;
-                const overall = Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
-
-                if (alignment <= 5) continue;
+                const alignment = clampScore(scored.scores.alignment, 0);
+                const ease = clampScore(scored.scores.ease, 5);
+                const attainability = clampScore(scored.scores.attainability, 0);
+                if (alignment <= MIN_ALIGNMENT) continue;
 
                 const db = dbBatch[i];
                 qualified.push({
                   id: db.id,
-                  name: db.name,
-                  funder: db.funder_name,
+                  // Lengths are capped to the limits in grantObjectSchema so these
+                  // grants can always be saved, shortlisted and tracked later.
+                  name: db.name.slice(0, 500),
+                  funder: (db.funder_name || '').slice(0, 500),
                   type: (db.type as GrantOpportunity['type']) || 'Other',
-                  description: db.description || '',
-                  amountMin: db.amount_min ?? scored.amountMin,
-                  amountMax: db.amount_max ?? scored.amountMax,
-                  deadline: scored.deadline,
+                  description: (db.description || '').slice(0, 5000),
+                  amountMin: db.amount_min ?? amount(scored.amountMin),
+                  amountMax: db.amount_max ?? amount(scored.amountMax),
+                  deadline: isoDate(scored.deadline),
                   isRecurring: db.is_recurring ?? undefined,
                   roundFrequency: db.round_frequency ?? undefined,
                   url: db.url,
-                  scores: { alignment, ease, attainability, overall },
-                  alignmentReason: scored.alignmentReason || '',
-                  applicationNotes: scored.applicationNotes || '',
-                  attainabilityNotes: scored.attainabilityNotes || '',
+                  scores: {
+                    alignment, ease, attainability,
+                    overall: computeOverallScore({ alignment, ease, attainability }),
+                  },
+                  alignmentReason: text(scored.alignmentReason),
+                  applicationNotes: text(scored.applicationNotes),
+                  attainabilityNotes: text(scored.attainabilityNotes),
                 });
               }
 
-              allScoredGrants.push(...qualified);
+              returned += qualified.length;
               scoreCompleted++;
 
               send({
@@ -383,28 +382,40 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
 
               return null;
             } catch (err) {
-              console.error(`[GrantSearch] Score batch ${idx + 1} failed:`, err);
+              if (!req.signal.aborted) {
+                console.error(`[GrantSearch] Score batch ${idx + 1} failed:`, err);
+                failedBatches++;
+              }
               scoreCompleted++;
               send({ type: 'progress', phase: 'scoring', completed: scoreCompleted, total: batches.length });
               return null;
             }
           }),
-          35,
+          SCORE_CONCURRENCY,
         );
 
         const costBreakdown = computeCost(costs);
-        console.log(`[GrantSearch] Done — ${allScoredGrants.length} grants returned (cost: $${costBreakdown.total.toFixed(4)})`);
+        console.log(`[GrantSearch] Done — ${returned} grants returned, ${failedBatches}/${batches.length} batches failed (cost: $${costBreakdown.total.toFixed(4)})`);
+
+        // Every batch failing is an outage, not "no matching grants".
+        if (failedBatches === batches.length) {
+          send({ type: 'error', message: 'We could not score grants right now. Please try again in a few minutes.' });
+          return;
+        }
 
         send({
           type: 'complete',
           searchedAt: new Date().toISOString(),
           market: market.id,
+          // Lets the UI say "some grants could not be scored" instead of silently dropping them.
+          incomplete: failedBatches > 0,
         });
       } catch (err) {
+        // Log the detail; the client only gets a generic message.
         console.error('[GrantSearch] API error:', err);
-        send({ type: 'error', message: err instanceof Error ? err.message : 'An unexpected error occurred' });
+        send({ type: 'error', message: 'The search could not be completed. Please try again.' });
       } finally {
-        controller.close();
+        try { controller.close(); } catch { /* already closed */ }
       }
     },
   });
@@ -417,4 +428,4 @@ Amount sought: ${market.currency} ${market.currencySymbol}${fundingAmount.toLoca
       'X-Accel-Buffering': 'no',
     },
   });
-}
+});

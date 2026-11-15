@@ -1,100 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { getPool } from '@/lib/db';
-import { acceptInviteSchema, parseOrError } from '@/lib/schemas';
-import { authLimiter, checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { getPool, withTransaction, isUniqueViolation } from '@/lib/db';
+import { publicRoute, parseBody, enforceRateLimit, ApiError } from '@/lib/api';
+import { acceptInviteSchema } from '@/lib/schemas';
+import { authLimiter, getClientIp } from '@/lib/rate-limit';
+import { inviteTokenCandidates } from '@/lib/invite-tokens';
 
 // GET: validate token and return org info
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const token = searchParams.get('token');
-  if (!token) return NextResponse.json({ error: 'token required' }, { status: 400 });
+export const GET = publicRoute(async req => {
+  await enforceRateLimit(authLimiter, getClientIp(req.headers));
 
-  const db = getPool();
-  const { rows } = await db.query(
-    `SELECT i.id, i.email, i.expires_at, i.accepted_at, o.name AS org_name
+  const token = req.nextUrl.searchParams.get('token');
+  if (!token || token.length > 200) throw new ApiError(400, 'token required');
+
+  const { rows } = await getPool().query(
+    `SELECT i.email, i.expires_at, i.accepted_at, o.name AS org_name
      FROM invitations i
      JOIN organisations o ON o.id = i.org_id
-     WHERE i.token = $1`,
-    [token],
+     WHERE i.token = ANY($1::text[])`,
+    [inviteTokenCandidates(token)],
   );
 
-  if (rows.length === 0) {
-    return NextResponse.json({ error: 'Invalid invitation link' }, { status: 404 });
-  }
-
   const invite = rows[0];
-  if (invite.accepted_at) {
-    return NextResponse.json({ error: 'This invitation has already been used' }, { status: 410 });
-  }
-  if (new Date(invite.expires_at) < new Date()) {
-    return NextResponse.json({ error: 'This invitation has expired' }, { status: 410 });
-  }
+  if (!invite) throw new ApiError(404, 'Invalid invitation link');
+  if (invite.accepted_at) throw new ApiError(410, 'This invitation has already been used');
+  if (new Date(invite.expires_at) < new Date()) throw new ApiError(410, 'This invitation has expired');
 
-  return NextResponse.json({
-    email: invite.email,
-    orgName: invite.org_name,
-  });
-}
+  return NextResponse.json({ email: invite.email, orgName: invite.org_name });
+});
 
 // POST: accept invitation — create user and join org
-export async function POST(req: NextRequest) {
-  const blocked = await checkRateLimit(authLimiter, getClientIp(req.headers));
-  if (blocked) return blocked;
+export const POST = publicRoute(async req => {
+  await enforceRateLimit(authLimiter, getClientIp(req.headers));
 
-  const parsed = parseOrError(acceptInviteSchema, await req.json());
-  if ('error' in parsed) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
-  const { token, name, password } = parsed.data;
-
-  const db = getPool();
-  const { rows } = await db.query(
-    `SELECT i.id, i.org_id, i.email, i.expires_at, i.accepted_at
-     FROM invitations i WHERE i.token = $1`,
-    [token],
-  );
-
-  if (rows.length === 0) {
-    return NextResponse.json({ error: 'Invalid invitation link' }, { status: 404 });
-  }
-
-  const invite = rows[0];
-  if (invite.accepted_at) {
-    return NextResponse.json({ error: 'This invitation has already been used' }, { status: 410 });
-  }
-  if (new Date(invite.expires_at) < new Date()) {
-    return NextResponse.json({ error: 'This invitation has expired' }, { status: 410 });
-  }
-
-  // Check if email is already registered
-  const { rows: existingUsers } = await db.query(
-    'SELECT id FROM users WHERE email = $1',
-    [invite.email],
-  );
-  if (existingUsers.length > 0) {
-    return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
-  }
-
-  // Create user
-  const userId = `usr_${crypto.randomUUID()}`;
+  const { token, name, password } = await parseBody(req, acceptInviteSchema);
   const passwordHash = await bcrypt.hash(password, 12);
 
-  await db.query(
-    `INSERT INTO users (id, email, password_hash, name, org_id)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [userId, invite.email, passwordHash, (name || '').trim() || 'User', invite.org_id],
-  );
+  try {
+    const email = await withTransaction(async client => {
+      // Claim the invitation atomically: of two concurrent requests with the
+      // same token, only one gets a row back.
+      const { rows } = await client.query<{ org_id: string; email: string }>(
+        `UPDATE invitations SET accepted_at = NOW()
+         WHERE token = ANY($1::text[]) AND accepted_at IS NULL AND expires_at > NOW()
+         RETURNING org_id, email`,
+        [inviteTokenCandidates(token)],
+      );
+      const invite = rows[0];
+      if (!invite) throw new ApiError(410, 'This invitation is invalid, expired, or has already been used');
 
-  // Mark invitation as accepted
-  await db.query(
-    'UPDATE invitations SET accepted_at = NOW() WHERE id = $1',
-    [invite.id],
-  );
+      const { rows: existingUsers } = await client.query(
+        'SELECT id FROM users WHERE email = $1',
+        [invite.email],
+      );
+      if (existingUsers.length > 0) {
+        throw new ApiError(409, 'An account with this email already exists');
+      }
 
-  return NextResponse.json({
-    ok: true,
-    email: invite.email,
-    userId,
-  });
-}
+      await client.query(
+        `INSERT INTO users (id, email, password_hash, name, org_id)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [`usr_${crypto.randomUUID()}`, invite.email, passwordHash, name.trim() || 'User', invite.org_id],
+      );
+      return invite.email;
+    });
+
+    return NextResponse.json({ ok: true, email });
+  } catch (err) {
+    if (isUniqueViolation(err)) throw new ApiError(409, 'An account with this email already exists');
+    throw err;
+  }
+});

@@ -168,7 +168,6 @@ export interface GrantApplication {
 export interface AppDocument {
   id: string;
   filename: string;
-  blobUrl: string;
   contentType: string;
   sizeBytes: number;
   category: string;

@@ -1,8 +1,14 @@
 import useSWR, { mutate as globalMutate } from 'swr';
 import { GrantApplication, ApplicationStatus } from './types';
 import { ShortlistedGrant } from './shortlist-storage';
+import { apiFetch, json } from './fetcher';
 
 const SWR_OPTS = { revalidateOnFocus: false } as const;
+
+const BY_STATUS_KEY = 'applications:by-status';
+const IDS_KEY = 'applications:ids';
+
+type Grouped = Record<ApplicationStatus, GrantApplication[]>;
 
 async function invalidateApplications() {
   await globalMutate(
@@ -13,157 +19,99 @@ async function invalidateApplications() {
 // ─── SWR Hooks ─────────────────────────────────────────────────────────────
 
 export function useApplicationsByStatus() {
-  return useSWR<Record<ApplicationStatus, GrantApplication[]>>(
-    'applications:by-status',
+  return useSWR<Grouped>(
+    BY_STATUS_KEY,
     async () => {
-      const res = await fetch('/api/applications');
-      if (!res.ok) return emptyGrouped();
-      const all: GrantApplication[] = await res.json();
+      const all = await apiFetch<GrantApplication[]>('/api/applications');
       const grouped = emptyGrouped();
-      for (const app of all) grouped[app.status].push(app);
+      for (const app of all) grouped[app.status]?.push(app);
       return grouped;
     },
     SWR_OPTS,
   );
 }
 
-export function useApplicationCheck(grantIds: string[]) {
-  const key = grantIds.length > 0
-    ? `applications:check:${grantIds.slice().sort().join(',')}`
-    : null;
+/** IDs of every grant that already has an application. */
+export function useApplicationIds() {
   return useSWR<Set<string>>(
-    key,
-    async () => {
-      const res = await fetch(`/api/applications?grantIds=${grantIds.join(',')}`);
-      if (!res.ok) return new Set<string>();
-      const ids: string[] = await res.json();
-      return new Set(ids);
-    },
+    IDS_KEY,
+    async () => new Set(await apiFetch<string[]>('/api/applications?idsOnly=true')),
     SWR_OPTS,
   );
 }
 
-// ─── Read functions ────────────────────────────────────────────────────────
-
-export async function hasApplication(grantId: string): Promise<boolean> {
-  const res = await fetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`);
-  if (!res.ok) return false;
-  const app = await res.json();
-  return app !== null;
-}
-
-export async function getApplication(grantId: string): Promise<GrantApplication | null> {
-  const res = await fetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`);
-  if (!res.ok) return null;
-  return res.json();
-}
-
 // ─── Mutations (invalidate SWR cache after write) ──────────────────────────
 
+/** Start tracking an application. The ID, status and history are assigned server-side. */
 export async function startApplication(shortlisted: ShortlistedGrant): Promise<GrantApplication> {
-  const now = new Date().toISOString();
-  const app: GrantApplication = {
-    id: `app-${Date.now()}`,
-    grantId: shortlisted.grant.id,
-    grant: shortlisted.grant,
-    searchTitle: shortlisted.searchTitle,
-    status: 'preparing',
-    statusHistory: [{ status: 'preparing', note: 'Application started', updatedAt: now }],
-    notes: '',
-    startedAt: now,
-  };
-  await fetch('/api/applications', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(app),
-  });
+  const app = await apiFetch<GrantApplication>(
+    '/api/applications',
+    json('POST', { grant: shortlisted.grant, searchTitle: shortlisted.searchTitle }),
+  );
   await invalidateApplications();
   return app;
 }
 
+/** Move an application to a new status. The server appends the history entry. */
 export async function updateApplicationStatus(
   grantId: string,
   status: ApplicationStatus,
   note: string = '',
 ): Promise<void> {
-  const app = await getApplication(grantId);
-  if (!app) return;
-
-  const now = new Date().toISOString();
-  const statusHistory = [...app.statusHistory, { status, note, updatedAt: now }];
-  const updates: Record<string, unknown> = { grantId, status, statusHistory };
-
-  if (status === 'submitted') updates.submittedAt = now;
-  if (status === 'approved' || status === 'declined') updates.decidedAt = now;
-
-  await fetch('/api/applications', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
+  await apiFetch('/api/applications', json('PUT', { grantId, status, note }));
   await invalidateApplications();
 }
 
 export async function updateApplicationNotes(grantId: string, notes: string): Promise<void> {
-  await fetch('/api/applications', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ grantId, notes }),
-  });
-  // Don't invalidate cache for notes — it's managed by defaultValue
+  await apiFetch('/api/applications', json('PUT', { grantId, notes }));
+  // Patch the cache without refetching so the textarea's defaultValue stays in sync.
+  patchApplication(grantId, { notes });
 }
 
+/** Update tracked amounts. Pass `null` to clear a value. */
 export async function updateApplicationAmounts(
   grantId: string,
-  amountRequested?: number,
-  amountAwarded?: number,
+  amounts: { amountRequested?: number | null; amountAwarded?: number | null },
 ): Promise<void> {
-  const updates: Record<string, unknown> = { grantId };
-  if (amountRequested !== undefined) updates.amountRequested = amountRequested;
-  if (amountAwarded !== undefined) updates.amountAwarded = amountAwarded;
-
   // Optimistic update: patch amounts in the SWR cache immediately
-  globalMutate(
-    'applications:by-status',
-    (current: Record<ApplicationStatus, GrantApplication[]> | undefined) => {
-      if (!current) return current;
-      const updated: Record<string, GrantApplication[]> = {};
-      for (const [status, apps] of Object.entries(current)) {
-        updated[status] = apps.map(app =>
-          app.grantId === grantId
-            ? {
-                ...app,
-                ...(amountRequested !== undefined && { amountRequested }),
-                ...(amountAwarded !== undefined && { amountAwarded }),
-              }
-            : app,
-        );
-      }
-      return updated as Record<ApplicationStatus, GrantApplication[]>;
-    },
-    { revalidate: false },
-  );
+  const patch: Partial<GrantApplication> = {};
+  if (amounts.amountRequested !== undefined) patch.amountRequested = amounts.amountRequested ?? undefined;
+  if (amounts.amountAwarded !== undefined) patch.amountAwarded = amounts.amountAwarded ?? undefined;
+  patchApplication(grantId, patch);
 
-  await fetch('/api/applications', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
-
-  // Background revalidate to sync with server
-  globalMutate(
-    (key: unknown) => typeof key === 'string' && key.startsWith('applications'),
-  );
+  try {
+    await apiFetch('/api/applications', json('PUT', { grantId, ...amounts }));
+  } finally {
+    // Re-sync with the server whether the write succeeded or failed.
+    void invalidateApplications();
+  }
 }
 
 export async function removeApplication(grantId: string): Promise<void> {
-  await fetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`, { method: 'DELETE' });
+  await apiFetch(`/api/applications?grantId=${encodeURIComponent(grantId)}`, { method: 'DELETE' });
   await invalidateApplications();
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
-function emptyGrouped(): Record<ApplicationStatus, GrantApplication[]> {
+function patchApplication(grantId: string, patch: Partial<GrantApplication>) {
+  void globalMutate<Grouped>(
+    BY_STATUS_KEY,
+    current => {
+      if (!current) return current;
+      const updated = emptyGrouped();
+      for (const status of Object.keys(current) as ApplicationStatus[]) {
+        updated[status] = current[status].map(app =>
+          app.grantId === grantId ? { ...app, ...patch } : app,
+        );
+      }
+      return updated;
+    },
+    { revalidate: false },
+  );
+}
+
+export function emptyGrouped(): Grouped {
   return {
     'preparing': [],
     'submitted': [],

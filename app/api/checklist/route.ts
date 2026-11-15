@@ -1,18 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
-import { getOrgId } from '@/lib/auth-helpers';
-import { initChecklistSchema, toggleChecklistSchema, parseOrError } from '@/lib/schemas';
+import { authedRoute, parseBody, requireIdParam, ApiError } from '@/lib/api';
+import { initChecklistSchema, toggleChecklistSchema, deepSearchModelOutputSchema } from '@/lib/schemas';
 
-export async function GET(req: NextRequest) {
-  const orgId = await getOrgId();
+export const GET = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
   const db = getPool();
-  const { searchParams } = new URL(req.url);
-  const grantId = searchParams.get('grantId');
-  if (!grantId) return NextResponse.json({ error: 'grantId required' }, { status: 400 });
+  const grantId = requireIdParam(req.nextUrl.searchParams, 'grantId');
 
-  // Get checklist items with attached documents
-  const { rows: items } = await db.query(
+  const { rows: items } = await db.query<{ id: string }>(
     `SELECT ci.id, ci.grant_id AS "grantId", ci.item_index AS "itemIndex",
             ci.item_name AS "itemName", ci.description, ci.required,
             ci.checked, ci.checked_at AS "checkedAt"
@@ -24,41 +20,33 @@ export async function GET(req: NextRequest) {
 
   if (items.length === 0) return NextResponse.json([]);
 
-  // Batch load attached documents
-  const itemIds = items.map((i: { id: string }) => i.id);
-  const { rows: links } = await db.query(
-    `SELECT cd.checklist_item_id, d.id, d.filename, d.blob_url AS "blobUrl",
+  // Batch load attached documents. Both sides of the join are org-scoped, and the
+  // storage URL is never returned — downloads go through /api/documents/download.
+  const { rows: links } = await db.query<{ checklist_item_id: string } & Record<string, unknown>>(
+    `SELECT cd.checklist_item_id, d.id, d.filename,
             d.content_type AS "contentType", d.size_bytes AS "sizeBytes",
             d.category, d.notes, d.uploaded_at AS "uploadedAt"
      FROM checklist_documents cd
-     JOIN documents d ON d.id = cd.document_id
-     WHERE cd.checklist_item_id = ANY($1::text[])`,
-    [itemIds],
+     JOIN documents d ON d.id = cd.document_id AND d.org_id = cd.org_id
+     WHERE cd.org_id = $1 AND cd.checklist_item_id = ANY($2::text[])`,
+    [orgId, items.map(i => i.id)],
   );
 
-  // Group documents by checklist item
-  const docsByItem: Record<string, typeof links> = {};
-  for (const link of links) {
-    const key = link.checklist_item_id;
-    if (!docsByItem[key]) docsByItem[key] = [];
-    docsByItem[key].push(link);
+  const docsByItem = new Map<string, Record<string, unknown>[]>();
+  for (const { checklist_item_id, ...doc } of links) {
+    const list = docsByItem.get(checklist_item_id) ?? [];
+    list.push(doc);
+    docsByItem.set(checklist_item_id, list);
   }
 
-  const result = items.map((item: { id: string }) => ({
-    ...item,
-    documents: (docsByItem[item.id] || []).map(({ checklist_item_id: _, ...doc }) => doc),
-  }));
+  return NextResponse.json(
+    items.map(item => ({ ...item, documents: docsByItem.get(item.id) ?? [] })),
+  );
+});
 
-  return NextResponse.json(result);
-}
-
-export async function POST(req: NextRequest) {
-  const orgId = await getOrgId();
+export const POST = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
-  const parsed = parseOrError(initChecklistSchema, await req.json());
-  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  const { grantId } = parsed.data;
-
+  const { grantId } = await parseBody(req, initChecklistSchema);
   const db = getPool();
 
   // Check if already initialized
@@ -70,31 +58,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message: 'already initialized' });
   }
 
-  // Get deep search checklist
+  // Seed from the deep search checklist
   const { rows: deepRows } = await db.query(
     'SELECT result_json FROM deep_searches WHERE org_id = $1 AND grant_id = $2',
     [orgId, grantId],
   );
-  if (deepRows.length === 0) {
-    return NextResponse.json({ error: 'no deep search data' }, { status: 404 });
-  }
+  if (deepRows.length === 0) throw new ApiError(404, 'No deep search data for this grant');
 
-  const result = deepRows[0].result_json;
-  const checklist = result.checklist || [];
+  // Re-validate the stored JSONB before using it to build rows.
+  const { checklist } = deepSearchModelOutputSchema.parse({
+    checklist: deepRows[0].result_json?.checklist,
+  });
   if (checklist.length === 0) {
     return NextResponse.json({ ok: true, message: 'empty checklist' });
   }
 
-  // Insert checklist items
   const values: string[] = [];
   const params: unknown[] = [];
-  let paramIndex = 1;
-  for (let i = 0; i < checklist.length; i++) {
-    const item = checklist[i];
-    const id = `cli-${crypto.randomUUID()}`;
-    values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++}, $${paramIndex++})`);
-    params.push(id, orgId, grantId, i, item.item, item.description || '', item.required || false);
-  }
+  checklist.forEach((item, i) => {
+    const base = params.length;
+    values.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7})`);
+    params.push(`cli-${crypto.randomUUID()}`, orgId, grantId, i, item.item, item.description, item.required);
+  });
 
   await db.query(
     `INSERT INTO application_checklist_items (id, org_id, grant_id, item_index, item_name, description, required)
@@ -104,37 +89,34 @@ export async function POST(req: NextRequest) {
   );
 
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const orgId = await getOrgId();
+export const PUT = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
-  const parsed = parseOrError(toggleChecklistSchema, await req.json());
-  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  const { id, checked } = parsed.data;
-
-  const db = getPool();
-  await db.query(
-    `UPDATE application_checklist_items SET checked = $1, checked_at = $2 WHERE id = $3 AND org_id = $4`,
-    [checked, checked ? new Date().toISOString() : null, id, orgId],
+  const { id, checked } = await parseBody(req, toggleChecklistSchema);
+  const { rowCount } = await getPool().query(
+    `UPDATE application_checklist_items
+     SET checked = $1, checked_at = CASE WHEN $1 THEN NOW() ELSE NULL END
+     WHERE id = $2 AND org_id = $3`,
+    [checked, id, orgId],
   );
+  if (!rowCount) throw new ApiError(404, 'Checklist item not found');
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function DELETE(req: NextRequest) {
-  const orgId = await getOrgId();
+export const DELETE = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
-  const { searchParams } = new URL(req.url);
-  const grantId = searchParams.get('grantId');
-  if (!grantId) return NextResponse.json({ error: 'grantId required' }, { status: 400 });
-
+  const grantId = requireIdParam(req.nextUrl.searchParams, 'grantId');
   const db = getPool();
   // Delete links first
   await db.query(
-    `DELETE FROM checklist_documents WHERE checklist_item_id IN
+    `DELETE FROM checklist_documents WHERE org_id = $1 AND checklist_item_id IN
      (SELECT id FROM application_checklist_items WHERE org_id = $1 AND grant_id = $2)`,
     [orgId, grantId],
   );
-  await db.query('DELETE FROM application_checklist_items WHERE org_id = $1 AND grant_id = $2', [orgId, grantId]);
+  await db.query(
+    'DELETE FROM application_checklist_items WHERE org_id = $1 AND grant_id = $2',
+    [orgId, grantId],
+  );
   return NextResponse.json({ ok: true });
-}
+});
