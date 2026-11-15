@@ -39,10 +39,15 @@ export function proxy(request: NextRequest) {
   }
 
   // Auth check — skip for public routes
+  // `/api/auth` covers the Auth.js endpoints plus signup, invite,
+  // forgot-password, reset-password and verify-email.
   const isPublic =
     nextUrl.pathname.startsWith('/login') ||
     nextUrl.pathname.startsWith('/signup') ||
     nextUrl.pathname.startsWith('/invite') ||
+    nextUrl.pathname.startsWith('/forgot-password') ||
+    nextUrl.pathname.startsWith('/reset-password') ||
+    nextUrl.pathname.startsWith('/verify-email') ||
     nextUrl.pathname.startsWith('/api/auth');
 
   if (!isPublic) {

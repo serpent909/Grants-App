@@ -78,6 +78,9 @@ export default function LoginPage() {
           required
           placeholder="Enter your password"
         />
+        <p className="text-right text-sm -mt-1">
+          <Link href="/forgot-password" className={LINK_CLASS}>Forgot password?</Link>
+        </p>
         <AuthError message={error} />
         <AuthSubmit loading={loading} icon={LogIn}>Sign in</AuthSubmit>
       </form>

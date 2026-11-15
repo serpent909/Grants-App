@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Providers from "./providers";
 import AppNav, { Logo } from "@/components/app-nav";
+import VerifyEmailBanner from "@/components/verify-email-banner";
 import { headers } from "next/headers";
 
 const inter = Inter({
@@ -57,6 +58,7 @@ export default async function RootLayout({
             </a>
 
             <AppNav />
+            <VerifyEmailBanner />
 
             <main id="main">{children}</main>
 

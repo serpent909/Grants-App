@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { authedRoute, parseBody, requireIdParam, enforceRateLimit, ApiError } from '@/lib/api';
+import { authedRoute, parseBody, requireIdParam, throwIfLimited, ApiError } from '@/lib/api';
 import { inviteEmailSchema } from '@/lib/schemas';
-import { inviteLimiter } from '@/lib/rate-limit';
+import { inviteLimiter, getRateLimitOutcome, canSendEmail } from '@/lib/rate-limit';
 import { generateInviteToken } from '@/lib/invite-tokens';
+import { getAppUrl } from '@/lib/app-url';
+import { sendInvitationEmail } from '@/lib/account-emails';
 
 const INVITE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 
@@ -22,8 +24,11 @@ export const GET = authedRoute(async (_req, { orgId }) => {
   return NextResponse.json(rows);
 });
 
-export const POST = authedRoute(async (req, { orgId, userId }) => {
-  await enforceRateLimit(inviteLimiter, orgId);
+export const POST = authedRoute(async (req, { orgId, userId, orgName, name: inviterName }) => {
+  // Creating an invitation still works without a rate limiter (the inviter gets
+  // the link to pass on), but the email is only sent when one is enforcing a limit.
+  const limit = await getRateLimitOutcome(inviteLimiter, orgId);
+  throwIfLimited(limit);
   const { email } = await parseBody(req, inviteEmailSchema);
   const normalizedEmail = email.toLowerCase().trim();
   const db = getPool();
@@ -56,8 +61,23 @@ export const POST = authedRoute(async (req, { orgId, userId }) => {
     [`inv_${crypto.randomUUID()}`, orgId, normalizedEmail, userId, tokenHash, expiresAt],
   );
 
+  // Email the link to the invitee. A failed send does not undo the invitation:
+  // the inviter still gets the link below and can pass it on themselves.
+  let emailSent = false;
+  if (canSendEmail(limit)) {
+    try {
+      const outcome = await sendInvitationEmail(
+        { email: normalizedEmail, token, orgName, inviterName },
+        getAppUrl(req.nextUrl.origin),
+      );
+      emailSent = outcome === 'sent';
+    } catch (err) {
+      console.error('[invitations] Invitation email failed:', err);
+    }
+  }
+
   // The raw token is returned exactly once; only its hash is stored.
-  return NextResponse.json({ ok: true, token, expiresAt });
+  return NextResponse.json({ ok: true, token, expiresAt, emailSent });
 });
 
 export const DELETE = authedRoute(async (req, { orgId }) => {

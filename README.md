@@ -15,7 +15,8 @@ research, shortlist and track applications through to a decision.
 | **Shortlist** | `/shortlisted` | The grants worth pursuing, grouped by the search they came from. |
 | **Apply** | `/applications` | Pipeline view with status history, notes, amounts requested/awarded, upcoming deadlines, success rate, and a per-application checklist with attached documents. |
 | **Documents** | `/documents` | A reusable library (financials, constitution, …) that can be attached to any checklist item. |
-| **Team** | `/settings` | Invite colleagues into the organisation, manage members, change password. |
+| **Team** | `/settings` | Invite colleagues into the organisation (by email, with a copy-link fallback), manage members, change password. |
+| **Account** | `/forgot-password`, `/reset-password/…`, `/verify-email/…` | Emailed password reset and email verification. Unverified accounts see a reminder banner but are not blocked. |
 
 ### Scoring
 
@@ -52,13 +53,25 @@ Open <http://localhost:3000>.
 | `OPENAI_API_KEY` | yes | Grant scoring and deep-search analysis |
 | `SERPER_API_KEY`, `TAVILY_API_KEY` | for Deep Search | Web search and page extraction |
 | `BLOB_READ_WRITE_TOKEN` | for Documents | Vercel Blob storage |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | recommended | Upstash Redis for rate limiting. **Without these, rate limiting is disabled.** |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | in production | Upstash Redis for rate limiting. **Without these, rate limiting is disabled and no email is sent** (password reset and resend-verification return 503). |
+| `RESEND_API_KEY` | in production | [Resend](https://resend.com) API key for transactional email (password reset, invitations, email verification) |
+| `EMAIL_FROM` | in production | Sender address on a domain verified with Resend, e.g. `GrantSearch NZ <noreply@yourdomain.co.nz>` |
+| `APP_URL` | in production | Public base URL used for links in emails, e.g. `https://grants.yourdomain.co.nz`. On Vercel it defaults to the project's production domain. |
+
+Without `RESEND_API_KEY` / `EMAIL_FROM`, emails are written to the server log in
+development (the link is in the log, so every flow can be exercised locally)
+and sending fails with a clear error in production. Leave open and click
+tracking switched off for the sending domain in Resend.
 
 ### Database
 
 Schema lives in `migrations/` (run in order). Tenant tables are also created on
 demand by `ensureStorageTables()` in `lib/db.ts`. `007_tenant_integrity.sql` is
 optional but recommended — it adds foreign keys, check constraints and indexes.
+`008_email_flows.sql` is **required**: it adds the password-reset and
+email-verification token tables and `users.password_changed_at`, and marks
+accounts that already exist as verified. Run it before deploying the code that
+depends on it.
 
 The grants database itself is built by the offline pipeline in
 `scripts/pipeline/` (see `docs/` for the pipeline guides).
@@ -73,6 +86,7 @@ The grants database itself is built by the offline pipeline in
 | `npm run lint` | ESLint |
 | `npm test` | Unit tests (Node's built-in test runner, no extra dependencies) |
 | `npm run check` | Typecheck + lint + tests — run before committing |
+| `npm run migrate -- migrations/<file>.sql` | Apply one migration to the database in `.env.local` (rolled back if it fails) |
 
 ## Project layout
 
@@ -88,6 +102,11 @@ components/
 lib/
   api.ts                    authedRoute / publicRoute wrappers, parseBody, enforceRateLimit
   auth.ts, auth-helpers.ts  NextAuth config, session revalidation, getAuthSession()
+  email.ts                  sendEmail() — Resend over REST; logs instead in development
+  email-templates.ts        Plain HTML + text content for each email (pure, tested)
+  account-emails.ts         Reset / verification / invitation emails: token + send
+  auth-tokens.ts            Hashed single-use tokens, session-staleness check
+  app-url.ts                Trusted base URL for links in emails
   schemas.ts                Every zod schema (request bodies, JSONB shapes, model output)
   db.ts                     Pool, withTransaction, grant queries, table bootstrap
   url-safety.ts             SSRF protection: isSafeUrl, safeFetch
@@ -145,6 +164,13 @@ export const POST = authedRoute(async (req, { orgId, userId }) => {
   are streamed through an authenticated route as attachments.
 - **Auth** — bcrypt (12 rounds), constant-time login for unknown emails,
   rate-limited login/sign-up/invite, hashed single-use invitation tokens.
+- **Email flows** — reset and verification tokens are random, stored only as
+  SHA-256 hashes, single use and short lived (1 hour / 24 hours). "Forgot
+  password" answers identically for any address and does its work after the
+  response is sent; it is rate limited per IP and per address. Links are built
+  from `APP_URL`, never from the request's Host header. Changing or resetting a
+  password stamps `users.password_changed_at`, and sessions that signed in
+  before it are rejected at their next revalidation (within a few minutes).
 - **Browser** — per-request CSP nonce, origin check on state-changing requests,
   `X-Frame-Options: DENY`, HSTS, `nosniff`.
 
@@ -152,8 +178,19 @@ Coding standards for contributors (human or AI) are in [CLAUDE.md](CLAUDE.md).
 
 ## Known gaps
 
-- No email delivery yet: invitation links are copied manually, and there is no
-  email verification or "forgot password" flow.
 - No role-based access control — every member of an organisation can manage it
   (deliberately deferred).
-- Changing a password does not sign out other devices.
+- Email verification only nudges: an unverified account can use everything.
+  Accounts created before `008_email_flows.sql` count as verified. Accounts
+  created from an invitation start unverified and are sent a verification
+  email, because the invitation link is also shown to the inviter.
+- Email is only sent while rate limiting is working. In production without
+  Redis (or while Redis is failing), "forgot password" and "resend
+  verification" return 503, and sign-up and invitations still work but send no
+  email (the inviter copies the link instead).
+- Other devices are signed out a few minutes after a password change, not
+  instantly (sessions are JWTs re-checked every 5 minutes).
+- No "your password was changed" notification email, and users cannot change
+  their email address.
+- Email delivery has not been tested against a live Resend account, and there
+  is no bounce/complaint handling.

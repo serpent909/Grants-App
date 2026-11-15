@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { getPool } from '@/lib/db';
+import { getPool, withTransaction } from '@/lib/db';
 import { authedRoute, parseBody, enforceRateLimit, ApiError } from '@/lib/api';
 import { changePasswordSchema } from '@/lib/schemas';
 import { authLimiter } from '@/lib/rate-limit';
+import { forgetUser } from '@/lib/auth';
 
 /** Change the signed-in user's password. Requires the current password. */
 export const PUT = authedRoute(async (req, { userId, orgId }) => {
@@ -27,10 +28,23 @@ export const PUT = authedRoute(async (req, { userId, orgId }) => {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await db.query(
-    'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2 AND org_id = $3',
-    [passwordHash, userId, orgId],
-  );
+  // Stamping password_changed_at signs out every session that signed in before
+  // now (lib/auth.ts) — including this one, so the client signs in again with
+  // the new password straight away. App clock, not NOW(): it is compared with
+  // sign-in times stamped by the app.
+  await withTransaction(async client => {
+    await client.query(
+      `UPDATE users SET password_hash = $1, password_changed_at = $2, updated_at = NOW()
+       WHERE id = $3 AND org_id = $4`,
+      [passwordHash, new Date().toISOString(), userId, orgId],
+    );
+    // A pending "forgot password" link must not outlive a deliberate change.
+    await client.query(
+      'UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL',
+      [userId],
+    );
+  });
+  forgetUser(userId);
 
   return NextResponse.json({ ok: true });
 });
