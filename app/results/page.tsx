@@ -42,6 +42,25 @@ interface FunderGroup {
 
 const DEFAULT_MIN_SCORE = '6';
 
+// Labels for the toolbar dropdowns. The select shows whatever is rendered
+// inside <SelectValue>, so each trigger looks its label up here — otherwise it
+// displays the raw value ("all", "6", "overall").
+const MIN_SCORE_OPTIONS = [
+  { value: '0', label: 'All scores' },
+  { value: '5', label: 'Score ≥ 5' },
+  { value: '6', label: 'Score ≥ 6' },
+  { value: '7', label: 'Score ≥ 7' },
+  { value: '8', label: 'Score ≥ 8' },
+] as const;
+
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'overall', label: 'Sort: Overall score' },
+  { value: 'alignment', label: 'Sort: Alignment' },
+  { value: 'attainability', label: 'Sort: Attainability' },
+  { value: 'ease', label: 'Sort: Ease of applying' },
+  { value: 'deadline', label: 'Sort: Deadline' },
+];
+
 // ─── Grant detail panel ───────────────────────────────────────────────────────
 
 function GrantDetail({
@@ -902,7 +921,9 @@ function ResultsContent() {
 
             <Select value={typeFilter} onValueChange={v => setTypeFilter(v ?? 'all')}>
               <SelectTrigger aria-label="Filter by funder type" className="w-[140px] h-9 text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-100">
-                <SelectValue placeholder="All types" />
+                <SelectValue placeholder="All types">
+                  {typeFilter === 'all' ? 'All types' : typeFilter}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All types</SelectItem>
@@ -914,27 +935,27 @@ function ResultsContent() {
 
             <Select value={minScore} onValueChange={v => setMinScore(v ?? DEFAULT_MIN_SCORE)}>
               <SelectTrigger aria-label="Minimum score" className="w-[130px] h-9 text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-100">
-                <SelectValue />
+                <SelectValue>
+                  {MIN_SCORE_OPTIONS.find(o => o.value === minScore)?.label ?? 'All scores'}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0">All scores</SelectItem>
-                <SelectItem value="5">Score ≥ 5</SelectItem>
-                <SelectItem value="6">Score ≥ 6</SelectItem>
-                <SelectItem value="7">Score ≥ 7</SelectItem>
-                <SelectItem value="8">Score ≥ 8</SelectItem>
+                {MIN_SCORE_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
             <Select value={sortField} onValueChange={v => setSortField((v ?? 'overall') as SortField)}>
               <SelectTrigger aria-label="Sort by" className="w-[170px] h-9 text-sm border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 dark:text-zinc-100">
-                <SelectValue />
+                <SelectValue>
+                  {SORT_OPTIONS.find(o => o.value === sortField)?.label ?? 'Sort'}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="overall">Sort: Overall score</SelectItem>
-                <SelectItem value="alignment">Sort: Alignment</SelectItem>
-                <SelectItem value="attainability">Sort: Attainability</SelectItem>
-                <SelectItem value="ease">Sort: Ease of applying</SelectItem>
-                <SelectItem value="deadline">Sort: Deadline</SelectItem>
+                {SORT_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
 

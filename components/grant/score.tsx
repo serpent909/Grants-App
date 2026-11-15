@@ -2,7 +2,6 @@
 
 import { CheckCircle2 } from 'lucide-react';
 import { scoreColor, scoreTextClass } from '@/lib/formatting';
-import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface Scores {
   alignment: number;
@@ -30,15 +29,17 @@ export function ScoreBadge({ score, size = 'md', verified = false }: {
         {s.toFixed(1)}
       </div>
       {verified && (
-        <Tooltip>
-          <TooltipTrigger
-            aria-label="Deep research completed"
-            className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-800"
-          >
-            <CheckCircle2 className="w-2.5 h-2.5 text-white" aria-hidden />
-          </TooltipTrigger>
-          <TooltipContent>Deep research completed</TooltipContent>
-        </Tooltip>
+        // A plain element, not a tooltip trigger: this badge is rendered inside
+        // the row's own <button>, and a button nested in a button is invalid
+        // HTML (and unreachable by keyboard).
+        <span
+          role="img"
+          aria-label="Deep research completed"
+          title="Deep research completed"
+          className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-zinc-800"
+        >
+          <CheckCircle2 className="w-2.5 h-2.5 text-white" aria-hidden />
+        </span>
       )}
     </div>
   );

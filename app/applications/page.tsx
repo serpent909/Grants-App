@@ -163,7 +163,7 @@ function PipelineSummary({ apps, upcoming, onJump }: {
         <div className="bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm px-4 py-3.5">
           <h2 className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-2">
             <AlarmClock className="w-3.5 h-3.5 text-amber-500" aria-hidden />
-            Upcoming deadlines
+            Deadlines to watch
           </h2>
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
             {upcoming.map(({ app, deadline, days }) => (
@@ -181,9 +181,14 @@ function PipelineSummary({ apps, upcoming, onJump }: {
                   </span>
                   <span className="shrink-0 text-right">
                     <span className={`block text-sm font-semibold tabular-nums ${
-                      days <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-700 dark:text-zinc-300'
+                      days < 0 ? 'text-red-600 dark:text-red-400'
+                        : days <= 7 ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-zinc-700 dark:text-zinc-300'
                     }`}>
-                      {days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`}
+                      {days < 0 ? `Passed ${-days} day${days === -1 ? '' : 's'} ago`
+                        : days === 0 ? 'Today'
+                        : days === 1 ? 'Tomorrow'
+                        : `${days} days`}
                     </span>
                     <span className="block text-xs text-zinc-500 dark:text-zinc-400">{formatDate(deadline)}</span>
                   </span>
@@ -329,7 +334,11 @@ function ApplicationCard({
         </span>
         <span className="flex items-center flex-wrap gap-y-0.5 px-2 py-3 text-sm text-zinc-600 dark:text-zinc-400 tabular-nums">
           {deadline || 'Open'}
-          <DeadlineBadge status={dlStatus} label={dlStatus === 'closing-soon' ? dlBadge : null} />
+          {/* The column is narrow, so the desktop row uses short labels. */}
+          <DeadlineBadge
+            status={dlStatus}
+            label={dlStatus === 'closing-soon' ? 'Soon' : dlStatus === 'passed' ? 'Passed' : null}
+          />
         </span>
         <span className="flex items-center px-2 py-3 text-xs text-zinc-500 dark:text-zinc-500 tabular-nums">
           {formatDateShort(app.startedAt)}
@@ -592,15 +601,17 @@ export default function ApplicationsPage() {
   const allApps = useMemo(() => STATUS_ORDER.flatMap(status => grouped[status]), [grouped]);
   const totalApps = allApps.length;
 
-  // Applications still being prepared whose deadline is within the next 60 days.
+  // Applications still being prepared whose deadline is near, or recently passed.
   const upcoming = useMemo((): UpcomingDeadline[] => {
     const list: UpcomingDeadline[] = [];
     for (const app of grouped.preparing) {
       const deadline = applicationDeadline(app, deepSearchMap?.get(app.grantId) ?? null);
       const days = daysUntil(deadline);
-      if (deadline && days !== null && days >= 0 && days <= 60) list.push({ app, deadline, days });
+      // Next 60 days, plus anything that slipped past in the last 90 — a passed
+      // deadline on an application still being prepared needs a decision.
+      if (deadline && days !== null && days >= -90 && days <= 60) list.push({ app, deadline, days });
     }
-    return list.sort((a, b) => a.days - b.days).slice(0, 5);
+    return list.sort((a, b) => a.days - b.days).slice(0, 6);
   }, [grouped, deepSearchMap]);
 
   function scrollTo(id: string) {
