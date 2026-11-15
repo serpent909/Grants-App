@@ -1,4 +1,5 @@
 import { auth } from './auth';
+import { ApiError } from './errors';
 
 export interface AuthSession {
   userId: string;
@@ -9,28 +10,29 @@ export interface AuthSession {
 }
 
 /**
- * Get the authenticated user's org ID from the session.
- * Throws if unauthenticated — callers should catch and return 401.
+ * Get the authenticated user's session.
+ * Throws ApiError(401) if unauthenticated — route handlers wrapped with
+ * `authedRoute` (lib/api.ts) turn that into a `{ error }` JSON response.
  */
 export async function getAuthSession(): Promise<AuthSession> {
   const session = await auth();
-  const user = session?.user as Record<string, unknown> | undefined;
+  const user = session?.user;
 
-  if (!user?.id || !user?.orgId) {
-    throw new Error('Unauthorized');
+  if (!user?.id || !user.orgId) {
+    throw new ApiError(401, 'Unauthorized');
   }
 
   return {
-    userId: user.id as string,
-    orgId: user.orgId as string,
-    orgName: (user.orgName as string) || '',
-    email: (user.email as string) || '',
-    name: (user.name as string) || '',
+    userId: user.id,
+    orgId: user.orgId,
+    orgName: user.orgName || '',
+    email: user.email || '',
+    name: user.name || '',
   };
 }
 
 /**
- * Shorthand to get just the org ID. Throws if unauthenticated.
+ * Shorthand to get just the org ID. Throws ApiError(401) if unauthenticated.
  */
 export async function getOrgId(): Promise<string> {
   const session = await getAuthSession();

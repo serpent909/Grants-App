@@ -1,17 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { openai } from '@/lib/openai';
 import { tavilyClient } from '@/lib/tavily';
 import { serperSearch } from '@/lib/serper';
-import { OrgInfo, DeepSearchResult } from '@/lib/types';
+import { DeepSearchResult } from '@/lib/types';
 import { getMarket } from '@/lib/markets';
-import { writeDeepSearchUpdates } from '@/lib/db';
+import { getPool, ensureStorageTables, getGrantIdentity, writeDeepSearchUpdates } from '@/lib/db';
 import { findGrantLinksFromHtml } from '@/lib/nav-links';
-import { deepSearchRequestSchema, parseOrError } from '@/lib/schemas';
-import { deepSearchLimiter, checkRateLimit } from '@/lib/rate-limit';
-import { getOrgId } from '@/lib/auth-helpers';
-
-const TODAY = new Date().toISOString().split('T')[0];
-const CURRENT_YEAR = new Date().getFullYear();
+import { deepSearchRequestSchema, deepSearchModelOutputSchema } from '@/lib/schemas';
+import { deepSearchLimiter } from '@/lib/rate-limit';
+import { authedRoute, parseBody, enforceRateLimit, ApiError } from '@/lib/api';
+import { isSafeUrl, safeFetch } from '@/lib/url-safety';
+import { computeOverallScore } from '@/lib/scoring';
 
 // ─── Cost tracking ───────────────────────────────────────────────────────────
 
@@ -44,33 +43,6 @@ function computeCost(c: CostTracker) {
 
 function stripFences(text: string): string {
   return text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-}
-
-// ─── SSRF protection ─────────────────────────────────────────────────────────
-
-const PRIVATE_IP_PATTERNS = [
-  /^127\./,                          // loopback
-  /^10\./,                           // RFC1918
-  /^172\.(1[6-9]|2\d|3[01])\./,     // RFC1918
-  /^192\.168\./,                     // RFC1918
-  /^169\.254\./,                     // link-local (AWS metadata etc.)
-  /^::1$/,                           // IPv6 loopback
-  /^fc00:/i,                         // IPv6 private
-  /^fe80:/i,                         // IPv6 link-local
-];
-
-function isSafeUrl(rawUrl: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    return false;
-  }
-  if (parsed.protocol !== 'https:') return false;
-  const hostname = parsed.hostname.toLowerCase();
-  if (hostname === 'localhost') return false;
-  if (PRIVATE_IP_PATTERNS.some(p => p.test(hostname))) return false;
-  return true;
 }
 
 function normaliseUrl(url: string): string {
@@ -127,49 +99,46 @@ function isGrantPage(url: string, excludedDomains: string[]): boolean {
   } catch { return true; }
 }
 
-// ─── Request types ───────────────────────────────────────────────────────────
-
-interface DeepSearchRequest {
-  grant: {
-    id: string;
-    name: string;
-    funder: string;
-    url: string;
-    description: string;
-    scores: { alignment: number; ease: number; attainability: number; overall: number };
-    alignmentReason: string;
-    applicationNotes: string;
-    attainabilityNotes: string;
-    amountMin?: number;
-    amountMax?: number;
-    deadline?: string;
-  };
-  orgContext: OrgInfo;
-  market: string;
-}
-
 // ─── Main handler ────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest) {
-  // Rate limit by org
-  const orgId = await getOrgId();
-  const blocked = await checkRateLimit(deepSearchLimiter, orgId);
-  if (blocked) return blocked;
+/** Only ISO calendar dates are written back to the shared grants table. */
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export const POST = authedRoute(async (req, { orgId }) => {
+  await enforceRateLimit(deepSearchLimiter, orgId);
+  await ensureStorageTables();
 
   const costs = createCostTracker();
   const t0 = Date.now();
+  // Computed per request — module-level constants go stale on a warm instance.
+  const TODAY = new Date().toISOString().split('T')[0];
+  const CURRENT_YEAR = new Date().getFullYear();
 
   try {
-    const validated = parseOrError(deepSearchRequestSchema, await req.json());
-    if ('error' in validated) {
-      console.warn('[DeepSearch] Request validation failed:', validated.error);
-      return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
-    }
-    const body = validated.data as DeepSearchRequest;
-    const { grant, orgContext, market: marketId } = body;
+    const body = await parseBody(req, deepSearchRequestSchema);
+    const { orgContext, market: marketId } = body;
+
+    // The grants table is shared by every tenant, and this route writes what it
+    // learns back into it. So the grant's identity (name, funder and — above all —
+    // the URL we research) comes from the database, never from the request.
+    // Without this, a caller could point the research at a page they control and
+    // have its contents (e.g. a fake application form link) saved for all orgs.
+    const known = await getGrantIdentity(body.grant.id);
+    const grant = known
+      ? {
+          ...body.grant,
+          name: known.name,
+          funder: known.funder_name,
+          url: known.url,
+          description: known.description || body.grant.description,
+        }
+      : body.grant;
+    // Grants that no longer exist in the table (old saved-search snapshots) can
+    // still be researched for this org, but nothing is written back.
+    const canWriteBack = known !== null;
 
     if (!isSafeUrl(grant.url)) {
-      return NextResponse.json({ error: 'Invalid grant URL' }, { status: 400 });
+      throw new ApiError(400, 'This grant does not have a valid public web page to research.');
     }
 
     const market = getMarket(marketId || 'nz');
@@ -216,7 +185,7 @@ export async function POST(req: NextRequest) {
         }),
       ),
       // Nav link discovery from funder homepage (free HTML fetch)
-      homepageUrl ? findGrantLinksFromHtml(homepageUrl) : Promise.resolve([]),
+      homepageUrl ? findGrantLinksFromHtml(homepageUrl, safeFetch) : Promise.resolve([]),
     ]);
 
     // Collect unique URLs, prioritising the grant's own domain
@@ -252,6 +221,7 @@ export async function POST(req: NextRequest) {
         const norm = normaliseUrl(r.url);
         if (seen.has(norm)) continue;
         seen.add(norm);
+        if (!isSafeUrl(r.url)) continue;
         if (!isGrantPage(r.url, market.excludedDomains)) continue;
 
         snippetMap.set(norm, r.content);
@@ -316,10 +286,7 @@ export async function POST(req: NextRequest) {
     console.log(`[DeepSearch] Phase 2 complete: ${pages.length} pages extracted`);
 
     if (pages.length === 0) {
-      return NextResponse.json(
-        { error: 'Could not extract any content from the grant page or related pages.' },
-        { status: 422 },
-      );
+      throw new ApiError(422, 'Could not extract any content from the grant page or related pages.');
     }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -461,13 +428,23 @@ Be thorough but factual — only include information that is directly supported 
     costs.gpt4oOut += usage?.completion_tokens ?? 0;
 
     const raw = completion.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(stripFences(raw));
 
-    // Recalculate overall to prevent GPT arithmetic errors
-    if (parsed.scores) {
-      const { alignment = 0, ease = 5, attainability = 0 } = parsed.scores;
-      parsed.scores.overall = Math.round(((alignment * 0.5) + (attainability * 0.3) + (ease * 0.2)) * 10) / 10;
+    // Treat the model's JSON as untrusted input: coerce every field to the
+    // expected type/length, drop non-http links, clamp scores to 0–10.
+    let rawJson: unknown;
+    try {
+      rawJson = JSON.parse(stripFences(raw));
+    } catch {
+      throw new ApiError(502, 'The research could not be completed. Please try again.');
     }
+    const parsed = deepSearchModelOutputSchema.parse(rawJson);
+
+    // Recalculate overall to prevent model arithmetic errors
+    const scores = parsed.scores
+      ? { ...parsed.scores, overall: computeOverallScore(parsed.scores) }
+      : grant.scores;
+
+    const unchanged = (value: number) => ({ old: value, new: value, reason: 'No change' });
 
     // Assemble the final result
     const deepResult: DeepSearchResult = {
@@ -477,43 +454,59 @@ Be thorough but factual — only include information that is directly supported 
       grantUrl: grant.url,
       searchedAt: new Date().toISOString(),
 
-      amountMin: parsed.amountMin ?? undefined,
-      amountMax: parsed.amountMax ?? undefined,
-      amountNotes: parsed.amountNotes || undefined,
+      amountMin: parsed.amountMin,
+      amountMax: parsed.amountMax,
+      amountNotes: parsed.amountNotes,
 
-      applicationOpenDate: parsed.applicationOpenDate || undefined,
-      applicationCloseDate: parsed.applicationCloseDate || undefined,
-      dateNotes: parsed.dateNotes || undefined,
+      applicationOpenDate: parsed.applicationOpenDate,
+      applicationCloseDate: parsed.applicationCloseDate,
+      dateNotes: parsed.dateNotes,
 
-      checklist: Array.isArray(parsed.checklist) ? parsed.checklist : [],
-      applicationFormUrl: parsed.applicationFormUrl || undefined,
-      applicationFormType: parsed.applicationFormType || undefined,
-      applicationFormNotes: parsed.applicationFormNotes || undefined,
+      checklist: parsed.checklist,
+      applicationFormUrl: parsed.applicationFormUrl,
+      applicationFormType: parsed.applicationFormType,
+      applicationFormNotes: parsed.applicationFormNotes,
 
-      eligibilityCriteria: Array.isArray(parsed.eligibilityCriteria) ? parsed.eligibilityCriteria : [],
+      eligibilityCriteria: parsed.eligibilityCriteria,
 
-      scores: parsed.scores || grant.scores,
-      scoreChanges: parsed.scoreChanges || {
-        alignment: { old: grant.scores.alignment, new: grant.scores.alignment, reason: 'No change' },
-        ease: { old: grant.scores.ease, new: grant.scores.ease, reason: 'No change' },
-        attainability: { old: grant.scores.attainability, new: grant.scores.attainability, reason: 'No change' },
+      scores,
+      scoreChanges: parsed.scoreChanges ?? {
+        alignment: unchanged(grant.scores.alignment),
+        ease: unchanged(grant.scores.ease),
+        attainability: unchanged(grant.scores.attainability),
       },
 
-      additionalInfo: parsed.additionalInfo || undefined,
-      keyContacts: parsed.keyContacts || undefined,
-      pastRecipientNotes: parsed.pastRecipientNotes || undefined,
-      sourcesUsed: Array.isArray(parsed.sourcesUsed) ? parsed.sourcesUsed : [],
+      additionalInfo: parsed.additionalInfo,
+      keyContacts: parsed.keyContacts,
+      pastRecipientNotes: parsed.pastRecipientNotes,
+      sourcesUsed: parsed.sourcesUsed,
     };
 
-    // Write discovered fields back to DB (only fills NULLs — never overwrites existing data)
-    await writeDeepSearchUpdates(grant.id, {
-      applicationFormUrl: deepResult.applicationFormUrl,
-      amountMin: deepResult.amountMin,
-      amountMax: deepResult.amountMax,
-      deadline: deepResult.applicationCloseDate,
-      eligibility: deepResult.eligibilityCriteria,
-      keyContacts: deepResult.keyContacts,
-    });
+    // Persist for this org here, on the server. The client no longer posts the
+    // result back, so it survives a closed tab and cannot be tampered with.
+    await getPool().query(
+      `INSERT INTO deep_searches (org_id, grant_id, result_json, searched_at)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (org_id, grant_id) DO UPDATE SET
+         result_json = EXCLUDED.result_json, searched_at = EXCLUDED.searched_at`,
+      [orgId, deepResult.grantId, JSON.stringify(deepResult), deepResult.searchedAt],
+    );
+
+    // Write discovered fields back to the shared grants table (only fills NULLs —
+    // never overwrites existing data). Only for grants that exist there, and only
+    // values that pass the same checks we would apply to pipeline data.
+    if (canWriteBack) {
+      const formUrl = deepResult.applicationFormUrl;
+      const closeDate = deepResult.applicationCloseDate;
+      await writeDeepSearchUpdates(grant.id, {
+        applicationFormUrl: formUrl && isSafeUrl(formUrl) ? formUrl : undefined,
+        amountMin: deepResult.amountMin,
+        amountMax: deepResult.amountMax,
+        deadline: closeDate && ISO_DATE.test(closeDate) ? closeDate : undefined,
+        eligibility: deepResult.eligibilityCriteria,
+        keyContacts: deepResult.keyContacts,
+      });
+    }
 
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     const cost = computeCost(costs);
@@ -527,12 +520,10 @@ Be thorough but factual — only include information that is directly supported 
 
     return NextResponse.json(deepResult);
   } catch (err) {
-    console.error('[DeepSearch] Error:', err);
+    // Record what the failed attempt cost, then let authedRoute build the
+    // response (ApiErrors keep their message; anything else becomes a generic 500).
     const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     console.log(`[DeepSearch] Failed after ${elapsed}s | Cost: $${computeCost(costs).total.toFixed(3)}`);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Deep search failed' },
-      { status: 500 },
-    );
+    throw err;
   }
-}
+});

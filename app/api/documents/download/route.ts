@@ -1,46 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
-import { getOrgId } from '@/lib/auth-helpers';
+import { authedRoute, requireIdParam, ApiError } from '@/lib/api';
+import { ALLOWED_UPLOAD_TYPES } from '@/lib/upload-rules';
+import { isOwnBlobUrl, attachmentDisposition } from '@/lib/document-files';
 
-export async function GET(req: NextRequest) {
-  const orgId = await getOrgId();
+export const GET = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+  const id = requireIdParam(req.nextUrl.searchParams, 'id');
 
-  const db = getPool();
-  const { rows } = await db.query(
+  const { rows } = await getPool().query<{ blob_url: string; filename: string; content_type: string }>(
     'SELECT blob_url, filename, content_type FROM documents WHERE id = $1 AND org_id = $2',
-    [id, orgId]
+    [id, orgId],
   );
-  if (rows.length === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (rows.length === 0) throw new ApiError(404, 'Document not found');
 
   const { blob_url, filename, content_type } = rows[0];
 
-  // Fetch the file server-side using the BLOB_READ_WRITE_TOKEN for auth
+  // The storage token must only ever be sent to Vercel Blob. Refuse to fetch a
+  // stored URL that points anywhere else (SSRF / token exfiltration guard).
+  if (!isOwnBlobUrl(blob_url)) {
+    console.error(`[documents] Refusing to fetch non-blob URL for document ${id}`);
+    throw new ApiError(404, 'Document not found');
+  }
+
   const blobRes = await fetch(blob_url, {
-    headers: {
-      Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
-    },
+    headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
   });
 
-  if (!blobRes.ok) {
-    console.error('Blob fetch failed:', blobRes.status, blobRes.statusText);
-    return NextResponse.json({ error: 'Failed to retrieve file' }, { status: 502 });
+  if (!blobRes.ok || !blobRes.body) {
+    console.error('[documents] Blob fetch failed:', blobRes.status, blobRes.statusText);
+    throw new ApiError(502, 'Failed to retrieve file');
   }
 
-  const body = blobRes.body;
-  if (!body) {
-    return NextResponse.json({ error: 'Empty response from storage' }, { status: 502 });
-  }
-
-  // Stream the file to the client with proper headers
-  return new NextResponse(body as ReadableStream, {
+  // Stream the file to the client. Always an attachment, never rendered inline,
+  // and only with a content type from the upload allowlist.
+  return new Response(blobRes.body, {
     headers: {
-      'Content-Type': content_type || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
-      'Cache-Control': 'private, max-age=3600',
+      'Content-Type': ALLOWED_UPLOAD_TYPES.has(content_type) ? content_type : 'application/octet-stream',
+      'Content-Disposition': attachmentDisposition(filename),
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
-}
+});

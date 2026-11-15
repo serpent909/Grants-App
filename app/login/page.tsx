@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
-import { Loader2, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import Link from 'next/link';
+import {
+  AuthShell, AuthField, PasswordField, AuthError, AuthSubmit, postLoginDestination,
+} from '@/components/auth-shell';
+import { LINK_CLASS } from '@/lib/grant-ui';
 
 export default function LoginPage() {
   const { status } = useSession();
@@ -12,10 +16,10 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // If already authenticated, redirect to home
+  // Already signed in (or just signed in) → continue to where they were heading.
   useEffect(() => {
     if (status === 'authenticated') {
-      window.location.href = '/';
+      window.location.href = postLoginDestination();
     }
   }, [status]);
 
@@ -24,76 +28,59 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    const result = await signIn('credentials', {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setError('Invalid email or password');
+    try {
+      const result = await signIn('credentials', { email, password, redirect: false });
+      if (result?.error) {
+        // 429 from the login rate limiter surfaces here too.
+        setError(
+          result.status === 429
+            ? 'Too many attempts. Please wait a minute and try again.'
+            : 'Invalid email or password',
+        );
+        setLoading(false);
+      }
+      // On success, useSession updates to 'authenticated' and the effect redirects.
+    } catch {
+      setError('Something went wrong. Please try again.');
       setLoading(false);
     }
-    // On success, useSession will update to 'authenticated' and the useEffect redirects
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">GrantSearch</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">Sign in to your account</p>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700 p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoFocus
-                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                className="w-full text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                placeholder="Enter your password"
-              />
-            </div>
-
-            {error && (
-              <p className="text-sm text-red-600 bg-red-50 dark:bg-red-950 rounded-lg px-3 py-2">{error}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
-              Sign in
-            </button>
-          </form>
-        </div>
-
-        <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mt-6">
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to your GrantSearch account"
+      footer={
+        <>
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300">
-            Create one
-          </Link>
-        </p>
-      </div>
-    </div>
+          <Link href="/signup" className={LINK_CLASS}>Create one</Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthField
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          autoFocus
+          placeholder="you@example.com"
+        />
+        <PasswordField
+          label="Password"
+          name="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          placeholder="Enter your password"
+        />
+        <AuthError message={error} />
+        <AuthSubmit loading={loading} icon={LogIn}>Sign in</AuthSubmit>
+      </form>
+    </AuthShell>
   );
 }

@@ -1,27 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { getAuthSession } from '@/lib/auth-helpers';
+import { authedRoute, parseBody, ApiError } from '@/lib/api';
+import { updateOrgSchema } from '@/lib/schemas';
 
-export async function GET() {
-  const session = await getAuthSession();
-  const db = getPool();
-  const { rows } = await db.query(
+export const GET = authedRoute(async (_req, { orgId }) => {
+  const { rows } = await getPool().query(
     'SELECT id, name, slug, created_at AS "createdAt" FROM organisations WHERE id = $1',
-    [session.orgId],
+    [orgId],
   );
-  if (rows.length === 0) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (rows.length === 0) throw new ApiError(404, 'Organisation not found');
   return NextResponse.json(rows[0]);
-}
+});
 
-export async function PUT(req: NextRequest) {
-  const session = await getAuthSession();
-  const { name } = await req.json();
-  if (!name?.trim()) return NextResponse.json({ error: 'name required' }, { status: 400 });
-
-  const db = getPool();
-  await db.query(
+export const PUT = authedRoute(async (req, { orgId }) => {
+  const { name } = await parseBody(req, updateOrgSchema);
+  await getPool().query(
     'UPDATE organisations SET name = $1, updated_at = NOW() WHERE id = $2',
-    [name.trim(), session.orgId],
+    [name, orgId],
   );
-  return NextResponse.json({ ok: true });
-}
+  return NextResponse.json({ ok: true, name });
+});

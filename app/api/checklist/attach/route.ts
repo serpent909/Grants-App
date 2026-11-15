@@ -1,54 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getPool, ensureStorageTables } from '@/lib/db';
-import { getOrgId } from '@/lib/auth-helpers';
-import { attachDocumentSchema, parseOrError } from '@/lib/schemas';
+import { authedRoute, parseBody, requireIdParam, ApiError } from '@/lib/api';
+import { attachDocumentSchema } from '@/lib/schemas';
 
-export async function POST(req: NextRequest) {
-  const orgId = await getOrgId();
+export const POST = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
-  const parsed = parseOrError(attachDocumentSchema, await req.json());
-  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  const { checklistItemId, documentId } = parsed.data;
-
+  const { checklistItemId, documentId } = await parseBody(req, attachDocumentSchema);
   const db = getPool();
 
-  // Verify ownership of both checklist item and document
+  // Verify ownership of both the checklist item and the document
   const { rows: ciRows } = await db.query(
     'SELECT id FROM application_checklist_items WHERE id = $1 AND org_id = $2',
     [checklistItemId, orgId],
   );
-  if (ciRows.length === 0) return NextResponse.json({ error: 'checklist item not found' }, { status: 404 });
+  if (ciRows.length === 0) throw new ApiError(404, 'Checklist item not found');
 
   const { rows: docRows } = await db.query(
     'SELECT id FROM documents WHERE id = $1 AND org_id = $2',
     [documentId, orgId],
   );
-  if (docRows.length === 0) return NextResponse.json({ error: 'document not found' }, { status: 404 });
+  if (docRows.length === 0) throw new ApiError(404, 'Document not found');
 
-  const id = `cd-${crypto.randomUUID()}`;
   await db.query(
     `INSERT INTO checklist_documents (id, org_id, checklist_item_id, document_id, attached_at)
      VALUES ($1, $2, $3, $4, NOW())
      ON CONFLICT (checklist_item_id, document_id) DO NOTHING`,
-    [id, orgId, checklistItemId, documentId],
+    [`cd-${crypto.randomUUID()}`, orgId, checklistItemId, documentId],
   );
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function DELETE(req: NextRequest) {
-  const orgId = await getOrgId();
+export const DELETE = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
-  const { searchParams } = new URL(req.url);
-  const checklistItemId = searchParams.get('checklistItemId');
-  const documentId = searchParams.get('documentId');
-  if (!checklistItemId || !documentId) {
-    return NextResponse.json({ error: 'checklistItemId and documentId required' }, { status: 400 });
-  }
+  const { searchParams } = req.nextUrl;
+  const checklistItemId = requireIdParam(searchParams, 'checklistItemId');
+  const documentId = requireIdParam(searchParams, 'documentId');
 
-  const db = getPool();
-  await db.query(
+  await getPool().query(
     'DELETE FROM checklist_documents WHERE checklist_item_id = $1 AND document_id = $2 AND org_id = $3',
     [checklistItemId, documentId, orgId],
   );
   return NextResponse.json({ ok: true });
-}
+});

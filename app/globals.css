@@ -6,6 +6,8 @@
 
 @theme inline {
   --color-background: var(--background);
+  /* Page canvas behind cards — warm off-white in light mode */
+  --color-canvas: var(--canvas);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
   --font-display: var(--font-display);
@@ -36,6 +38,7 @@
 
 :root {
   --background: oklch(1 0 0);
+  --canvas: #f7f5f0;
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -58,6 +61,7 @@
 
 .dark {
   --background: oklch(0.205 0 0);
+  --canvas: #18181b;
   --foreground: oklch(0.922 0 0);
   --card: oklch(0.269 0 0);
   --card-foreground: oklch(0.922 0 0);
@@ -88,5 +92,18 @@
   }
   html {
     @apply font-sans overflow-x-hidden;
+  }
+  /* Visible keyboard focus everywhere, without affecting mouse users */
+  :where(a, button, [role='button'], summary):focus-visible {
+    @apply outline-2 outline-offset-2 outline-teal-500;
+  }
+  /* Honour reduced-motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

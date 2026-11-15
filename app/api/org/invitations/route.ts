@@ -1,14 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
+import { NextResponse } from 'next/server';
 import { getPool } from '@/lib/db';
-import { getAuthSession } from '@/lib/auth-helpers';
-import { inviteEmailSchema, parseOrError } from '@/lib/schemas';
-import { inviteLimiter, checkRateLimit } from '@/lib/rate-limit';
+import { authedRoute, parseBody, requireIdParam, enforceRateLimit, ApiError } from '@/lib/api';
+import { inviteEmailSchema } from '@/lib/schemas';
+import { inviteLimiter } from '@/lib/rate-limit';
+import { generateInviteToken } from '@/lib/invite-tokens';
 
-export async function GET() {
-  const session = await getAuthSession();
-  const db = getPool();
-  const { rows } = await db.query(
+const INVITE_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+export const GET = authedRoute(async (_req, { orgId }) => {
+  // Tokens are never listed — the link is shown once, at creation.
+  const { rows } = await getPool().query(
     `SELECT i.id, i.email, i.expires_at AS "expiresAt",
             i.accepted_at AS "acceptedAt", i.created_at AS "createdAt",
             u.name AS "invitedByName"
@@ -16,62 +17,51 @@ export async function GET() {
      JOIN users u ON u.id = i.invited_by
      WHERE i.org_id = $1
      ORDER BY i.created_at DESC`,
-    [session.orgId],
+    [orgId],
   );
   return NextResponse.json(rows);
-}
+});
 
-export async function POST(req: NextRequest) {
-  const session = await getAuthSession();
-  const blocked = await checkRateLimit(inviteLimiter, session.orgId);
-  if (blocked) return blocked;
-
-  const parsed = parseOrError(inviteEmailSchema, await req.json());
-  if ('error' in parsed) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  const { email } = parsed.data;
-
+export const POST = authedRoute(async (req, { orgId, userId }) => {
+  await enforceRateLimit(inviteLimiter, orgId);
+  const { email } = await parseBody(req, inviteEmailSchema);
   const normalizedEmail = email.toLowerCase().trim();
   const db = getPool();
 
-  // Check if user already exists in this org
+  // Already a member of this org?
   const { rows: existingUsers } = await db.query(
     'SELECT id FROM users WHERE email = $1 AND org_id = $2',
-    [normalizedEmail, session.orgId],
+    [normalizedEmail, orgId],
   );
   if (existingUsers.length > 0) {
-    return NextResponse.json({ error: 'User is already a member of this organisation' }, { status: 409 });
+    throw new ApiError(409, 'User is already a member of this organisation');
   }
 
-  // Check for pending invitation
+  // Already has a live invitation?
   const { rows: existingInvites } = await db.query(
     `SELECT id FROM invitations
      WHERE org_id = $1 AND email = $2 AND accepted_at IS NULL AND expires_at > NOW()`,
-    [session.orgId, normalizedEmail],
+    [orgId, normalizedEmail],
   );
   if (existingInvites.length > 0) {
-    return NextResponse.json({ error: 'An invitation has already been sent to this email' }, { status: 409 });
+    throw new ApiError(409, 'An invitation has already been sent to this email');
   }
 
-  const id = `inv_${crypto.randomUUID()}`;
-  const token = randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 48 hours
+  const { token, tokenHash } = generateInviteToken();
+  const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();
 
   await db.query(
     `INSERT INTO invitations (id, org_id, email, invited_by, token, expires_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [id, session.orgId, normalizedEmail, session.userId, token, expiresAt],
+    [`inv_${crypto.randomUUID()}`, orgId, normalizedEmail, userId, tokenHash, expiresAt],
   );
 
+  // The raw token is returned exactly once; only its hash is stored.
   return NextResponse.json({ ok: true, token, expiresAt });
-}
+});
 
-export async function DELETE(req: NextRequest) {
-  const session = await getAuthSession();
-  const { searchParams } = new URL(req.url);
-  const id = searchParams.get('id');
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
-
-  const db = getPool();
-  await db.query('DELETE FROM invitations WHERE id = $1 AND org_id = $2', [id, session.orgId]);
+export const DELETE = authedRoute(async (req, { orgId }) => {
+  const id = requireIdParam(req.nextUrl.searchParams, 'id');
+  await getPool().query('DELETE FROM invitations WHERE id = $1 AND org_id = $2', [id, orgId]);
   return NextResponse.json({ ok: true });
-}
+});

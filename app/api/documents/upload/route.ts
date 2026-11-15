@@ -1,67 +1,66 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
-import { getOrgId } from '@/lib/auth-helpers';
-import { uploadLimiter, checkRateLimit } from '@/lib/rate-limit';
+import { NextResponse } from 'next/server';
+import { put, del } from '@vercel/blob';
+import { getPool, ensureStorageTables } from '@/lib/db';
+import { authedRoute, enforceRateLimit, ApiError } from '@/lib/api';
+import { uploadLimiter } from '@/lib/rate-limit';
+import { documentCategorySchema } from '@/lib/schemas';
+import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES } from '@/lib/upload-rules';
+import { hasValidMagicBytes, sanitizeFilename } from '@/lib/document-files';
 
-const ALLOWED_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/jpeg',
-  'image/png',
-]);
+/**
+ * Upload a file and create its document record in one step.
+ *
+ * The storage URL is generated here and written straight to the database — it
+ * is never accepted from, or returned to, the client. (Previously the client
+ * posted the blob URL back in a second request, which let a caller register an
+ * arbitrary URL that the download route would then fetch with the storage token.)
+ */
+export const POST = authedRoute(async (req, { orgId }) => {
+  await enforceRateLimit(uploadLimiter, orgId);
+  await ensureStorageTables();
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
-
-// Magic byte signatures — keyed by MIME type
-// DOCX/XLSX are ZIP-based; DOC/XLS use OLE2 compound format
-const MAGIC: Record<string, number[][]> = {
-  'application/pdf':    [[0x25, 0x50, 0x44, 0x46]],                    // %PDF
-  'application/msword': [[0xD0, 0xCF, 0x11, 0xE0]],                    // OLE2
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': [[0x50, 0x4B, 0x03, 0x04]], // PK (ZIP)
-  'application/vnd.ms-excel':                                           [[0xD0, 0xCF, 0x11, 0xE0]],      // OLE2
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':  [[0x50, 0x4B, 0x03, 0x04]],      // PK (ZIP)
-  'image/png':  [[0x89, 0x50, 0x4E, 0x47]],                            // \x89PNG
-  'image/jpeg': [[0xFF, 0xD8, 0xFF]],                                   // JFIF/Exif
-};
-
-async function hasValidMagicBytes(file: File): Promise<boolean> {
-  const signatures = MAGIC[file.type];
-  if (!signatures) return false;
-  const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-  return signatures.some(sig => sig.every((byte, i) => header[i] === byte));
-}
-
-export async function POST(req: NextRequest) {
-  const orgId = await getOrgId();
-  const blocked = await checkRateLimit(uploadLimiter, orgId);
-  if (blocked) return blocked;
-
-  const formData = await req.formData();
-  const file = formData.get('file') as File | null;
-
-  if (!file) {
-    return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  let formData: FormData;
+  try {
+    formData = await req.formData();
+  } catch {
+    throw new ApiError(400, 'Invalid upload');
   }
 
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return NextResponse.json({ error: 'File type not allowed' }, { status: 400 });
-  }
-
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 });
-  }
-
+  const file = formData.get('file');
+  if (!(file instanceof File)) throw new ApiError(400, 'No file provided');
+  if (!ALLOWED_UPLOAD_TYPES.has(file.type)) throw new ApiError(400, 'File type not allowed');
+  if (file.size === 0) throw new ApiError(400, 'File is empty');
+  if (file.size > MAX_UPLOAD_BYTES) throw new ApiError(400, 'File too large (max 10MB)');
   if (!(await hasValidMagicBytes(file))) {
-    return NextResponse.json({ error: 'File content does not match declared type' }, { status: 400 });
+    throw new ApiError(400, 'File content does not match declared type');
   }
 
-  const blob = await put(file.name, file, {
+  const categoryInput = formData.get('category');
+  const parsedCategory = documentCategorySchema.safeParse(categoryInput);
+  const category = parsedCategory.success ? parsedCategory.data : 'other';
+
+  const filename = sanitizeFilename(file.name);
+
+  // Namespace blobs by org so storage mirrors tenancy.
+  const blob = await put(`${orgId}/${filename}`, file, {
     access: 'private',
     addRandomSuffix: true,
+    contentType: file.type,
   });
 
-  return NextResponse.json({ url: blob.url });
-}
+  const id = `doc_${crypto.randomUUID()}`;
+  try {
+    const { rows } = await getPool().query(
+      `INSERT INTO documents (id, org_id, filename, blob_url, content_type, size_bytes, category, notes, uploaded_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, '', NOW())
+       RETURNING id, filename, content_type AS "contentType", size_bytes AS "sizeBytes",
+                 category, notes, uploaded_at AS "uploadedAt"`,
+      [id, orgId, filename, blob.url, file.type, file.size, category],
+    );
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    // Don't leave an orphaned blob behind if the record could not be created.
+    try { await del(blob.url); } catch { /* best effort */ }
+    throw err;
+  }
+});

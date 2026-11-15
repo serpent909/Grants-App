@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   Globe, Linkedin, DollarSign,
   AlertCircle, ArrowRight, ArrowLeft, Bookmark, Search,
@@ -40,9 +41,13 @@ const STEPS = [
 
 function StepIndicator({ current }: { current: number }) {
   return (
-    <div className="flex items-center justify-between w-full max-w-md mx-auto">
+    <ol className="flex items-center justify-between w-full max-w-md mx-auto" aria-label="Search steps">
       {STEPS.map((s, i) => (
-        <div key={s.num} className="flex items-center flex-1 last:flex-none">
+        <li
+          key={s.num}
+          className="flex items-center flex-1 last:flex-none"
+          aria-current={s.num === current ? 'step' : undefined}
+        >
           {/* Step circle + label */}
           <div className="flex flex-col items-center">
             <div
@@ -54,11 +59,11 @@ function StepIndicator({ current }: { current: number }) {
                   : 'bg-white dark:bg-zinc-800 border-2 border-zinc-300 dark:border-zinc-600 text-zinc-400'
               }`}
             >
-              {s.num < current ? <Check className="w-4 h-4" /> : s.num}
+              {s.num < current ? <Check className="w-4 h-4" aria-label={`Step ${s.num} complete`} /> : s.num}
             </div>
             <span
-              className={`hidden sm:block text-xs mt-1.5 font-medium transition-colors duration-300 ${
-                s.num <= current ? 'text-teal-700 dark:text-teal-400' : 'text-zinc-400'
+              className={`sr-only sm:not-sr-only sm:block text-xs sm:mt-1.5 font-medium transition-colors duration-300 ${
+                s.num <= current ? 'text-teal-700 dark:text-teal-400' : 'text-zinc-500 dark:text-zinc-400'
               }`}
             >
               {s.label}
@@ -73,29 +78,28 @@ function StepIndicator({ current }: { current: number }) {
               }`}
             />
           )}
-        </div>
+        </li>
       ))}
-    </div>
+    </ol>
   );
 }
 
 // ─── Saved searches link ──────────────────────────────────────────────────────
 
 function SavedSearchesLink() {
-  const router = useRouter();
   const { data: saved } = useSavedSearches();
   const count = saved?.length ?? 0;
   return (
     <div className="h-10 flex items-center justify-center">
       {count > 0 && (
-        <button
-          onClick={() => router.push('/saved')}
+        <Link
+          href="/saved"
           className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-sm font-medium px-4 py-2 rounded-xl transition-all"
         >
-          <Bookmark className="w-3.5 h-3.5" />
-          Funding searches ({count})
-          <ArrowRight className="w-3 h-3" />
-        </button>
+          <Bookmark className="w-3.5 h-3.5" aria-hidden />
+          Your funding searches ({count})
+          <ArrowRight className="w-3 h-3" aria-hidden />
+        </Link>
       )}
     </div>
   );
@@ -128,11 +132,28 @@ export default function HomePage() {
     const raw = sessionStorage.getItem('grantSearchPrefill');
     if (raw) {
       sessionStorage.removeItem('grantSearchPrefill');
+      // One-off hydration from sessionStorage on mount (re-run of a saved search).
+      /* eslint-disable react-hooks/set-state-in-effect */
       try {
-        const inputs = JSON.parse(raw);
-        setForm(inputs);
+        const inputs = JSON.parse(raw) as Partial<OrgInfo>;
+        // Only take the fields we know, with the types we expect.
+        const text = (v: unknown) => (typeof v === 'string' ? v : '');
+        const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+        setForm({
+          searchTitle: text(inputs.searchTitle),
+          website: text(inputs.website),
+          linkedin: text(inputs.linkedin),
+          fundingPurpose: text(inputs.fundingPurpose),
+          fundingAmount: typeof inputs.fundingAmount === 'number' ? inputs.fundingAmount : 0,
+          market: 'nz',
+          regions: list(inputs.regions),
+          sectors: list(inputs.sectors),
+          orgType: text(inputs.orgType),
+          previousFunders: text(inputs.previousFunders),
+        });
         setStep(4); // skip to review
       } catch { /* ignore malformed data */ }
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, []);
 
@@ -182,6 +203,8 @@ export default function HomePage() {
       }
       if (!form.fundingAmount || form.fundingAmount <= 0) {
         newErrors.fundingAmount = 'Please enter the funding amount you are seeking';
+      } else if (form.fundingAmount > 100_000_000) {
+        newErrors.fundingAmount = 'Please enter an amount of $100 million or less';
       }
     }
 
@@ -281,7 +304,7 @@ export default function HomePage() {
 
                 <div className="flex items-center justify-center gap-6 sm:gap-10 mb-4">
                   {[
-                    ['200+', 'Funding sources'],
+                    ['Hundreds', 'Of NZ funders'],
                     ['Matched', 'To your mission'],
                     ['Ranked', 'By fit & likelihood'],
                   ].map(([stat, label]) => (
@@ -440,6 +463,7 @@ export default function HomePage() {
                     >
                       <Input
                         id="searchTitle"
+                        maxLength={200}
                         placeholder="e.g. Operational funding, New website, Vehicle purchase..."
                         className={`h-10 border-zinc-300 focus-visible:ring-teal-500 ${
                           errors.searchTitle ? 'border-red-300 focus-visible:ring-red-400' : ''
@@ -461,7 +485,8 @@ export default function HomePage() {
                     >
                       <textarea
                         id="fundingPurpose"
-                        rows={3}
+                        rows={4}
+                        maxLength={5000}
                         placeholder="Describe what you need funding for. Include your target population, specific activities, and any relevant context..."
                         className={`w-full rounded-lg border bg-white dark:bg-zinc-800 px-3.5 py-2.5 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none transition-shadow ${
                           errors.fundingPurpose
@@ -517,7 +542,7 @@ export default function HomePage() {
 
                     {/* Organisation */}
                     <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70">
+                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70 dark:bg-zinc-900/40">
                         <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Organisation</h3>
                         <button
                           type="button"
@@ -554,7 +579,7 @@ export default function HomePage() {
 
                     {/* Location & Focus */}
                     <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70">
+                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70 dark:bg-zinc-900/40">
                         <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Location & Focus</h3>
                         <button
                           type="button"
@@ -605,7 +630,7 @@ export default function HomePage() {
 
                     {/* Funding Details */}
                     <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70">
+                      <div className="flex items-center justify-between px-4 py-3 bg-zinc-50/70 dark:bg-zinc-900/40">
                         <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Funding Details</h3>
                         <button
                           type="button"

@@ -1,77 +1,24 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Star, Trash2, ExternalLink, CalendarDays, Building2, Search,
-  ChevronDown, ChevronUp, DollarSign, FileText, ClipboardList,
-  ShieldCheck, Users, Info, MessageSquare, Link2,
-  CheckCircle2, Circle, TrendingUp, TrendingDown, Minus, Loader2, AlertTriangle,
+  ChevronDown, ClipboardList, CheckCircle2, Loader2, Microscope,
 } from 'lucide-react';
 import { useShortlistedBySearch, removeFromShortlist, ShortlistedGrant } from '@/lib/shortlist-storage';
-import { useDeepSearchBatch } from '@/lib/deep-search-storage';
-import { startApplication, useApplicationCheck } from '@/lib/application-storage';
-import { GrantOpportunity, DeepSearchResult, DeepSearchScoreChange } from '@/lib/types';
-import { scoreColor, scoreTextClass, formatCurrency, formatAmountRange, formatDate, formatDeadline, getDeadlineStatus, deadlineStatusLabel } from '@/lib/formatting';
-
-const TYPE_CONFIG: Record<
-  GrantOpportunity['type'],
-  { badge: string; border: string }
-> = {
-  Government:    { badge: 'bg-blue-50 text-blue-700 ring-blue-200',       border: 'border-l-blue-500' },
-  Foundation:    { badge: 'bg-violet-50 text-violet-700 ring-violet-200', border: 'border-l-violet-500' },
-  Corporate:     { badge: 'bg-orange-50 text-orange-700 ring-orange-200', border: 'border-l-orange-500' },
-  Community:     { badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200', border: 'border-l-emerald-500' },
-  International: { badge: 'bg-indigo-50 text-indigo-700 ring-indigo-200', border: 'border-l-indigo-500' },
-  Other:         { badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200',      border: 'border-l-zinc-400' },
-};
-
-// ─── Score change row ────────────────────────────────────────────────────────
-
-function ScoreChangeRow({ label, change }: { label: string; change: DeepSearchScoreChange }) {
-  const delta = change.new - change.old;
-  const deltaColor = delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-red-500' : 'text-zinc-400';
-  const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
-
-  return (
-    <div className="py-2.5 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs tabular-nums text-zinc-400">{change.old.toFixed(1)}</span>
-          <span className="text-zinc-300 dark:text-zinc-600">&rarr;</span>
-          <span className={`text-xs font-bold tabular-nums px-1.5 py-0.5 rounded-md ${scoreTextClass(change.new)}`}>
-            {change.new.toFixed(1)}
-          </span>
-          <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${deltaColor}`}>
-            <DeltaIcon className="w-3 h-3" />
-            {delta > 0 ? '+' : ''}{delta.toFixed(1)}
-          </span>
-        </div>
-      </div>
-      <p className="text-xs text-zinc-500 leading-relaxed">{change.reason}</p>
-    </div>
-  );
-}
-
-// ─── Section wrapper ────────────────────────────────────────────────────────
-
-function Section({ title, icon: Icon, children }: {
-  title: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 mt-4 first:border-0 first:pt-0 first:mt-0">
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="w-3.5 h-3.5 text-teal-600" />
-        <h4 className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{title}</h4>
-      </div>
-      {children}
-    </div>
-  );
-}
+import { useDeepSearchMap } from '@/lib/deep-search-storage';
+import { startApplication, useApplicationIds } from '@/lib/application-storage';
+import { DeepSearchResult } from '@/lib/types';
+import { formatAmountRange, formatDeadline, getDeadlineStatus, deadlineStatusLabel } from '@/lib/formatting';
+import { typeConfig, LINK_CLASS, PRIMARY_BUTTON_CLASS } from '@/lib/grant-ui';
+import { errorMessage } from '@/lib/fetcher';
+import { PageShell, PageHeader, EmptyState, ListSkeleton, ErrorState } from '@/components/page-shell';
+import { ScoreBadge, SubScores } from '@/components/grant/score';
+import DeepSearchDetails, { DetailSection, safeHref } from '@/components/grant/deep-search-details';
+import DeadlineBadge from '@/components/grant/deadline-badge';
+import ConfirmDialog from '@/components/confirm-dialog';
+import { toast } from '@/components/toast';
 
 // ─── Grant card ──────────────────────────────────────────────────────────────
 
@@ -86,27 +33,39 @@ function GrantCard({
   deep: DeepSearchResult | null;
   applying: boolean;
   onRemove: () => void;
-  onStartApplication: (item: ShortlistedGrant) => void;
+  onStartApplication: (item: ShortlistedGrant) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [starting, setStarting] = useState(false);
   const { grant } = item;
-  const cfg = TYPE_CONFIG[grant.type] ?? TYPE_CONFIG['Other'];
+  const cfg = typeConfig(grant.type);
+  const panelId = `shortlist-${grant.id}`;
 
   // Use deep search data if available, fall back to grant data
   const amount = formatAmountRange(deep?.amountMin ?? grant.amountMin, deep?.amountMax ?? grant.amountMax);
   const rawDeadline = deep?.applicationCloseDate ?? grant.deadline;
   const deadline = formatDeadline(rawDeadline);
-  const openDate = formatDate(deep?.applicationOpenDate);
-  const score = deep?.scores?.overall ?? grant.scores?.overall ?? 0;
-  const dlStatus = getDeadlineStatus(rawDeadline, grant.isRecurring);
-  const dlBadge = deadlineStatusLabel(rawDeadline, grant.isRecurring, grant.roundFrequency);
+  const scores = deep?.scores ?? grant.scores;
+  const grantHref = safeHref(grant.url);
+
+  async function handleStart() {
+    setStarting(true);
+    try {
+      await onStartApplication(item);
+    } finally {
+      setStarting(false);
+    }
+  }
 
   return (
-    <div className={`bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm overflow-hidden border-l-4 ${cfg.border}`}>
+    <li className={`bg-white dark:bg-zinc-800 rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-700 shadow-sm overflow-hidden border-l-4 ${cfg.border}`}>
       {/* Collapsed header — always visible */}
       <button
-        className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50 transition-colors"
+        type="button"
+        className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-zinc-50/70 dark:hover:bg-zinc-700/30 transition-colors"
         onClick={() => setExpanded(e => !e)}
+        aria-expanded={expanded}
+        aria-controls={panelId}
       >
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -115,303 +74,131 @@ function GrantCard({
               {grant.type}
             </span>
             {applying && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-teal-50 text-teal-700 ring-1 ring-teal-200">
-                <ClipboardList className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-teal-50 text-teal-700 ring-1 ring-teal-200 dark:bg-teal-950 dark:text-teal-300 dark:ring-teal-800">
+                <ClipboardList className="w-3 h-3" aria-hidden />
                 Applying
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1 text-xs text-zinc-500">
-              <Building2 className="w-3 h-3" />
+          <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="flex items-center gap-1">
+              <Building2 className="w-3 h-3" aria-hidden />
               {grant.funder}
             </span>
             {amount && (
-              <span className="text-xs text-zinc-500">
-                <span className="text-zinc-400">Amount:</span> <span className="font-medium">{amount}</span>
+              <span>
+                <span className="text-zinc-400 dark:text-zinc-500">Amount:</span>{' '}
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">{amount}</span>
               </span>
             )}
             {deadline ? (
-              <span className="flex items-center gap-1 text-xs text-zinc-500">
-                <CalendarDays className={`w-3 h-3 ${dlStatus === 'closing-soon' ? 'text-amber-500' : dlStatus === 'passed' ? 'text-red-400' : 'text-zinc-400'}`} />
-                <span className="text-zinc-400">Closes:</span> <span className="font-medium">{deadline}</span>
-                {dlBadge && (
-                  <span className={`ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                    dlStatus === 'closing-soon' ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
-                    : dlStatus === 'passed' ? 'bg-red-50 text-red-600 ring-1 ring-red-200'
-                    : ''
-                  }`}>
-                    {dlBadge}
-                  </span>
-                )}
+              <span className="flex items-center gap-1">
+                <CalendarDays className="w-3 h-3" aria-hidden />
+                <span className="text-zinc-400 dark:text-zinc-500">Closes:</span>{' '}
+                <span className="font-medium text-zinc-700 dark:text-zinc-300">{deadline}</span>
+                <DeadlineBadge
+                  status={getDeadlineStatus(rawDeadline)}
+                  label={deadlineStatusLabel(rawDeadline, grant.isRecurring, grant.roundFrequency)}
+                />
               </span>
             ) : (
-              <span className="text-xs text-zinc-400">Open / Rolling</span>
+              <span className="text-zinc-400 dark:text-zinc-500">Open / Rolling</span>
             )}
           </div>
         </div>
 
-        {/* Sub-scores */}
-        <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
-          {[
-            { label: 'Align', score: deep?.scores?.alignment ?? grant.scores?.alignment },
-            { label: 'Ease', score: deep?.scores?.ease ?? grant.scores?.ease },
-            { label: 'Win', score: deep?.scores?.attainability ?? grant.scores?.attainability },
-          ].map(({ label, score: s }) => (
-            <div key={label} className="flex flex-col items-center gap-0.5">
-              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(s ?? 0)}`}>
-                {(s ?? 0).toFixed(1)}
-              </span>
-              <span className="text-[9px] text-zinc-400 font-medium uppercase tracking-wide">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Overall score */}
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white tabular-nums flex-shrink-0"
-          style={{ backgroundColor: scoreColor(score) }}
-        >
-          {score.toFixed(1)}
-        </div>
-
-        <div className="text-zinc-400 flex-shrink-0">
-          {expanded
-            ? <ChevronUp className="w-4 h-4" />
-            : <ChevronDown className="w-4 h-4" />
-          }
-        </div>
+        <SubScores scores={scores} className="hidden sm:flex" />
+        <ScoreBadge score={scores?.overall} verified={!!deep} />
+        <ChevronDown
+          className={`w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
       </button>
 
       {/* Expanded detail — deep research data */}
       {expanded && (
-        <div className="border-t border-zinc-100 dark:border-zinc-800 px-5 py-5 bg-zinc-50/50 dark:bg-zinc-800/30">
-
-          {/* Key details grid */}
-          {deep && (
-            <Section title="Key Details" icon={Info}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
-                    <DollarSign className="w-3.5 h-3.5 text-teal-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Grant Amount</p>
-                    <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{amount || 'Not specified'}</p>
-                    {deep.amountNotes && <p className="text-xs text-zinc-500 mt-0.5">{deep.amountNotes}</p>}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
-                    <CalendarDays className="w-3.5 h-3.5 text-teal-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Application Window</p>
-                    {openDate || deadline ? (
-                      <div className="text-sm font-semibold text-zinc-800">
-                        {openDate && <span>Opens {openDate}</span>}
-                        {openDate && deadline && <span className="text-zinc-300 dark:text-zinc-600 mx-1">|</span>}
-                        {deadline && <span>Closes {deadline}</span>}
-                      </div>
-                    ) : (
-                      <p className="text-sm font-semibold text-zinc-800">Open / Rolling</p>
-                    )}
-                    {deep.dateNotes && <p className="text-xs text-zinc-500 mt-0.5">{deep.dateNotes}</p>}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-3.5 h-3.5 text-teal-600" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Application Form</p>
-                    {deep.applicationFormUrl ? (
-                      <a
-                        href={deep.applicationFormUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {deep.applicationFormType === 'pdf' ? 'Download PDF' :
-                         deep.applicationFormType === 'word' ? 'Download Word doc' :
-                         deep.applicationFormType === 'online' ? 'Apply online' : 'Application form'}
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    ) : (
-                      <p className="text-sm font-semibold text-zinc-800">Not found</p>
-                    )}
-                    {deep.applicationFormNotes && <p className="text-xs text-zinc-500 mt-0.5">{deep.applicationFormNotes}</p>}
-                  </div>
-                </div>
-
-                {deep.keyContacts && (
-                  <div className="flex items-start gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950 flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-3.5 h-3.5 text-teal-600" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium uppercase">Contact</p>
-                      <p className="text-sm text-zinc-800 dark:text-zinc-200">{deep.keyContacts}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </Section>
-          )}
-
-          {/* Score recalibration */}
-          {deep && (
-            <Section title="Score Recalibration" icon={ShieldCheck}>
-              <ScoreChangeRow label="Alignment" change={deep.scoreChanges.alignment} />
-              <ScoreChangeRow label="Ease" change={deep.scoreChanges.ease} />
-              <ScoreChangeRow label="Attainability" change={deep.scoreChanges.attainability} />
-            </Section>
-          )}
-
-          {/* Eligibility */}
-          {deep && deep.eligibilityCriteria.length > 0 && (
-            <Section title="Eligibility Criteria" icon={ShieldCheck}>
-              <ul className="space-y-1.5">
-                {deep.eligibilityCriteria.map((criterion, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{criterion}</span>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* Application checklist */}
-          {deep && deep.checklist.length > 0 && (
-            <Section title="Application Checklist" icon={ClipboardList}>
-              <ul className="space-y-2.5">
-                {deep.checklist.map((checkItem, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    {checkItem.required ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-zinc-300 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{checkItem.item}</span>
-                        {checkItem.required ? (
-                          <span className="text-[10px] font-semibold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">Required</span>
-                        ) : (
-                          <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">Optional</span>
-                        )}
-                      </div>
-                      <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{checkItem.description}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* Past recipients */}
-          {deep?.pastRecipientNotes && (
-            <Section title="Past Recipients & Insights" icon={Users}>
-              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{deep.pastRecipientNotes}</p>
-            </Section>
-          )}
-
-          {/* Additional info */}
-          {deep?.additionalInfo && (
-            <Section title="Additional Information" icon={Info}>
-              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{deep.additionalInfo}</p>
-            </Section>
-          )}
-
-          {/* Why it fits (from original search) */}
-          {grant.alignmentReason && (
-            <Section title="Why It Fits" icon={Star}>
-              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.alignmentReason}</p>
-            </Section>
-          )}
-
-          {/* Sources */}
-          {deep && deep.sourcesUsed.length > 0 && (
-            <Section title="Sources" icon={Link2}>
-              <ul className="space-y-1.5">
-                {deep.sourcesUsed.map((source, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <ExternalLink className="w-3 h-3 text-zinc-400 mt-0.5 flex-shrink-0" />
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium break-all"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      {source.title || source.url}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Section>
+        <div id={panelId} className="border-t border-zinc-100 dark:border-zinc-700 px-5 py-5 bg-zinc-50/60 dark:bg-zinc-900/30">
+          {deep ? (
+            <>
+              <DeepSearchDetails deep={deep} grant={grant} />
+              <Link
+                href={`/grant/${encodeURIComponent(grant.id)}/deep-search`}
+                className={`inline-flex items-center gap-1.5 mt-4 text-xs ${LINK_CLASS}`}
+              >
+                <Microscope className="w-3 h-3" aria-hidden />
+                Open full research report
+              </Link>
+            </>
+          ) : (
+            <>
+              {grant.alignmentReason && (
+                <DetailSection title="Why It Fits" icon={Star}>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{grant.alignmentReason}</p>
+                </DetailSection>
+              )}
+              <p className="flex items-start gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-4">
+                <Microscope className="w-3.5 h-3.5 mt-0.5 shrink-0 text-teal-600 dark:text-teal-400" aria-hidden />
+                Run a Deep Search on this grant from its funding search to see eligibility criteria,
+                key dates and an application checklist here.
+              </p>
+            </>
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-3 mt-5 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+          <div className="flex items-center gap-3 flex-wrap mt-5 pt-4 border-t border-zinc-200 dark:border-zinc-700">
             {!applying ? (
               <button
-                onClick={() => onStartApplication(item)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-sm transition-all"
+                type="button"
+                onClick={handleStart}
+                disabled={starting}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg ${PRIMARY_BUTTON_CLASS}`}
               >
-                <ClipboardList className="w-3.5 h-3.5" />
+                {starting
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                  : <ClipboardList className="w-3.5 h-3.5" aria-hidden />}
                 Start Application
               </button>
             ) : (
               <Link
                 href="/applications"
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 transition-colors"
-                onClick={e => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-800 dark:hover:bg-emerald-900 transition-colors"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
                 View Application
               </Link>
             )}
-            <a
-              href={grant.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors"
-              onClick={e => e.stopPropagation()}
-            >
-              View grant page
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            {grantHref && (
+              <a
+                href={grantHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1.5 text-xs ${LINK_CLASS}`}
+              >
+                View grant page
+                <ExternalLink className="w-3 h-3" aria-hidden />
+              </a>
+            )}
             <button
+              type="button"
               onClick={onRemove}
-              className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-red-500 transition-colors ml-auto"
+              className="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-auto"
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="w-3 h-3" aria-hidden />
               Remove
             </button>
           </div>
         </div>
       )}
-    </div>
+    </li>
   );
 }
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ShortlistedPage() {
-  const router = useRouter();
-  const { data: grouped = {}, isLoading } = useShortlistedBySearch();
-
-  const allIds = useMemo(
-    () => Object.values(grouped).flatMap(items => items.map(i => i.grant.id)),
-    [grouped],
-  );
-  const { data: deepSearchMap = new Map() } = useDeepSearchBatch(allIds);
-  const { data: applicationIds = new Set() } = useApplicationCheck(allIds);
+  const { data: grouped = {}, isLoading, error, mutate } = useShortlistedBySearch();
+  const { data: deepSearchMap } = useDeepSearchMap();
+  const { data: applicationIds } = useApplicationIds();
 
   const totalGrants = Object.values(grouped).reduce((sum, items) => sum + items.length, 0);
   const searchCount = Object.keys(grouped).length;
@@ -419,8 +206,7 @@ export default function ShortlistedPage() {
   // Local optimistic state for newly-started applications
   const [startedIds, setStartedIds] = useState<Set<string>>(new Set());
   const applyingIds = useMemo(() => {
-    if (startedIds.size === 0) return applicationIds;
-    const merged = new Set(applicationIds);
+    const merged = new Set(applicationIds ?? []);
     for (const id of startedIds) merged.add(id);
     return merged;
   }, [applicationIds, startedIds]);
@@ -428,133 +214,106 @@ export default function ShortlistedPage() {
   const [removeConfirm, setRemoveConfirm] = useState<{ id: string; name: string } | null>(null);
   const [removing, setRemoving] = useState(false);
 
-  function handleRemove(grantId: string, grantName: string) {
-    setRemoveConfirm({ id: grantId, name: grantName });
-  }
-
   async function confirmRemove() {
     if (!removeConfirm) return;
     setRemoving(true);
-    await removeFromShortlist(removeConfirm.id);
-    setRemoving(false);
-    setRemoveConfirm(null);
+    try {
+      await removeFromShortlist(removeConfirm.id);
+      toast.success('Removed from shortlist');
+      setRemoveConfirm(null);
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not remove this grant.'));
+    } finally {
+      setRemoving(false);
+    }
   }
 
   async function handleStartApplication(item: ShortlistedGrant) {
-    setStartedIds(prev => new Set(prev).add(item.grant.id));
-    await startApplication(item);
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-teal-600 animate-spin" />
-      </div>
-    );
+    try {
+      await startApplication(item);
+      setStartedIds(prev => new Set(prev).add(item.grant.id));
+      toast.success('Application started — track it under Applications');
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not start the application.'));
+    }
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f5f0] dark:bg-zinc-900">
-      <div className="max-w-6xl mx-auto px-6 py-12">
+    <PageShell>
+      <PageHeader
+        icon={Star}
+        iconClass="bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400"
+        title="Shortlisted Grants"
+        subtitle={
+          isLoading ? 'Loading…'
+            : totalGrants === 0 ? 'No grants shortlisted yet'
+            : `${totalGrants} grant${totalGrants === 1 ? '' : 's'} across ${searchCount} search${searchCount === 1 ? '' : 'es'}`
+        }
+      />
 
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-9 h-9 bg-amber-50 dark:bg-amber-950 rounded-xl flex items-center justify-center">
-            <Star className="w-4 h-4 text-amber-600 fill-amber-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Shortlisted Grants</h1>
-            <p className="text-sm text-zinc-500">
-              {totalGrants === 0
-                ? 'No grants shortlisted yet'
-                : `${totalGrants} grant${totalGrants === 1 ? '' : 's'} across ${searchCount} search${searchCount === 1 ? '' : 'es'}`
-              }
-            </p>
-          </div>
-        </div>
-
-        {totalGrants === 0 ? (
-          <div className="bg-white dark:bg-zinc-800 rounded-2xl border border-zinc-200 dark:border-zinc-700 py-20 text-center shadow-sm">
-            <Star className="w-8 h-8 mx-auto mb-3 text-zinc-200" />
-            <p className="font-semibold text-zinc-400 text-sm">No grants shortlisted yet</p>
-            <p className="text-xs text-zinc-400 mt-1 mb-6">
-              Open a funding search and click <strong>Shortlist</strong> on any grant to add it here.
-            </p>
-            <button
-              onClick={() => router.push('/saved')}
+      {isLoading ? (
+        <ListSkeleton />
+      ) : error ? (
+        <ErrorState message={errorMessage(error)} onRetry={() => mutate()} />
+      ) : totalGrants === 0 ? (
+        <EmptyState
+          icon={Star}
+          title="No grants shortlisted yet"
+          action={
+            <Link
+              href="/saved"
               className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl transition-colors"
             >
-              <Search className="w-3.5 h-3.5" />
+              <Search className="w-3.5 h-3.5" aria-hidden />
               Go to searches
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-10">
-            {Object.entries(grouped).map(([searchTitle, items]) => (
-              <div key={searchTitle}>
-                <div className="flex items-center gap-2 mb-4">
-                  <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">{searchTitle}</h2>
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-                    {items.length} grant{items.length === 1 ? '' : 's'}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {items.map(item => (
-                    <GrantCard
-                      key={item.grant.id}
-                      item={item}
-                      deep={deepSearchMap.get(item.grant.id) ?? null}
-                      applying={applyingIds.has(item.grant.id)}
-                      onRemove={() => handleRemove(item.grant.id, item.grant.name)}
-                      onStartApplication={handleStartApplication}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Remove confirmation modal */}
-      {removeConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-          onClick={() => setRemoveConfirm(null)}
+            </Link>
+          }
         >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-md mx-4 p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-red-50 dark:bg-red-950 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
+          Open a funding search and choose <strong>Shortlist</strong> on any grant to keep it here.
+        </EmptyState>
+      ) : (
+        <div className="space-y-10">
+          {Object.entries(grouped).map(([searchTitle, items]) => (
+            <section key={searchTitle} aria-label={searchTitle}>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">{searchTitle}</h2>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                  {items.length} grant{items.length === 1 ? '' : 's'}
+                </span>
               </div>
-              <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Remove from shortlist?</h3>
-            </div>
-
-            <p className="text-sm text-zinc-600 mb-5">
-              <span className="font-medium">&ldquo;{removeConfirm.name}&rdquo;</span> will be removed from your shortlist.
-            </p>
-
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setRemoveConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRemove}
-                disabled={removing}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {removing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                Remove
-              </button>
-            </div>
-          </div>
+              <ul className="space-y-3">
+                {items.map(item => (
+                  <GrantCard
+                    key={item.grant.id}
+                    item={item}
+                    deep={deepSearchMap?.get(item.grant.id) ?? null}
+                    applying={applyingIds.has(item.grant.id)}
+                    onRemove={() => setRemoveConfirm({ id: item.grant.id, name: item.grant.name })}
+                    onStartApplication={handleStartApplication}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
       )}
-    </div>
+
+      <ConfirmDialog
+        open={!!removeConfirm}
+        title="Remove from shortlist?"
+        confirmLabel="Remove"
+        tone="danger"
+        busy={removing}
+        onConfirm={confirmRemove}
+        onCancel={() => setRemoveConfirm(null)}
+      >
+        {removeConfirm && (
+          <p>
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">&ldquo;{removeConfirm.name}&rdquo;</span>{' '}
+            will be removed from your shortlist. Any application you&apos;ve started for it is kept.
+          </p>
+        )}
+      </ConfirmDialog>
+    </PageShell>
   );
 }
