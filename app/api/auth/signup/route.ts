@@ -1,9 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getPool, withTransaction, isUniqueViolation } from '@/lib/db';
-import { publicRoute, parseBody, enforceRateLimit } from '@/lib/api';
+import { publicRoute, parseBody, throwIfLimited } from '@/lib/api';
 import { signupSchema } from '@/lib/schemas';
-import { signupLimiter, getClientIp } from '@/lib/rate-limit';
+import { signupLimiter, getClientIp, getRateLimitOutcome, canSendEmail } from '@/lib/rate-limit';
+import { getAppUrl } from '@/lib/app-url';
+import { sendVerificationEmail } from '@/lib/account-emails';
 
 function slugify(text: string): string {
   return text
@@ -16,7 +18,10 @@ function slugify(text: string): string {
 }
 
 export const POST = publicRoute(async req => {
-  await enforceRateLimit(signupLimiter, getClientIp(req.headers));
+  // Sign-up itself still works without a rate limiter, but the verification
+  // email is only sent when one is enforcing a limit (see canSendEmail).
+  const limit = await getRateLimitOutcome(signupLimiter, getClientIp(req.headers));
+  throwIfLimited(limit);
 
   const { email, password, name, orgName } = await parseBody(req, signupSchema);
   const normalizedEmail = email.toLowerCase().trim();
@@ -55,6 +60,23 @@ export const POST = publicRoute(async req => {
     // Lost a race with a concurrent signup for the same email — same generic reply.
     if (isUniqueViolation(err)) return NextResponse.json({ ok: true });
     throw err;
+  }
+
+  // Send the verification link once the response has gone, so the reply (and
+  // its timing) is the same as for an email that was already registered.
+  // Unverified accounts are nudged, not blocked — a failed send is not fatal:
+  // the in-app banner offers to send it again.
+  if (canSendEmail(limit)) {
+    const requestOrigin = req.nextUrl.origin;
+    after(async () => {
+      try {
+        // Resolved inside the try: a missing APP_URL must not turn a successful
+        // sign-up into an error response.
+        await sendVerificationEmail({ id: userId, email: normalizedEmail }, getAppUrl(requestOrigin));
+      } catch (err) {
+        console.error('[auth] Verification email failed:', err);
+      }
+    });
   }
 
   return NextResponse.json({ ok: true });

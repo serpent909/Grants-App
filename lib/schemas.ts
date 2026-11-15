@@ -325,6 +325,22 @@ export const changePasswordSchema = z.object({
   newPassword: password,
 });
 
+/** Emailed single-use token (password reset, email verification). */
+const emailedToken = z.string().min(1).max(200);
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().email().max(320),
+});
+
+export const resetPasswordSchema = z.object({
+  token: emailedToken,
+  password,
+});
+
+export const verifyEmailSchema = z.object({
+  token: emailedToken,
+});
+
 // ─── Organisation ───────────────────────────────────────────────────────────
 
 export const inviteEmailSchema = z.object({

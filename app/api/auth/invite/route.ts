@@ -1,10 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getPool, withTransaction, isUniqueViolation } from '@/lib/db';
-import { publicRoute, parseBody, enforceRateLimit, ApiError } from '@/lib/api';
+import { publicRoute, parseBody, enforceRateLimit, throwIfLimited, ApiError } from '@/lib/api';
 import { acceptInviteSchema } from '@/lib/schemas';
-import { authLimiter, getClientIp } from '@/lib/rate-limit';
+import { authLimiter, getClientIp, getRateLimitOutcome, canSendEmail } from '@/lib/rate-limit';
 import { inviteTokenCandidates } from '@/lib/invite-tokens';
+import { getAppUrl } from '@/lib/app-url';
+import { sendVerificationEmail } from '@/lib/account-emails';
 
 // GET: validate token and return org info
 export const GET = publicRoute(async req => {
@@ -31,10 +33,12 @@ export const GET = publicRoute(async req => {
 
 // POST: accept invitation — create user and join org
 export const POST = publicRoute(async req => {
-  await enforceRateLimit(authLimiter, getClientIp(req.headers));
+  const limit = await getRateLimitOutcome(authLimiter, getClientIp(req.headers));
+  throwIfLimited(limit);
 
   const { token, name, password } = await parseBody(req, acceptInviteSchema);
   const passwordHash = await bcrypt.hash(password, 12);
+  const userId = `usr_${crypto.randomUUID()}`;
 
   try {
     const email = await withTransaction(async client => {
@@ -57,13 +61,28 @@ export const POST = publicRoute(async req => {
         throw new ApiError(409, 'An account with this email already exists');
       }
 
+      // The account starts unverified. Holding the invitation link does not
+      // prove control of the mailbox: the link is also shown to the inviter,
+      // who can pass it on (or use it) themselves. The address is confirmed
+      // the usual way, with the verification email sent below.
       await client.query(
         `INSERT INTO users (id, email, password_hash, name, org_id)
          VALUES ($1, $2, $3, $4, $5)`,
-        [`usr_${crypto.randomUUID()}`, invite.email, passwordHash, name.trim() || 'User', invite.org_id],
+        [userId, invite.email, passwordHash, name.trim() || 'User', invite.org_id],
       );
       return invite.email;
     });
+
+    if (canSendEmail(limit)) {
+      const requestOrigin = req.nextUrl.origin;
+      after(async () => {
+        try {
+          await sendVerificationEmail({ id: userId, email }, getAppUrl(requestOrigin));
+        } catch (err) {
+          console.error('[auth] Verification email failed:', err);
+        }
+      });
+    }
 
     return NextResponse.json({ ok: true, email });
   } catch (err) {

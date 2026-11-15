@@ -3,7 +3,7 @@ import type { Ratelimit } from '@upstash/ratelimit';
 import type { z } from 'zod';
 import { getAuthSession, type AuthSession } from './auth-helpers';
 import { ApiError } from './errors';
-import { checkRateLimit } from './rate-limit';
+import { checkRateLimit, type RateLimitOutcome } from './rate-limit';
 import { parseOrError } from './schemas';
 
 export { ApiError };
@@ -92,14 +92,37 @@ export function parseIdList(value: string | null, max = 500): string[] {
   return ids;
 }
 
-/** Enforce a rate limit; throws ApiError(429) with Retry-After when exceeded. */
-export async function enforceRateLimit(limiter: Ratelimit | null, key: string): Promise<void> {
-  const blocked = await checkRateLimit(limiter, key);
+/**
+ * Enforce a rate limit; throws ApiError(429) with Retry-After when exceeded.
+ *
+ * `failClosed: true` is for endpoints that exist only to send email: they
+ * throw ApiError(503) when no limiter is working (Redis not configured or
+ * down), rather than sending unlimited email.
+ */
+export async function enforceRateLimit(
+  limiter: Ratelimit | null,
+  key: string,
+  options: { failClosed?: boolean } = {},
+): Promise<void> {
+  const blocked = await checkRateLimit(limiter, key, options);
   if (!blocked) return;
+  if (blocked.status === 503) {
+    throw new ApiError(503, 'This is temporarily unavailable. Please try again later.');
+  }
   const retryAfter = blocked.headers.get('Retry-After');
   throw new ApiError(
     429,
     'Too many requests. Please try again later.',
     retryAfter ? { 'Retry-After': retryAfter } : undefined,
+  );
+}
+
+/** Throw ApiError(429) if a rate-limit outcome says the limit is exceeded. */
+export function throwIfLimited(outcome: RateLimitOutcome): void {
+  if (outcome.state !== 'limited') return;
+  throw new ApiError(
+    429,
+    'Too many requests. Please try again later.',
+    { 'Retry-After': String(outcome.retryAfterSeconds ?? 60) },
   );
 }

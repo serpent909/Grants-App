@@ -61,6 +61,15 @@ These apply to ALL code written in this project — features, fixes, and refacto
 - Any server-side fetch of a URL that came from a user, the database or an LLM must use `safeFetch()` (and `isSafeUrl()`) from `lib/url-safety.ts`
 - Never send a secret (e.g. the Blob token) to a URL that has not been checked against the expected host
 
+### Email
+- Send through `sendEmail()` in `lib/email.ts`; build content in `lib/email-templates.ts` (escape every interpolated value, always provide a text alternative, no images or tracking)
+- Links in emails use `getAppUrl()` from `lib/app-url.ts` — never the request's Host header
+- Emailed tokens come from `generateAuthToken()` in `lib/auth-tokens.ts`: store only the hash, make them single use and short lived
+- Endpoints that take an email address from a signed-out visitor must respond identically whether or not it is registered; do the lookup and send inside `after()`
+- Any password change must set `users.password_changed_at` (signs out older sessions) and call `forgetUser()`
+- Never send email without a working rate limit. Endpoints whose only job is to send email use `enforceRateLimit(limiter, key, { failClosed: true })`; endpoints that do other work too take `getRateLimitOutcome()` and only send when `canSendEmail(outcome)` is true
+- Holding an invitation link does not prove control of the mailbox (the inviter sees it too) — only a link delivered solely by email may set `users.email_verified`
+
 ### File Uploads
 - Validate MIME type against allowlist server-side
 - Enforce file size limits

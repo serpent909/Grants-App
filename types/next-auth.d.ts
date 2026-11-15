@@ -24,5 +24,7 @@ declare module 'next-auth/jwt' {
     orgName?: string;
     /** Epoch ms of the last time this token was checked against the users table. */
     checkedAt?: number;
+    /** Epoch ms of the sign-in that created this session (compared with users.password_changed_at). */
+    authAt?: number;
   }
 }

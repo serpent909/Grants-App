@@ -2,7 +2,7 @@
 
 import { useState, useId } from 'react';
 import useSWR from 'swr';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { Loader2, UserPlus, Trash2, Copy, Check, Settings, KeyRound, Building2, Users } from 'lucide-react';
 import { apiFetch, json, errorMessage } from '@/lib/fetcher';
 import { INPUT_CLASS } from '@/lib/grant-ui';
@@ -109,6 +109,7 @@ function OrganisationCard({ org, onSaved }: { org: Org; onSaved: () => void }) {
 // ─── Password ───────────────────────────────────────────────────────────────
 
 function PasswordCard() {
+  const { data: session } = useSession();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -130,7 +131,17 @@ function PasswordCard() {
     setSaving(true);
     try {
       await apiFetch('/api/account/password', json('PUT', { currentPassword, newPassword }));
-      toast.success('Password changed');
+      // Changing the password signs out every existing session, this one
+      // included — sign straight back in so only the other devices are affected.
+      const email = session?.user?.email;
+      const renewed = email
+        ? await signIn('credentials', { email, password: newPassword, redirect: false }).catch(() => null)
+        : null;
+      if (renewed && !renewed.error) {
+        toast.success('Password changed. Your other devices will be signed out within a few minutes.');
+      } else {
+        toast.success('Password changed. You will be asked to sign in again shortly.');
+      }
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -144,7 +155,11 @@ function PasswordCard() {
   const labelClass = 'text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5';
 
   return (
-    <Card icon={KeyRound} title="Password" description="Use at least 8 characters.">
+    <Card
+      icon={KeyRound}
+      title="Password"
+      description="Use at least 8 characters. Changing it signs you out on your other devices."
+    >
       <form onSubmit={handleSubmit} className="space-y-3 max-w-sm">
         <div>
           <label htmlFor={ids.current} className={labelClass}>Current password</label>
@@ -207,7 +222,7 @@ function TeamCard({ currentUserId }: { currentUserId?: string }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteError, setInviteError] = useState('');
-  const [invite, setInvite] = useState<{ email: string; link: string } | null>(null);
+  const [invite, setInvite] = useState<{ email: string; link: string; emailSent: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Member | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -223,8 +238,14 @@ function TeamCard({ currentUserId }: { currentUserId?: string }) {
     setInvite(null);
     setInviteLoading(true);
     try {
-      const data = await apiFetch<{ token: string }>('/api/org/invitations', json('POST', { email: inviteEmail }));
-      setInvite({ email: inviteEmail, link: `${window.location.origin}/invite/${data.token}` });
+      const data = await apiFetch<{ token: string; emailSent?: boolean }>(
+        '/api/org/invitations', json('POST', { email: inviteEmail }),
+      );
+      setInvite({
+        email: inviteEmail,
+        link: `${window.location.origin}/invite/${data.token}`,
+        emailSent: data.emailSent === true,
+      });
       setInviteEmail('');
       void invitations.mutate();
     } catch (err) {
@@ -342,7 +363,17 @@ function TeamCard({ currentUserId }: { currentUserId?: string }) {
         {invite && (
           <div role="status" className="bg-emerald-50 dark:bg-emerald-950 rounded-lg px-3 py-3 space-y-2">
             <p className="text-sm text-emerald-800 dark:text-emerald-300">
-              Invitation created for <strong>{invite.email}</strong>. Send them this link — it is valid for 48 hours and can only be used once.
+              {invite.emailSent ? (
+                <>
+                  We&apos;ve emailed an invitation to <strong>{invite.email}</strong>. You can also share this link
+                  yourself — it is valid for 48 hours and can only be used once.
+                </>
+              ) : (
+                <>
+                  Invitation created for <strong>{invite.email}</strong>, but the email could not be sent. Send them
+                  this link yourself — it is valid for 48 hours and can only be used once.
+                </>
+              )}
             </p>
             <div className="flex items-center gap-2">
               <code className="text-xs text-emerald-700 dark:text-emerald-400 font-mono truncate flex-1 bg-white/60 dark:bg-black/20 rounded px-2 py-1.5">

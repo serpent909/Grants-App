@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Heart, History, Star, ClipboardList, FileText, Search } from 'lucide-react';
 import UserMenu from '@/components/user-menu';
 import ThemeToggle from '@/components/theme-toggle';
+import { AUTH_PAGES } from '@/lib/fetcher';
 
 const NAV_LINKS = [
   { href: '/', label: 'New Search', icon: Search, match: (p: string) => p === '/' },
@@ -14,8 +15,6 @@ const NAV_LINKS = [
   { href: '/documents', label: 'Documents', icon: FileText, match: (p: string) => p.startsWith('/documents') },
 ] as const;
 
-/** Pages shown to signed-out visitors — no app navigation there. */
-const AUTH_PAGES = ['/login', '/signup', '/invite'];
 
 export function Logo({ size = 'md' }: { size?: 'sm' | 'md' }) {
   const box = size === 'sm' ? 'w-6 h-6 rounded-md' : 'w-8 h-8 rounded-lg';
@@ -34,6 +33,7 @@ export function Logo({ size = 'md' }: { size?: 'sm' | 'md' }) {
 
 export default function AppNav() {
   const pathname = usePathname();
+  // Signed-out pages get no app navigation.
   const onAuthPage = AUTH_PAGES.some(p => pathname.startsWith(p));
 
   return (

@@ -13,7 +13,8 @@ export class ApiRequestError extends Error {
   }
 }
 
-const AUTH_PAGES = ['/login', '/signup', '/invite'];
+/** Pages shown to signed-out visitors (keep in step with the public list in proxy.ts). */
+export const AUTH_PAGES = ['/login', '/signup', '/invite', '/forgot-password', '/reset-password', '/verify-email'];
 
 function redirectToLogin() {
   if (typeof window === 'undefined') return;
