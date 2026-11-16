@@ -117,7 +117,7 @@ export default function UploadDropzone({ onFiles, compact, className = '' }: Upl
             <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
               Drop files here or <span className="text-teal-600 dark:text-teal-400">browse</span>
             </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-500">{UPLOAD_TYPES_LABEL}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{UPLOAD_TYPES_LABEL}</p>
           </div>
         )}
       </div>

@@ -14,7 +14,7 @@ export default function NotFound() {
           href="/"
           className="inline-flex mt-6 px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors"
         >
-          Back to search
+          Back to dashboard
         </Link>
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useState, useId } from 'react';
 import useSWR from 'swr';
 import { useSession } from 'next-auth/react';
-import { Loader2, UserPlus, Trash2, Copy, Check, Settings, KeyRound, Building2, Users } from 'lucide-react';
+import { Loader2, UserPlus, Trash2, Copy, Check, Settings, KeyRound, Building2, Users, UserRound } from 'lucide-react';
 import { apiFetch, json, errorMessage } from '@/lib/fetcher';
 import { INPUT_CLASS } from '@/lib/grant-ui';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -33,6 +33,10 @@ interface Invitation {
 }
 
 const SWR_OPTS = { revalidateOnFocus: false } as const;
+
+function useMembers() {
+  return useSWR<Member[]>('org:members', () => apiFetch<Member[]>('/api/org/members'), SWR_OPTS);
+}
 
 function Card({ icon: Icon, title, description, children }: {
   icon: React.ElementType;
@@ -93,6 +97,57 @@ function OrganisationCard({ org, onSaved }: { org: Org; onSaved: () => void }) {
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
+          maxLength={200}
+          required
+          className={INPUT_CLASS}
+        />
+        <button type="submit" disabled={!dirty || saving} className={BUTTON_CLASS}>
+          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />}
+          Save
+        </button>
+      </form>
+    </Card>
+  );
+}
+
+// ─── Your profile ───────────────────────────────────────────────────────────
+
+function ProfileCard({ onSaved }: { onSaved: () => void }) {
+  const { data: session, update } = useSession();
+  const currentName = session?.user?.name ?? '';
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const inputId = useId();
+  const name = draft ?? currentName;
+  const dirty = name.trim() !== '' && name.trim() !== currentName;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!dirty) return;
+    setSaving(true);
+    try {
+      await apiFetch('/api/account', json('PUT', { name }));
+      await update(); // refresh the name in the session and the account menu
+      setDraft(null);
+      toast.success('Your name was updated');
+      onSaved();
+    } catch (err) {
+      toast.error(errorMessage(err, 'Could not update your name.'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card icon={UserRound} title="Your profile" description={session?.user?.email ?? undefined}>
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <label htmlFor={inputId} className="sr-only">Your name</label>
+        <input
+          id={inputId}
+          type="text"
+          autoComplete="name"
+          value={name}
+          onChange={e => setDraft(e.target.value)}
           maxLength={200}
           required
           className={INPUT_CLASS}
@@ -200,8 +255,10 @@ function PasswordCard() {
 
 // ─── Team ───────────────────────────────────────────────────────────────────
 
-function TeamCard({ currentUserId }: { currentUserId?: string }) {
-  const members = useSWR<Member[]>('org:members', () => apiFetch<Member[]>('/api/org/members'), SWR_OPTS);
+function TeamCard({ currentUserId, members }: {
+  currentUserId?: string;
+  members: ReturnType<typeof useMembers>;
+}) {
   const invitations = useSWR<Invitation[]>('org:invitations', () => apiFetch<Invitation[]>('/api/org/invitations'), SWR_OPTS);
 
   const [inviteEmail, setInviteEmail] = useState('');
@@ -418,6 +475,7 @@ function TeamCard({ currentUserId }: { currentUserId?: string }) {
 export default function SettingsPage() {
   const { data: session } = useSession();
   const org = useSWR<Org>('org', () => apiFetch<Org>('/api/org'), SWR_OPTS);
+  const members = useMembers();
 
   return (
     <PageShell width="max-w-3xl">
@@ -429,8 +487,9 @@ export default function SettingsPage() {
         <ErrorState message={errorMessage(org.error)} onRetry={() => org.mutate()} />
       ) : (
         <div className="space-y-5">
+          <ProfileCard onSaved={() => members.mutate()} />
           <OrganisationCard key={org.data.name} org={org.data} onSaved={() => org.mutate()} />
-          <TeamCard currentUserId={session?.user?.id} />
+          <TeamCard currentUserId={session?.user?.id} members={members} />
           <PasswordCard />
         </div>
       )}

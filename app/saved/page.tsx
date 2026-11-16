@@ -43,9 +43,14 @@ export default function SavedPage() {
 
   function handleRerun(saved: SavedSearch) {
     if (saved.result.inputs) {
-      sessionStorage.setItem('grantSearchPrefill', JSON.stringify(saved.result.inputs));
+      // __rerunId tells the results page to refresh this search in place
+      // rather than save another one with the same name.
+      sessionStorage.setItem(
+        'grantSearchPrefill',
+        JSON.stringify({ ...saved.result.inputs, searchTitle: saved.name, __rerunId: saved.id }),
+      );
     }
-    router.push('/');
+    router.push('/search');
   }
 
   async function confirmDelete() {
@@ -77,7 +82,7 @@ export default function SavedPage() {
         }
         actions={
           <Link
-            href="/"
+            href="/search"
             className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl ${PRIMARY_BUTTON_CLASS}`}
           >
             <Search className="w-3.5 h-3.5" aria-hidden />
@@ -96,7 +101,7 @@ export default function SavedPage() {
           title="No funding searches yet"
           action={
             <Link
-              href="/"
+              href="/search"
               className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-xl transition-colors"
             >
               <Search className="w-3.5 h-3.5" aria-hidden />
@@ -173,7 +178,7 @@ export default function SavedPage() {
                         >
                           <RotateCcw className="w-4 h-4" aria-hidden />
                         </TooltipTrigger>
-                        <TooltipContent>Edit &amp; re-run search</TooltipContent>
+                        <TooltipContent>Edit &amp; run again (updates this search)</TooltipContent>
                       </Tooltip>
                     )}
                     <Tooltip>

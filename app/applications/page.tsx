@@ -15,13 +15,14 @@ import { useDeepSearchMap } from '@/lib/deep-search-storage';
 import { GrantApplication, ApplicationStatus, DeepSearchResult } from '@/lib/types';
 import {
   formatAmountRange, formatCurrency, formatDate, formatDeadline,
-  getDeadlineStatus, deadlineStatusLabel, daysUntil,
+  getDeadlineStatus, deadlineStatusLabel,
 } from '@/lib/formatting';
 import {
   STATUS_CONFIG, STATUS_ORDER, STATUS_TRANSITIONS, LINK_CLASS, PRIMARY_BUTTON_CLASS, INPUT_CLASS,
 } from '@/lib/grant-ui';
 import { errorMessage } from '@/lib/fetcher';
 import { downloadCsv } from '@/lib/csv';
+import { applicationDeadline, deadlinesToWatch, describeDays, type WatchedDeadline } from '@/lib/deadlines';
 import ApplicationChecklist from '@/components/application-checklist';
 import { useChecklistProgress } from '@/lib/checklist-storage';
 import { PageShell, PageHeader, EmptyState, ListSkeleton, ErrorState } from '@/components/page-shell';
@@ -38,11 +39,6 @@ function formatDateShort(d?: string) {
   try {
     return new Date(d).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' });
   } catch { return d; }
-}
-
-/** The deadline that matters for an application: deep-research date first. */
-function applicationDeadline(app: GrantApplication, deep: DeepSearchResult | null): string | undefined {
-  return deep?.applicationCloseDate ?? app.grant.deadline;
 }
 
 // Shared grid template for desktop header + card rows
@@ -102,15 +98,9 @@ function StatTile({ icon: Icon, label, value, hint }: {
   );
 }
 
-interface UpcomingDeadline {
-  app: GrantApplication;
-  deadline: string;
-  days: number;
-}
-
 function PipelineSummary({ apps, upcoming, onJump }: {
   apps: GrantApplication[];
-  upcoming: UpcomingDeadline[];
+  upcoming: WatchedDeadline[];
   onJump: (grantId: string) => void;
 }) {
   const stats = useMemo(() => {
@@ -185,10 +175,7 @@ function PipelineSummary({ apps, upcoming, onJump }: {
                         : days <= 7 ? 'text-amber-600 dark:text-amber-400'
                         : 'text-zinc-700 dark:text-zinc-300'
                     }`}>
-                      {days < 0 ? `Passed ${-days} day${days === -1 ? '' : 's'} ago`
-                        : days === 0 ? 'Today'
-                        : days === 1 ? 'Tomorrow'
-                        : `${days} days`}
+                      {describeDays(days)}
                     </span>
                     <span className="block text-xs text-zinc-500 dark:text-zinc-400">{formatDate(deadline)}</span>
                   </span>
@@ -602,17 +589,10 @@ export default function ApplicationsPage() {
   const totalApps = allApps.length;
 
   // Applications still being prepared whose deadline is near, or recently passed.
-  const upcoming = useMemo((): UpcomingDeadline[] => {
-    const list: UpcomingDeadline[] = [];
-    for (const app of grouped.preparing) {
-      const deadline = applicationDeadline(app, deepSearchMap?.get(app.grantId) ?? null);
-      const days = daysUntil(deadline);
-      // Next 60 days, plus anything that slipped past in the last 90 — a passed
-      // deadline on an application still being prepared needs a decision.
-      if (deadline && days !== null && days >= -90 && days <= 60) list.push({ app, deadline, days });
-    }
-    return list.sort((a, b) => a.days - b.days).slice(0, 6);
-  }, [grouped, deepSearchMap]);
+  const upcoming = useMemo(
+    () => deadlinesToWatch(grouped.preparing, deepSearchMap),
+    [grouped, deepSearchMap],
+  );
 
   function scrollTo(id: string) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });

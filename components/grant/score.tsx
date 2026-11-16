@@ -89,7 +89,7 @@ export function ScorePill({ score, label }: { score?: number; label: string }) {
       <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums ${scoreTextClass(s)}`}>
         {s.toFixed(1)}
       </span>
-      <span className="text-[9px] text-zinc-400 dark:text-zinc-500 font-medium uppercase tracking-wide">{label}</span>
+      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium uppercase tracking-wide">{label}</span>
     </div>
   );
 }
