@@ -325,6 +325,10 @@ export const changePasswordSchema = z.object({
   newPassword: password,
 });
 
+export const updateAccountSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+});
+
 // ─── Organisation ───────────────────────────────────────────────────────────
 
 export const inviteEmailSchema = z.object({

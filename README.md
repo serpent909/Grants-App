@@ -9,13 +9,14 @@ research, shortlist and track applications through to a decision.
 
 | Stage | Where | What happens |
 | --- | --- | --- |
-| **Search** | `/` → `/results` | A four-step form captures the organisation, regions, sectors and funding purpose. Grants are filtered in SQL, then scored in batches by an LLM and streamed to the page as they arrive. |
-| **Review** | `/results`, `/saved` | Results are grouped by funder, filterable and sortable, exportable to CSV, and saved automatically so they can be reopened or re-run. |
+| **Dashboard** | `/` | Pipeline at a glance: counts, awarded total, and suggested next steps (deadlines, shortlisted grants not yet started, strong matches not yet researched). New accounts see a short welcome instead. |
+| **Search** | `/search` → `/results` | A four-step form captures the organisation, regions, sectors and funding purpose; organisation details are carried over from the last search. Grants are filtered in SQL, then scored in batches by an LLM and streamed to the page as they arrive. |
+| **Review** | `/results`, `/saved` | Results as one ranked list or grouped by funder, with quick filters (shortlisted, researched, has a deadline), sorting and CSV export. Searches are saved automatically; re-running one refreshes it in place, and names are kept unique. |
 | **Deep Search** | per grant | Researches one grant in depth (funder site + web search + page extraction) to find deadlines, eligibility criteria, the application form and a checklist, and recalibrates its scores. |
 | **Shortlist** | `/shortlisted` | The grants worth pursuing, grouped by the search they came from. |
 | **Apply** | `/applications` | Pipeline view with status history, notes, amounts requested/awarded, upcoming deadlines, success rate, and a per-application checklist with attached documents. |
 | **Documents** | `/documents` | A reusable library (financials, constitution, …) that can be attached to any checklist item. |
-| **Team** | `/settings` | Invite colleagues into the organisation, manage members, change password. |
+| **Team** | `/settings` | Edit your name, invite colleagues into the organisation, manage members, change password. |
 
 ### Scoring
 

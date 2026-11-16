@@ -49,6 +49,21 @@ export async function saveSearch(name: string, result: SearchResult): Promise<Sa
   return saved;
 }
 
+/**
+ * Replace a saved search's results (used when a search is re-run), keeping its
+ * ID and name. Resolves to undefined if the search no longer exists.
+ */
+export async function updateSaved(id: string, result: SearchResult): Promise<SavedSearch | undefined> {
+  try {
+    const saved = await apiFetch<SavedSearch>('/api/saved-searches', json('PUT', { id, result }));
+    await globalMutate(SWR_KEY);
+    return saved;
+  } catch (err) {
+    if (err instanceof ApiRequestError && err.status === 404) return undefined;
+    throw err;
+  }
+}
+
 export async function deleteSaved(id: string): Promise<void> {
   await apiFetch(`/api/saved-searches?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
   await globalMutate(SWR_KEY);

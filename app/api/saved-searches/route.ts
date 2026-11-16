@@ -85,6 +85,17 @@ async function refreshGrantUrls(rows: SavedRow[]): Promise<void> {
   }
 }
 
+/** "Name", "Name (2)", "Name (3)"… — the first that is not already taken. */
+function makeUniqueName(name: string, taken: Set<string>): string {
+  if (!taken.has(name)) return name;
+  const base = name.replace(/ \(\d+\)$/, '');
+  for (let n = 2; n < 1000; n++) {
+    const candidate = `${base} (${n})`.slice(0, 500);
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${base} (${crypto.randomUUID().slice(0, 6)})`;
+}
+
 export const GET = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
   const db = getPool();
@@ -116,26 +127,39 @@ export const POST = authedRoute(async (req, { orgId }) => {
   // The ID is always generated here. (It used to come from the client with an
   // upsert on id alone, which let one org overwrite another org's saved search.)
   const id = `saved_${crypto.randomUUID()}`;
-  const { rows } = await getPool().query(
+  const db = getPool();
+
+  // Shortlisted grants and applications are grouped by search name, so two
+  // searches must not share one: "Ops funding" → "Ops funding (2)".
+  const { rows: taken } = await db.query<{ name: string }>(
+    'SELECT name FROM saved_searches WHERE org_id = $1',
+    [orgId],
+  );
+  const uniqueName = makeUniqueName(name.trim() || 'Untitled search', new Set(taken.map(r => r.name)));
+
+  const { rows } = await db.query(
     `INSERT INTO saved_searches (id, org_id, name, saved_at, grant_count, org_summary, market, result_json)
      VALUES ($1, $2, $3, NOW(), $4, $5, $6, $7)
      RETURNING ${SAVED_COLUMNS}`,
-    [id, orgId, name, result.grants.length, result.orgSummary, result.market, JSON.stringify(result)],
+    [id, orgId, uniqueName, result.grants.length, result.orgSummary, result.market, JSON.stringify(result)],
   );
   return NextResponse.json(rows[0]);
 });
 
 export const PUT = authedRoute(async (req, { orgId }) => {
   await ensureStorageTables();
+  // Re-running a search replaces its results in place. The name is kept: it is
+  // what links the search to the grants shortlisted from it.
   const { id, result } = await parseBody(req, updateSavedSearchSchema);
-  const { rowCount } = await getPool().query(
+  const { rows } = await getPool().query(
     `UPDATE saved_searches
      SET saved_at = NOW(), grant_count = $2, org_summary = $3, result_json = $4
-     WHERE id = $1 AND org_id = $5`,
+     WHERE id = $1 AND org_id = $5
+     RETURNING ${SAVED_COLUMNS}`,
     [id, result.grants.length, result.orgSummary, JSON.stringify(result), orgId],
   );
-  if (!rowCount) throw new ApiError(404, 'Saved search not found');
-  return NextResponse.json({ ok: true });
+  if (rows.length === 0) throw new ApiError(404, 'Saved search not found');
+  return NextResponse.json(rows[0]);
 });
 
 export const DELETE = authedRoute(async (req, { orgId }) => {
